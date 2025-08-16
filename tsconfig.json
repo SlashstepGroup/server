@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "esModuleInterop": true,
+    "importHelpers": true,
+    "module": "NodeNext",
+    "outDir": "dist",
+    "rootDir": "src",
+    "target": "ESNext",
+    "strict": true,
+    "declaration": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "#utilities/*": ["src/utilities/*"],
+      "#resources/*": ["src/resources/*"]
+    },
+    "sourceMap": true,
+    "composite": true,
+    "declarationMap": true,
+  },
+  "include": [
+    "src/**/*",
+  ]
+}

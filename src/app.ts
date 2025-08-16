@@ -1,0 +1,68 @@
+import express from "express";
+import { Pool } from "pg";
+// import userRouter from "./routes/user/index.js";
+// import usersRouter from "./routes/users/index.js";
+// import runsRouter from "./routes/runs/index.js";
+// import gamesRouter from "./routes/games/index.js";
+// import groupsRouter from "./routes/groups/index.js";
+// import forumsRouter from "./routes/forums/index.js";
+// import likesRouter from "./routes/likes/index.js";
+// import postsRouter from "./routes/posts/index.js";
+// import cors from "cors";
+// import threadsRouter from "./routes/threads/index.js";
+// import permissionsRouter from "./routes/permissions/index.js";
+// import Permission from "#classes/Permission.js";
+
+// Connect to the PostgreSQL server.
+console.log("Connecting to PostgreSQL server...");
+
+const { POSTGRESQL_USERNAME, POSTGRESQL_PASSWORD, POSTGRESQL_HOST, POSTGRESQL_PORT, POSTGRESQL_DATABASE_NAME } = process.env;
+if (typeof(POSTGRESQL_PORT) !== "number") {
+
+  throw new Error("POSTGRESQL_PORT environment variable must be a number.");
+
+}
+
+const postgreSQLPool = new Pool({
+  user: POSTGRESQL_USERNAME,
+  password: POSTGRESQL_PASSWORD,
+  host: POSTGRESQL_HOST,
+  port: POSTGRESQL_PORT,
+  database: POSTGRESQL_DATABASE_NAME
+});
+
+console.log("Setting up routes...");
+
+const app = express();
+app.use(express.json());
+app.use(cors());
+app.disable("x-powered-by");
+// app.use("/runs", runsRouter);
+// app.use("/user", userRouter);
+// app.use("/users", usersRouter);
+// app.use("/threads", threadsRouter);
+// app.use("/posts", postsRouter);
+// app.use("/permissions", permissionsRouter);
+// app.use("/games", gamesRouter);
+// app.use("/groups", groupsRouter);
+// app.use("/forums", forumsRouter);
+// app.use("/likes", likesRouter);
+
+app.get("/", (_, response) => {
+  
+  response.json({ success: true });
+
+});
+
+app.use((_, response) => {
+
+  response.json({
+    message: "Not found"
+  });
+
+});
+
+const port = process.env.PORT;
+app.listen(port, () =>
+  console.log(`\x1b[32mNow listening on port ${port}.\x1b[0m`),
+);
