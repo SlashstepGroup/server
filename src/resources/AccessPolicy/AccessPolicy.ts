@@ -1,5 +1,7 @@
 
+import GazeQLFilterSanitizer from "#utilities/GazeQLQuerySanitizer.js";
 import { ResourceType } from "#utilities/types.js";
+import { Pool } from "pg";
 
 export enum AccessPolicyPermissionLevel {
   
@@ -70,22 +72,20 @@ export default class AccessPolicy {
    * @param data The data for the new AccessPolicy, excluding the ID.
    * @returns The created AccessPolicy.
    */
-  static async create(data: Omit<AccessPolicyProperties, "id">, client: Client): Promise<AccessPolicy> {
+  static async create(data: Omit<AccessPolicyProperties, "id">, pool: Pool): Promise<AccessPolicy> {
 
-    const postgresSQLClient = new PostgreSQLClient();
+    // Insert the access policy into the database.
+    const poolClient = await pool.connect();
+    const query = `insert into accessPolicies (principalType, principalID, scopeType, scopeID, actionID, permissionLevel) values ($1, $2, $3, $4, $5, $6) returning *`;
+    const values = [data.principalType, data.principalID, data.scopeType, data.scopeID, data.actionID, data.permissionLevel];
+    const result = await poolClient.query(query, values);
+    poolClient.release();
 
-    try {
+    // Convert the row to an AccessPolicy object.
+    const accessPolicy = new AccessPolicy(result.rows[0]);
 
-      await postgresSQLClient.connect();
-
-    } catch (error: unknown) {
-
-
-    } finally {
-
-      await postgresSQLClient.end();
-
-    }
+    // Return the access policy.
+    return accessPolicy;
 
   }
 
@@ -93,61 +93,81 @@ export default class AccessPolicy {
    * Requests the server to return a list of access policies.
    * @param filterQuery A GazeQL filter to apply to the list of access policies.
    */
-  static async list(filterQuery: string, client: Client): Promise<AccessPolicy[]> {
+  static async list(filterQuery: string, pool: Pool): Promise<AccessPolicy[]> {
 
-    const accessPolicyPropertiesList = await client.fetch(`/access-policies?filter-query=${filterQuery}`);
+    // Get the list from the database.
+    const poolClient = await pool.connect();
+    const { query, values } = GazeQLFilterSanitizer.sanitize("accessPolicies", filterQuery);
+    const result = await poolClient.query(query, values);
+    poolClient.release();
 
-    if (!(accessPolicyPropertiesList instanceof Array)) {
+    // Convert the list of rows to AccessPolicy objects.
+    const accessPolicies = result.rows.map(row => new AccessPolicy(row));
 
-      throw new Error(`Expected an array of access policies, but received ${typeof accessPolicyPropertiesList}`);
-
-    }
-
-    const accessPolicies = accessPolicyPropertiesList.map((accessPolicyProperties) => new AccessPolicy(accessPolicyProperties, client));
-
+    // Return the list.
     return accessPolicies;
 
   }
 
   /**
-   * Requests the server to return a specific access policy by ID.
-   * @param id The ID of the access policy to retrieve.
-   * @param client The client used to make requests.
-   * @returns The requested access policy.
+   * Creates the accessPolicies table in the database.
+   * @param pool 
    */
-  static async get(id: string, client: Client): Promise<AccessPolicy> {
+  static async createTable(pool: Pool): Promise<void> {
 
-    const accessPolicyProperties = await client.fetch(`/access-policies/${id}`);
-
-    return new AccessPolicy(accessPolicyProperties, client);
+    // Create the table.
+    await pool.query(`create table if not exists accessPolicies (
+      id UUID primary key,
+      principalType text not null,
+      principalID text not null,
+      scopeType text not null,
+      scopeID text,
+      actionID text not null,
+      permissionLevel text not null
+    );`);
 
   }
 
-  /**
-   * Requests the server to delete this access policy.
-   */
-  async delete(): Promise<void> {
+  // /**
+  //  * Requests the server to return a specific access policy by ID.
+  //  * @param id The ID of the access policy to retrieve.
+  //  * @param client The client used to make requests.
+  //  * @returns The requested access policy.
+  //  */
+  // static async get(id: string, pool: Pool): Promise<AccessPolicy> {
 
-    await this.#client.fetch(`/access-policies/${this.id}`, {
-      method: "DELETE"
-    });
+  //   // Get the access policy from the database.
+  //   const poolClient = await pool.connect();
+  //   const result = await poolClient.query(`select * from accessPolicies where id = $1`, [id]);
+  //   poolClient.release();
 
-  }
+  // }
 
-  /**
-   * Requests the server to update this access policy.
-   * 
-   * @param data The data to update the AccessPolicy with.
-   */
-  async update(data: Partial<AccessPolicyProperties>): Promise<AccessPolicy> {
+  // /**
+  //  * Requests the server to delete this access policy.
+  //  */
+  // async delete(): Promise<void> {
 
-    const editedAccessPolicyData = await this.#client.fetch(`/access-policies/${this.id}`, {
-      method: "PATCH",
-      body: JSON.stringify(data)
-    });
+  //   await this.#client.fetch(`/access-policies/${this.id}`, {
+  //     method: "DELETE"
+  //   });
 
-    return new AccessPolicy(editedAccessPolicyData, this.#client);
+  // }
 
-  }
+  // /**
+  //  * Requests the server to update this access policy.
+  //  * 
+  //  * @param data The data to update the AccessPolicy with.
+  //  */
+  // async update(data: Partial<AccessPolicyProperties>): Promise<AccessPolicy> {
+
+  //   const editedAccessPolicyData = await this.#client.fetch(`/access-policies/${this.id}`, {
+  //     method: "PATCH",
+  //     body: JSON.stringify(data)
+  //   });
+
+  //   return new AccessPolicy(editedAccessPolicyData, this.#client);
+
+  // }
 
 }

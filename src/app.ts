@@ -1,5 +1,7 @@
 import express from "express";
 import { Pool } from "pg";
+import cors from "cors";
+import readline from "readline";
 // import userRouter from "./routes/user/index.js";
 // import usersRouter from "./routes/users/index.js";
 // import runsRouter from "./routes/runs/index.js";
@@ -8,29 +10,31 @@ import { Pool } from "pg";
 // import forumsRouter from "./routes/forums/index.js";
 // import likesRouter from "./routes/likes/index.js";
 // import postsRouter from "./routes/posts/index.js";
-// import cors from "cors";
 // import threadsRouter from "./routes/threads/index.js";
 // import permissionsRouter from "./routes/permissions/index.js";
 // import Permission from "#classes/Permission.js";
 
-// Connect to the PostgreSQL server.
-console.log("Connecting to PostgreSQL server...");
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
 
-const { POSTGRESQL_USERNAME, POSTGRESQL_PASSWORD, POSTGRESQL_HOST, POSTGRESQL_PORT, POSTGRESQL_DATABASE_NAME } = process.env;
-if (typeof(POSTGRESQL_PORT) !== "number") {
+// Connect to the PostgreSQL server
+console.log("Setting up PostgreSQL pool...");
 
-  throw new Error("POSTGRESQL_PORT environment variable must be a number.");
-
-}
+const { POSTGRESQL_USERNAME, POSTGRESQL_PASSWORD, POSTGRESQL_HOST, POSTGRESQL_PORT: rawPostgresqlPort, POSTGRESQL_DATABASE_NAME } = process.env;
+const POSTGRESQL_PORT = rawPostgresqlPort ? parseInt(rawPostgresqlPort, 10) : undefined;
 
 const postgreSQLPool = new Pool({
   user: POSTGRESQL_USERNAME,
   password: POSTGRESQL_PASSWORD,
   host: POSTGRESQL_HOST,
   port: POSTGRESQL_PORT,
-  database: POSTGRESQL_DATABASE_NAME
+  database: POSTGRESQL_DATABASE_NAME,
+  connectionTimeoutMillis: 1000
 });
 
+// Set up routes
 console.log("Setting up routes...");
 
 const app = express();
@@ -62,7 +66,7 @@ app.use((_, response) => {
 
 });
 
-const port = process.env.PORT;
-app.listen(port, () =>
-  console.log(`\x1b[32mNow listening on port ${port}.\x1b[0m`),
+const { APP_PORT } = process.env; 
+app.listen(APP_PORT, () =>
+  console.log(`\x1b[32mGaze Server is now online at port ${APP_PORT}.\x1b[0m`),
 );
