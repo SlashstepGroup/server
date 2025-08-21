@@ -63,7 +63,7 @@
 //   /**
 //    * Requests the server to return a list of groups.
 //    *
-//    * @param filterQuery A GazeQL filter to apply to the list of groups.
+//    * @param filterQuery A WaltzQL filter to apply to the list of groups.
 //    */
 //   static async list(filterQuery: string, client: Client): Promise<Group[]> {
 

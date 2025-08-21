@@ -1,11 +1,11 @@
-export type GazeQLSanitizedFilter = {
+export type WaltzQLSanitizedFilter = {
   query: string;
   values: unknown[];
 }
 
-export default class GazeQLFilterSanitizer {
+export default class WaltzQLFilterSanitizer {
 
-  static sanitize(tableName: string, filterQuery: string): GazeQLSanitizedFilter {
+  static sanitize(tableName: string, filterQuery: string): WaltzQLSanitizedFilter {
 
     let query = `select * from ${tableName} where`;
     const values: string[] = [];

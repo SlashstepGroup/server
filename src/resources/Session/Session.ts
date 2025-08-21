@@ -10,7 +10,7 @@
 // };
 
 // /**
-//  * A Session represents a user's session in the Gaze application.
+//  * A Session represents a user's session in the Waltz application.
 //  */
 // export default class Session {
 

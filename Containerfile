@@ -6,7 +6,7 @@ WORKDIR /home/node/app
 COPY . .
 RUN npm ci
 
-## Build Gaze Server using the build script
+## Build Waltz Server using the build script
 RUN npm run build
 
 # Start the application

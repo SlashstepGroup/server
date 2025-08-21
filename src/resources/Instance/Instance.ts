@@ -8,7 +8,7 @@
 // }
 
 // /**
-//  * An Instance represents an instance of the Gaze application.
+//  * An Instance represents an instance of the Waltz application.
 //  */
 // export default class Instance {
 

@@ -1,13 +1,14 @@
 {
-  "name": "@gazegroup/gaze-server",
+  "name": "@waltzgroup/waltz-server",
   "version": "0.1.0",
-  "description": "JavaScript software development kit for developing applications for Gaze.",
+  "description": "JavaScript software development kit for developing applications for Waltz.",
   "type": "module",
   "main": "./dist/app.js",
   "scripts": {
     "build": "tsc -b --clean && tsc -b",
     "dev": "tsc && node --env-file=.env --trace-deprecation ./dist/app.js",
-    "start": "node --trace-deprecation ./dist/app.js"
+    "start": "node ./dist/app.js",
+    "setup": "node ./dist/app.js --setup"
   },
   "imports": {
     "#utilities/*": "./dist/utilities/*",

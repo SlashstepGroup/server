@@ -1,7 +1,7 @@
 import express from "express";
 import { Pool } from "pg";
 import cors from "cors";
-import readline from "readline";
+import Server from "#utilities/Server.js";
 // import userRouter from "./routes/user/index.js";
 // import usersRouter from "./routes/users/index.js";
 // import runsRouter from "./routes/runs/index.js";
@@ -14,59 +14,62 @@ import readline from "readline";
 // import permissionsRouter from "./routes/permissions/index.js";
 // import Permission from "#classes/Permission.js";
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+if (process.argv[2].toLowerCase() === "--setup") {
 
-// Connect to the PostgreSQL server
-console.log("Setting up PostgreSQL pool...");
+  await Server.setup();
 
-const { POSTGRESQL_USERNAME, POSTGRESQL_PASSWORD, POSTGRESQL_HOST, POSTGRESQL_PORT: rawPostgresqlPort, POSTGRESQL_DATABASE_NAME } = process.env;
-const POSTGRESQL_PORT = rawPostgresqlPort ? parseInt(rawPostgresqlPort, 10) : undefined;
+} else {
 
-const postgreSQLPool = new Pool({
-  user: POSTGRESQL_USERNAME,
-  password: POSTGRESQL_PASSWORD,
-  host: POSTGRESQL_HOST,
-  port: POSTGRESQL_PORT,
-  database: POSTGRESQL_DATABASE_NAME,
-  connectionTimeoutMillis: 1000
-});
+  // Connect to the PostgreSQL server
+  console.log("Setting up PostgreSQL pool...");
 
-// Set up routes
-console.log("Setting up routes...");
+  const { POSTGRESQL_USERNAME, POSTGRESQL_PASSWORD, POSTGRESQL_HOST, POSTGRESQL_PORT: rawPostgresqlPort, POSTGRESQL_DATABASE_NAME } = process.env;
+  const POSTGRESQL_PORT = rawPostgresqlPort ? parseInt(rawPostgresqlPort, 10) : undefined;
 
-const app = express();
-app.use(express.json());
-app.use(cors());
-app.disable("x-powered-by");
-// app.use("/runs", runsRouter);
-// app.use("/user", userRouter);
-// app.use("/users", usersRouter);
-// app.use("/threads", threadsRouter);
-// app.use("/posts", postsRouter);
-// app.use("/permissions", permissionsRouter);
-// app.use("/games", gamesRouter);
-// app.use("/groups", groupsRouter);
-// app.use("/forums", forumsRouter);
-// app.use("/likes", likesRouter);
-
-app.get("/", (_, response) => {
-  
-  response.json({ success: true });
-
-});
-
-app.use((_, response) => {
-
-  response.json({
-    message: "Not found"
+  const postgreSQLPool = new Pool({
+    user: POSTGRESQL_USERNAME,
+    password: POSTGRESQL_PASSWORD,
+    host: POSTGRESQL_HOST,
+    port: POSTGRESQL_PORT,
+    database: POSTGRESQL_DATABASE_NAME,
+    connectionTimeoutMillis: 1000
   });
 
-});
+  // Set up routes
+  console.log("Setting up routes...");
 
-const { APP_PORT } = process.env; 
-app.listen(APP_PORT, () =>
-  console.log(`\x1b[32mGaze Server is now online at port ${APP_PORT}.\x1b[0m`),
-);
+  const app = express();
+  app.use(express.json());
+  app.use(cors());
+  app.disable("x-powered-by");
+  // app.use("/runs", runsRouter);
+  // app.use("/user", userRouter);
+  // app.use("/users", usersRouter);
+  // app.use("/threads", threadsRouter);
+  // app.use("/posts", postsRouter);
+  // app.use("/permissions", permissionsRouter);
+  // app.use("/games", gamesRouter);
+  // app.use("/groups", groupsRouter);
+  // app.use("/forums", forumsRouter);
+  // app.use("/likes", likesRouter);
+
+  app.get("/", (_, response) => {
+    
+    response.json({ success: true });
+
+  });
+
+  app.use((_, response) => {
+
+    response.json({
+      message: "Not found"
+    });
+
+  });
+
+  const { APP_PORT } = process.env; 
+  app.listen(APP_PORT, () =>
+    console.log(`\x1b[32mWaltz Server is now online at port ${APP_PORT}.\x1b[0m`),
+  );
+
+}
