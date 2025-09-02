@@ -69,7 +69,7 @@ if (process.argv[2].toLowerCase() === "--setup") {
 
   const { APP_PORT } = process.env; 
   app.listen(APP_PORT, () =>
-    console.log(`\x1b[32mWaltz Server is now online at port ${APP_PORT}.\x1b[0m`),
+    console.log(`\x1b[32mSlashstep Server is now online at port ${APP_PORT}.\x1b[0m`),
   );
 
 }

@@ -1,5 +1,5 @@
 
-import WaltzQLFilterSanitizer from "#utilities/WaltzQLQuerySanitizer.js";
+import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLQuerySanitizer.js";
 import { ResourceType } from "#utilities/types.js";
 import { Pool } from "pg";
 
@@ -91,13 +91,13 @@ export default class AccessPolicy {
 
   /** 
    * Requests the server to return a list of access policies.
-   * @param filterQuery A WaltzQL filter to apply to the list of access policies.
+   * @param filterQuery A SlashstepQL filter to apply to the list of access policies.
    */
   static async list(filterQuery: string, pool: Pool): Promise<AccessPolicy[]> {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { query, values } = WaltzQLFilterSanitizer.sanitize("accessPolicies", filterQuery);
+    const { query, values } = SlashstepQLFilterSanitizer.sanitize("accessPolicies", filterQuery);
     const result = await poolClient.query(query, values);
     poolClient.release();
 

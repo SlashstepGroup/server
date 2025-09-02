@@ -129,7 +129,7 @@
 
 //   /** 
 //    * Requests the server to return a list of collection views.
-//    * @param filterQuery A WaltzQL filter to apply to the list of collection views.
+//    * @param filterQuery A SlashstepQL filter to apply to the list of collection views.
 //    */
 //   static async list(filterQuery: string, client: Client): Promise<CollectionView[]> {
 

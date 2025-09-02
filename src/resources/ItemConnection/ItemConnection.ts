@@ -72,7 +72,7 @@
 //   /**
 //    * Requests the server to return a list of item connections.
 //    *
-//    * @param filterQuery A WaltzQL filter to apply to the list of item connections.
+//    * @param filterQuery A SlashstepQL filter to apply to the list of item connections.
 //    */
 //   static async list(filterQuery: string,  client: Client): Promise<ItemConnection[]> {
 

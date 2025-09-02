@@ -1,7 +1,7 @@
 {
   "name": "@waltzgroup/waltz-server",
   "version": "0.1.0",
-  "description": "JavaScript software development kit for developing applications for Waltz.",
+  "description": "JavaScript software development kit for developing applications for Slashstep.",
   "type": "module",
   "main": "./dist/app.js",
   "scripts": {

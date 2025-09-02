@@ -98,7 +98,7 @@
 //   /**
 //    * Requests the server to return a list of activity-logs.
 //    * 
-//    * @param filterQuery A WaltzQL filter to apply to the list of activity-logs.
+//    * @param filterQuery A SlashstepQL filter to apply to the list of activity-logs.
 //    */
 //   static async list(filterQuery: string,  client: Client): Promise<ActivityLog[]> {
 

@@ -77,7 +77,7 @@
 //   /** 
 //    * Requests the server to return a list of actions.
 //    * 
-//    * @param filterQuery A WaltzQL filter to apply to the list of actions.
+//    * @param filterQuery A SlashstepQL filter to apply to the list of actions.
 //    */
 //   static async list(filterQuery: string, client: Client): Promise<Action[]> {
 

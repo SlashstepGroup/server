@@ -1,11 +1,11 @@
-export type WaltzQLSanitizedFilter = {
+export type SlashstepQLSanitizedFilter = {
   query: string;
   values: unknown[];
 }
 
-export default class WaltzQLFilterSanitizer {
+export default class SlashstepQLFilterSanitizer {
 
-  static sanitize(tableName: string, filterQuery: string): WaltzQLSanitizedFilter {
+  static sanitize(tableName: string, filterQuery: string): SlashstepQLSanitizedFilter {
 
     let query = `select * from ${tableName} where`;
     const values: string[] = [];

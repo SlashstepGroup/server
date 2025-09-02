@@ -8,7 +8,7 @@
 // }
 
 // /**
-//  * An Instance represents an instance of the Waltz application.
+//  * An Instance represents an instance of the Slashstep application.
 //  */
 // export default class Instance {
 
