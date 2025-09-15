@@ -1,5 +1,5 @@
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
-import { Client, Pool } from "pg";
+import { Client, Pool } from "node_modules/@types/pg/index.js";
 import readline from "readline/promises";
 import { Writable } from "stream";
 

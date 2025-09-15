@@ -1,5 +1,5 @@
 
-import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLQuerySanitizer.js";
+import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
 import { ResourceType } from "#utilities/types.js";
 import { Pool } from "pg";
 
@@ -102,7 +102,8 @@ export default class AccessPolicy {
     poolClient.release();
 
     // Convert the list of rows to AccessPolicy objects.
-    const accessPolicies = result.rows.map(row => new AccessPolicy(row));
+    // const accessPolicies = result.rows.map(row => new AccessPolicy(row));
+    const accessPolicies: AccessPolicy[] = [];
 
     // Return the list.
     return accessPolicies;
