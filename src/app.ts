@@ -3,6 +3,10 @@ import { Pool } from "node_modules/@types/pg/index.js";
 import cors from "cors";
 import Server from "#utilities/Server.js";
 import os from "os";
+import { createServer as createHTTPSServer } from "https";
+import { readFileSync } from "fs";
+import instanceRouter from "./routes/instance/index.js";
+import itemsRouter from "./routes/items/index.js";
 // import userRouter from "./routes/user/index.js";
 // import usersRouter from "./routes/users/index.js";
 // import runsRouter from "./routes/runs/index.js";
@@ -43,16 +47,8 @@ if (process.argv[2]?.toLowerCase() === "--setup") {
   app.use(express.json());
   app.use(cors());
   app.disable("x-powered-by");
-  // app.use("/runs", runsRouter);
-  // app.use("/user", userRouter);
-  // app.use("/users", usersRouter);
-  // app.use("/threads", threadsRouter);
-  // app.use("/posts", postsRouter);
-  // app.use("/permissions", permissionsRouter);
-  // app.use("/games", gamesRouter);
-  // app.use("/groups", groupsRouter);
-  // app.use("/forums", forumsRouter);
-  // app.use("/likes", likesRouter);
+  app.use("/instance", instanceRouter);
+  app.use("/items", itemsRouter);
 
   app.get("/", (_, response) => {
     
@@ -62,7 +58,7 @@ if (process.argv[2]?.toLowerCase() === "--setup") {
 
   app.use((_, response) => {
 
-    response.json({
+    response.status(404).json({
       message: "Not found"
     });
 
@@ -87,9 +83,23 @@ if (process.argv[2]?.toLowerCase() === "--setup") {
 
   const ipv4Address = getIPv4Address();
 
-  const { APP_PORT } = process.env; 
-  app.listen(APP_PORT, () =>
-    console.log(`\x1b[32mSlashstep Server is now online at port ${APP_PORT}. It is also available on your local network at ${ipv4Address}:${APP_PORT}.\x1b[0m`),
-  );
+  const { APP_PORT, APP_ENVIRONMENT } = process.env;
+
+  if (APP_ENVIRONMENT === "development") {
+
+    createHTTPSServer({
+      key: readFileSync("./ssl/server.key"),
+      cert: readFileSync("./ssl/server.cert")
+    }, app).listen(APP_PORT, () =>
+      console.log(`\x1b[32mSlashstep Server is now online at port ${APP_PORT}. It is also available on your local network at ${ipv4Address}:${APP_PORT}.\x1b[0m`),
+    );
+
+  } else {
+
+    app.listen(APP_PORT, () =>
+      console.log(`\x1b[32mSlashstep Server is now online at port ${APP_PORT}. It is also available on your local network at ${ipv4Address}:${APP_PORT}.\x1b[0m`),
+    );
+
+  }
 
 }
