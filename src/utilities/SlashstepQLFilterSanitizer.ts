@@ -5,6 +5,9 @@ import { escapeIdentifier } from "pg";
 export type SlashstepQLSanitizedFilter = {
   query: string;
   values: unknown[];
+  whereClause?: string;
+  limitClause?: number;
+  offsetClause?: number;
 }
 
 export type SanitizeFunctionProperties = {

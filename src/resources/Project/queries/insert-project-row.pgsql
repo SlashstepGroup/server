@@ -1,1 +1,1 @@
-insert into projects (name, display_name, description, start_date, end_date) values ($1, $2, $3, $4, $5) returning *;
+insert into projects (name, display_name, key, description, start_date, end_date) values ($1, $2, $3, $4, $5, $6) returning *;

@@ -1,1 +1,5 @@
-create or replace view camelcase_items_view as select id, summary, description, project_id as "projectID", number from items;
+create or replace view 
+  camelcase_items_view as 
+    select 
+      id, summary, description, project_id as "projectID", number 
+    from items;

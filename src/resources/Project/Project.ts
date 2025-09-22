@@ -3,8 +3,11 @@ import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
+import HTTPError from "#errors/HTTPError.js";
 
-export type ProjectProperties = CollectionProperties;
+export type ProjectProperties = CollectionProperties & {
+  key: string;
+};
 
 /**
  * A Project represents a collection of tasks and milestones that are organized to achieve a specific goal.
@@ -31,7 +34,7 @@ export default class Project extends Collection {
     // Insert the item data into the database.
     const poolClient = await pool.connect();
     const insertProjectRowQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "insert-project-row.pgsql"), "utf8");
-    const values = [data.name, data.displayName, data.description, data.startDate, data.endDate];
+    const values = [data.name, data.displayName, data.key, data.description, data.startDate, data.endDate];
     const result = await poolClient.query(insertProjectRowQuery, values);
     await poolClient.query(`select create_project_sequence($1);`, [result.rows[0].id]);
     poolClient.release();
@@ -73,6 +76,33 @@ export default class Project extends Collection {
 
     // Return the list.
     return items;
+
+  }
+
+  /**
+   * Gets a project by its ID.
+   *
+   * @param id The ID of the project to get.
+   * @param pool The pool to use to connect to the database.
+   */
+  static async getByID(id: string, pool: Pool): Promise<Project> {
+
+    // Get the list from the database.
+    const poolClient = await pool.connect();
+    const result = await poolClient.query("select * from projects where id = $1", [id]);
+    poolClient.release();
+
+    if (result.rows.length === 0) {
+
+      throw new HTTPError(404, "Project not found.");
+
+    }
+
+    // Convert the project data into a Project object.
+    const project = new Project(result.rows[0], pool);
+
+    // Return the project.
+    return project;
 
   }
 

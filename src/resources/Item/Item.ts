@@ -2,12 +2,14 @@ import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
+import Project from "#resources/Project/Project.js";
 
 export type ItemProperties = {
   id: string;
   summary: string;
   description?: string;
   projectID: string;
+  project?: Project;
   number: string;
 }
 
@@ -30,6 +32,9 @@ export default class Item {
   /** The ID of the project this item belongs to. */
   readonly projectID: ItemProperties["projectID"];
 
+  /** The project this item belongs to. This is */
+  readonly project?: Project;
+
   readonly number: ItemProperties["number"];
 
   #pool: Pool;
@@ -41,6 +46,7 @@ export default class Item {
     this.description = data.description;
     this.projectID = data.projectID;
     this.number = data.number;
+    this.project = data.project;
     this.#pool = pool;
 
   }
