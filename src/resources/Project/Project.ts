@@ -1,151 +1,79 @@
-// import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
-// import Collection, { CollectionProperties } from "#resources/Collection/Collection.js";
-// import CollectionView from "#resources/CollectionView/CollectionView.js";
-// import Field from "#resources/Field/Field.js";
-// import Item, { ItemProperties } from "#resources/Item/Item.js";
-// import Milestone from "#resources/Milestone/Milestone.js";
-// import Client from "src/utilities/Client.js";
+import Collection, { CollectionProperties } from "#resources/Collection/Collection.js";
+import { Pool } from "pg";
+import { readFileSync } from "fs";
+import { dirname, resolve } from "path";
+import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
 
-// export type ProjectProperties = CollectionProperties & {
-//   parentResourceType: "Workspace";
-// }
+export type ProjectProperties = CollectionProperties;
 
-// /**
-//  * A Project represents a collection of tasks and milestones that are organized to achieve a specific goal.
-//  */
-// export default class Project extends Collection {
+/**
+ * A Project represents a collection of tasks and milestones that are organized to achieve a specific goal.
+ */
+export default class Project extends Collection {
 
-//   /** The client used to make requests. */
-//   readonly #client: Client;
+  /** The client used to make requests. */
+  readonly #pool: Pool;
 
-//   constructor(data: ProjectProperties, client: Client) {
+  constructor(data: ProjectProperties, pool: Pool) {
 
-//     super(data);
-//     this.#client = client;
+    super(data);
+    this.#pool = pool;
 
-//   }
+  }
 
-//   /**
-//    * Requests the server to create a new project.
-//    *
-//    * @param data The data for the new project, excluding the ID, creation time, and update time.
-//    */
-//   static async create(data: Omit<ProjectProperties, "id" | "creationTime" | "updateTime">, client: Client): Promise<Project> {
+  /**
+   * Requests the server to create a new item.
+   *
+   * @param data The data for the new item, excluding the ID, creation time, and update time.
+   */
+  static async create(data: Omit<ProjectProperties, "id">, pool: Pool): Promise<Project> {
 
-//     const projectProperties = await client.fetch(`/projects`, {
-//       method: "POST",
-//       body: JSON.stringify(data)
-//     });
+    // Insert the item data into the database.
+    const poolClient = await pool.connect();
+    const insertProjectRowQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "insert-project-row.pgsql"), "utf8");
+    const values = [data.name, data.displayName, data.description, data.startDate, data.endDate];
+    const result = await poolClient.query(insertProjectRowQuery, values);
+    await poolClient.query(`select create_project_sequence($1);`, [result.rows[0].id]);
+    poolClient.release();
 
-//     const project = new Project(projectProperties, client);
+    // Convert the row to a project object.
+    const project = new Project(result.rows[0], pool);
 
-//     return project;
+    // Return the project.
+    return project;
 
-//   }
+  }
 
-//   /**
-//    * Requests the server for a list of projects.
-//    *
-//    * @param filterQuery The query to filter the projects.
-//    */
-//   static async list(filterQuery: string, client: Client): Promise<Project[]> {
+  static async initializeTable(pool: Pool): Promise<void> {
 
-//     const projectsData = await client.fetch(`/projects?filter-query=${filterQuery}`);
+    const poolClient = await pool.connect();
+    const createProjectsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "create-projects-table.pgsql"), "utf8");
+    const createCamelcaseProjectsViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "create-camelcase-projects-view.pgsql"), "utf8");
+    await poolClient.query(createProjectsTableQuery);
+    await poolClient.query(createCamelcaseProjectsViewQuery);
+    poolClient.release();
 
-//     const projects = projectsData.map((projectData: ProjectProperties) => new Project(projectData, client));
+  }
 
-//     return projects;
+  /**
+   * Requests the server for a list of projects.
+   *
+   * @param filterQuery The query to filter the projects.
+   */
+  static async list(filterQuery: string, pool: Pool): Promise<Project[]> {
 
-//   }
+    // Get the list from the database.
+    const poolClient = await pool.connect();
+    const { query, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "camelcase_projects_view", filterQuery, defaultLimit: 1000});
+    const result = await poolClient.query(query, values);
+    poolClient.release();
 
-//   /**
-//    * Requests the server for a specific project by ID.
-//    *
-//    * @param id The ID of the project to retrieve.
-//    */
-//   static async get(id: string, client: Client): Promise<Project> {
+    // Convert the list of rows to AccessPolicy objects.
+    const items = result.rows.map(row => new Project(row, pool));
 
-//     const projectData = await client.fetch(`/projects/${id}`);
+    // Return the list.
+    return items;
 
-//     return new Project(projectData, client);
+  }
 
-//   }
-
-//   /**
-//    * Requests the server to delete this project.
-//    */
-//   async delete(): Promise<void> {
-
-//     await this.#client.fetch(`/projects/${this.id}`, {
-//       method: "DELETE"
-//     });
-
-//   }
-
-//   /**
-//    * Requests the server to update this project.
-//    *
-//    * @param data The data to update the project with.
-//    */
-//   async update(data: Partial<Omit<ProjectProperties, "id" | "creationTime" | "updateTime">>): Promise<Project> {
-
-//     const editedInstanceData = await this.#client.fetch(`/projects/${this.id}`, {
-//       method: "PATCH",
-//       body: JSON.stringify(data)
-//     });
-
-//     return new Project(editedInstanceData, this.#client);
-
-//   }
-
-//   /**
-//    * Requests the server to get an updated version of this project.
-//    */
-//   async refresh(): Promise<Project> {
-
-//     const project = await Project.get(this.id, this.#client);
-
-//     return project;
-
-//   }
-
-//   /**
-//    * Requests the server to get a list of resources associated with this project.
-//    */
-//   async listResources(resourceClass: typeof Item, filterQuery?: string): Promise<Item[]>;
-//   async listResources(resourceClass: typeof AccessPolicy, filterQuery?: string): Promise<AccessPolicy[]>;
-//   async listResources(resourceClass: typeof Field, filterQuery?: string): Promise<Field[]>;
-//   async listResources(resourceClass: typeof Milestone, filterQuery?: string): Promise<Milestone[]>;
-//   async listResources(resourceClass: typeof CollectionView, filterQuery?: string): Promise<CollectionView[]>;
-//   async listResources(resourceClass: typeof Item | typeof AccessPolicy | typeof Field | typeof Milestone | typeof CollectionView, filterQuery?: string): Promise<Item[] | AccessPolicy[] | Field[] | Milestone[] | CollectionView[]> {
-
-//     switch (resourceClass.name) {
-
-//       case "AccessPolicy":
-//         const accessPolicies = await resourceClass.list(`scopeID = "${this.id}" AND scopeType = "Project"${filterQuery ? ` AND (${filterQuery})` : ""}`, this.#client);
-//         return accessPolicies;
-
-//       case "Item":
-//         const items = await resourceClass.list(`projectID = "${this.id}"${filterQuery ? ` AND (${filterQuery})` : ""}`, this.#client);
-//         return items;
-
-//       case "Field":
-//         const fields = await resourceClass.list(`parentResourceType = "Project" AND parentResourceID = "${this.id}"${filterQuery ? ` AND (${filterQuery})` : ""}`, this.#client);
-//         return fields;
-
-//       case "Milestone":
-//         const milestones = await resourceClass.list(`parentResourceType = "Project" AND parentResourceID = "${this.id}"${filterQuery ? ` AND (${filterQuery})` : ""}`, this.#client);
-//         return milestones;
-
-//       case "CollectionView":
-//         const collectionViews = await resourceClass.list(`collectionType = "Project" AND collectionID = "${this.id}"${filterQuery ? ` AND (${filterQuery})` : ""}`, this.#client);
-//         return collectionViews;
-
-//       default:
-//         return [];
-
-//     }
-
-//   }
-
-// }
+}

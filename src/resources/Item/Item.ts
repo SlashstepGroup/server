@@ -1,135 +1,190 @@
-// import Project from "#resources/Project/Project.js";
-// import Client from "src/utilities/Client.js";
+import { Pool } from "pg";
+import { readFileSync } from "fs";
+import { dirname, resolve } from "path";
+import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
 
-// export type ItemProperties = {
-//   id: string;
-//   name: string;
-//   description?: string;
-//   projectID: string;
-// }
+export type ItemProperties = {
+  id: string;
+  summary: string;
+  description?: string;
+  projectID: string;
+  number: string;
+}
 
-// /**
-//  * A Project represents a collection of tasks and milestones that are organized to achieve a specific goal.
-//  */
-// export default class Item {
+/**
+ * An Item represents a collection of tasks and milestones that are organized to achieve a specific goal.
+ */
+export default class Item {
 
-//   static readonly name = "Item";
+  static readonly name = "Item";
 
-//   /** The ID of the item. */
-//   readonly id: ItemProperties["id"];
+  /** The ID of the item. */
+  readonly id: ItemProperties["id"];
 
-//   /** The name of the item. */
-//   readonly name: ItemProperties["name"];
+  /** The summary of the item. */
+  readonly summary: ItemProperties["summary"];
 
-//   /** The description of the item, if applicable. */
-//   readonly description: ItemProperties["description"];
+  /** The description of the item, if applicable. */
+  readonly description: ItemProperties["description"];
 
-//   /** The ID of the project this item belongs to. */
-//   readonly projectID: ItemProperties["projectID"];
+  /** The ID of the project this item belongs to. */
+  readonly projectID: ItemProperties["projectID"];
 
-//   /** The client used to make requests. */
-//   readonly #client: Client;
+  readonly number: ItemProperties["number"];
 
-//   constructor(data: ItemProperties, client: Client) {
+  #pool: Pool;
 
-//     this.id = data.id;
-//     this.name = data.name;
-//     this.description = data.description;
-//     this.projectID = data.projectID;
-//     this.#client = client;
+  constructor(data: ItemProperties, pool: Pool) {
 
-//   }
+    this.id = data.id;
+    this.summary = data.summary;
+    this.description = data.description;
+    this.projectID = data.projectID;
+    this.number = data.number;
+    this.#pool = pool;
 
-//   /**
-//    * Requests the server to create a new item.
-//    *
-//    * @param data The data for the new item, excluding the ID, creation time, and update time.
-//    */
-//   static async create(data: Omit<ItemProperties, "id">, client: Client): Promise<Item> {
+  }
 
-//     const itemProperties = await client.fetch(`/items`, {
-//       method: "POST",
-//       body: JSON.stringify(data)
-//     });
+  /**
+   * Requests the server to create a new item.
+   *
+   * @param data The data for the new item, excluding the ID, creation time, and update time.
+   */
+  static async create(data: Omit<ItemProperties, "id" | "number">, pool: Pool): Promise<Item> {
 
-//     const item = new Item(itemProperties, client);
+    // Insert the item data into the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "insert-item-row.pgsql"), "utf8");
+    const values = [data.summary, data.description, data.projectID, data.projectID];
+    const result = await poolClient.query(query, values);
+    poolClient.release();
 
-//     return item;
+    // Convert the row to an item object.
+    const item = new Item(result.rows[0], pool);
 
-//   }
+    // Return the item.
+    return item;
 
-//   /**
-//    * Requests the server for a list of items.
-//    *
-//    * @param filterQuery The query to filter the items.
-//    */
-//   static async list(filterQuery: string, client: Client): Promise<Item[]> {
+  }
 
-//     const itemsData = await client.fetch(`/items?filter-query=${filterQuery}`);
+  static async initializeTable(pool: Pool): Promise<void> {
 
-//     const items = itemsData.map((itemData: ItemProperties) => new Item(itemData, client));
+    // Insert the item data into the database.
+    const poolClient = await pool.connect();
+    const createItemsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "create-items-table.pgsql"), "utf8");
+    const createCamelcaseItemsViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "create-camelcase-items-view.pgsql"), "utf8");
+    await poolClient.query(createItemsTableQuery);
+    await poolClient.query(createCamelcaseItemsViewQuery);
+    poolClient.release();
 
-//     return items;
+  }
 
-//   }
+  /**
+   * Requests the server for a list of items.
+   *
+   * @param filterQuery The query to filter the items.
+   */
+  static async list(filterQuery: string, pool: Pool): Promise<Item[]> {
 
-//   /**
-//    * Requests the server for a specific item by ID.
-//    *
-//    * @param id The ID of the item to retrieve.
-//    */
-//   static async get(id: string, client: Client): Promise<Item> {
+    // Get the list from the database.
+    const poolClient = await pool.connect();
+    const { query, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "camelcase_items_view", filterQuery, defaultLimit: 1000});
+    const result = await poolClient.query(query, values);
+    poolClient.release();
 
-//     const itemData = await client.fetch(`/items/${id}`);
+    // Convert the list of rows to AccessPolicy objects.
+    const items = result.rows.map(row => new Item(row, pool));
 
-//     return new Item(itemData, client);
+    // Return the list.
+    return items;
 
-//   }
+  }
 
-//   /**
-//    * Requests the server to delete this item.
-//    */
-//   async delete(): Promise<void> {
+  /**
+   * Requests the server for a list of items.
+   *
+   * @param filterQuery The query to filter the items.
+   */
+  static async count(filterQuery: string, pool: Pool): Promise<number> {
 
-//     await this.#client.fetch(`/items/${this.id}`, {
-//       method: "DELETE"
-//     });
+    // Get the list from the database.
+    const poolClient = await pool.connect();
+    const { query, values } = SlashstepQLFilterSanitizer.sanitize({
+      tableName: "camelcase_items_view", 
+      filterQuery, 
+      defaultLimit: null, 
+      columns: "count(*)", 
+      shouldIgnoreOffset: true,
+      shouldIgnoreLimit: true
+    });
+    const result = await poolClient.query(query, values);
+    poolClient.release();
 
-//   }
+    // Convert the list of rows to AccessPolicy objects.
+    const count = parseInt(result.rows[0].count, 10);
 
-//   /**
-//    * Requests the server to update this project.
-//    *
-//    * @param data The data to update the item with.
-//    */
-//   async update(data: Partial<Omit<ItemProperties, "id" | "creationTime" | "updateTime">>): Promise<Item> {
+    // Return the list.
+    return count;
 
-//     const editedInstanceData = await this.#client.fetch(`/items/${this.id}`, {
-//       method: "PATCH",
-//       body: JSON.stringify(data)
-//     });
+  }
 
-//     return new Item(editedInstanceData, this.#client);
+  // /**
+  //  * Requests the server for a specific item by ID.
+  //  *
+  //  * @param id The ID of the item to retrieve.
+  //  */
+  // static async get(id: string, client: Client): Promise<Item> {
 
-//   }
+  //   const itemData = await client.fetch(`/items/${id}`);
 
-//   /**
-//    * Requests the server to get an updated version of this project.
-//    */
-//   async refresh(): Promise<Item> {
+  //   return new Item(itemData, client);
 
-//     const item = await Item.get(this.id, this.#client);
+  // }
 
-//     return item;
+  // /**
+  //  * Requests the server to delete this item.
+  //  */
+  // async delete(): Promise<void> {
 
-//   }
+  //   await this.#client.fetch(`/items/${this.id}`, {
+  //     method: "DELETE"
+  //   });
 
-//   async getProject(projectClass: typeof Project): Promise<Project> {
+  // }
 
-//     const project = await projectClass.get(this.projectID, this.#client);
+  // /**
+  //  * Requests the server to update this project.
+  //  *
+  //  * @param data The data to update the item with.
+  //  */
+  // async update(data: Partial<Omit<ItemProperties, "id" | "creationTime" | "updateTime">>): Promise<Item> {
 
-//     return project;
+  //   const editedInstanceData = await this.#client.fetch(`/items/${this.id}`, {
+  //     method: "PATCH",
+  //     body: JSON.stringify(data)
+  //   });
 
-//   }
+  //   return new Item(editedInstanceData, this.#client);
 
-// }
+  // }
+
+  // /**
+  //  * Requests the server to get an updated version of this project.
+  //  */
+  // async refresh(): Promise<Item> {
+
+  //   const item = await Item.get(this.id, this.#client);
+
+  //   return item;
+
+  // }
+
+  // async getProject(projectClass: typeof Project): Promise<Project> {
+
+  //   const project = await projectClass.get(this.projectID, this.#client);
+
+  //   return project;
+
+  // }
+
+}

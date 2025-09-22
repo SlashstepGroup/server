@@ -1,19 +1,32 @@
+import SlashstepQLInvalidQueryError from "#errors/SlashstepQLInvalidQueryError.js";
+import SlashstepQLInvalidKeyError from "#errors/SlashstepQLInvalidKeyError.js";
+import { escapeIdentifier } from "pg";
+
 export type SlashstepQLSanitizedFilter = {
   query: string;
   values: unknown[];
 }
 
+export type SanitizeFunctionProperties = {
+  tableName: string;
+  filterQuery: string;
+  columns?: string;
+  defaultLimit?: number | null;
+  maximumLimit?: number;
+  shouldIgnoreLimit?: boolean;
+  shouldIgnoreOffset?: boolean;
+}
+
 export default class SlashstepQLFilterSanitizer {
 
-  static sanitize(tableName: string, filterQuery: string): SlashstepQLSanitizedFilter {
+  static sanitize({tableName, filterQuery, columns = "*", defaultLimit = 1000, maximumLimit = 1000, shouldIgnoreLimit = false, shouldIgnoreOffset = false}: SanitizeFunctionProperties): SlashstepQLSanitizedFilter {
 
-    let query = `select * from ${tableName} where`;
+    let query = `select ${columns} from ${tableName}`;
+    let didAddWhereClause = false;
     const values: string[] = [];
     let openParenthesisCount = 0;
-    const searchRegex = /^((?<openParenthesis>\()|(?<closedParenthesis>\))|(?<and>and)|(?<or>or)|(?<not>not)|(?<assignment>(?<key>\w+) *= *(("(?<string>[^"\\]*(?:\\.[^"\\]*)*)")|(?<number>(\d+\.?\d*|(\.\d+)))|(?<boolean>(true|false))))|(limit ((?<limit>\d+)))|(offset ((?<offset>\d+))))/gmi;
-    let maximumLimit = 1000;
-    let limit = 1000;
-    let offset = 0;
+    let limit = defaultLimit;
+    let offset = null;
 
     while (filterQuery !== "") {
 
@@ -22,11 +35,19 @@ export default class SlashstepQLFilterSanitizer {
 
       // Find the next search match.
       // Append the match to the actual filter query and remove it from the requested filter query.
+      const searchRegex = /^((?<openParenthesis>\()|(?<closedParenthesis>\))|(?<and>and)|(?<or>or)|(?<not>not)|(?<assignment>(?<key>\w+) *(?<operator>~|~\*|!~|!~\*|=|>|<|>=|<=) *(("(?<stringDoubleQuotes>[^"\\]*(?:\\.[^"\\]*)*)")|(('(?<stringSingleQuotes>[^'\\]*(?:\\.[^'\\]*)*)'))|(?<number>(\d+\.?\d*|(\.\d+)))|(?<boolean>(true|false))))|(limit ((?<limit>\d+)))|(offset ((?<offset>\d+))))/gmi;
       const match = searchRegex.exec(filterQuery);
 
       if (match === null || !match.groups) {
         
-        throw new Error(`Invalid filter query.`);
+        throw new SlashstepQLInvalidQueryError();
+
+      }
+
+      if (!didAddWhereClause && (match.groups.openParenthesis || match.groups.assignment)) {
+
+        query += " where";
+        didAddWhereClause = true;
 
       }
 
@@ -54,54 +75,79 @@ export default class SlashstepQLFilterSanitizer {
 
       } else if (match.groups.assignment) {
 
-        // Ensure the key is valid.
-        const allowedKeys = ["principalType", "principalID", "scopeType", "scopeID", "actionID", "permissionLevel"];
+        // Ensure the key is valid. Very important to prevent SQL injection.
+        const allowedKeys: Record<string, string[]> = {
+          camelcase_access_policies_view: ["principalType", "principalID", "scopeType", "scopeID", "actionID", "permissionLevel"],
+          camelcase_items_view: ["id", "summary", "description", "projectID"]
+        };
         const key = match.groups.key;
 
-        if (!allowedKeys.includes(key)) {
-          throw new Error(`Invalid key "${key}" in filter query.`);
+        if (!allowedKeys[tableName].includes(key)) {
+          throw new SlashstepQLInvalidKeyError(key);
         }
 
         // Ensure the value is valid.
-        const stringValue = match.groups.string;
+        const stringValue = match.groups.stringDoubleQuotes ?? match.groups.stringSingleQuotes;
         const numberValue = match.groups.number !== undefined ? parseFloat(match.groups.number) : undefined;
+        const { operator } = match.groups;
         const booleanValue = match.groups.boolean !== undefined ? match.groups.boolean === "true" : undefined;
         const value = stringValue ?? numberValue ?? booleanValue;
-
-        query += ` ${key} = $${values.length + 1}`;
+        query += ` ${escapeIdentifier(key)} ${operator} $${values.length + 1}`;
         values.push(value);
 
       } else if (match.groups.limit) {
 
-        const possibleLimit = parseInt(match.groups.limit);
-        if (isNaN(possibleLimit) || possibleLimit > maximumLimit || possibleLimit < 0) {
+        if (!shouldIgnoreLimit) {
 
-          throw new Error(`Invalid limit "${possibleLimit}" in filter query. It must be a non-negative integer less than or equal to ${maximumLimit}.`);
+          const possibleLimit = parseInt(match.groups.limit);
+          const doesMaximumLimitExist = maximumLimit === undefined && maximumLimit === null;
+          if (isNaN(possibleLimit) || (doesMaximumLimitExist && possibleLimit > maximumLimit) || possibleLimit < 0) {
+
+            throw new Error(`Invalid limit "${possibleLimit}" in filter query. It must be a non-negative integer${doesMaximumLimitExist ? `less than or equal to ${maximumLimit}` : ""}.`);
+
+          }
+
+          limit = possibleLimit;
 
         }
-
-        limit = possibleLimit;
 
       } else if (match.groups.offset) {
 
-        const possibleOffset = parseInt(match.groups.offset);
-        if (isNaN(possibleOffset) || possibleOffset < 0) {
+        if (!shouldIgnoreOffset) {
 
-          throw new Error(`Invalid offset "${possibleOffset}" in filter query. It must be a non-negative integer.`);
+          const possibleOffset = parseInt(match.groups.offset);
+          if (isNaN(possibleOffset) || possibleOffset < 0) {
+
+            throw new Error(`Invalid offset "${possibleOffset}" in filter query. It must be a non-negative integer.`);
+
+          }
+
+          offset = possibleOffset;
 
         }
 
-        offset = possibleOffset;
-
       } else {
 
-        throw new Error(`Invalid filter query.`);
+        throw new SlashstepQLInvalidQueryError();
 
       }
 
+      // Remove the matched part of the filter query.
+      filterQuery = filterQuery.slice(match[0].length + 1);
+
     }
 
-    query += ` limit ${limit} offset ${offset}`;
+    if (typeof(limit) === "number") {
+
+      query += ` limit ${limit}`;
+
+    }
+
+    if (typeof(offset) === "number") {
+
+      query += ` offset ${offset}`;
+
+    }
 
     return {query, values};
 

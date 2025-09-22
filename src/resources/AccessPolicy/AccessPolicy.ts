@@ -97,7 +97,7 @@ export default class AccessPolicy {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { query, values } = SlashstepQLFilterSanitizer.sanitize("accessPolicies", filterQuery);
+    const { query, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "accessPolicies", filterQuery});
     const result = await poolClient.query(query, values);
     poolClient.release();
 

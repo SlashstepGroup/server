@@ -1,5 +1,5 @@
 import express from "express";
-import { Pool } from "node_modules/@types/pg/index.js";
+import { Pool } from "pg";
 import cors from "cors";
 import Server from "#utilities/Server.js";
 import os from "os";
@@ -26,24 +26,33 @@ if (process.argv[2]?.toLowerCase() === "--setup") {
 } else {
 
   // Connect to the PostgreSQL server
-  // console.log("Setting up PostgreSQL pool...");
+  console.log("Setting up PostgreSQL pool...");
 
-  // const { POSTGRESQL_USERNAME, POSTGRESQL_PASSWORD, POSTGRESQL_HOST, POSTGRESQL_PORT: rawPostgresqlPort, POSTGRESQL_DATABASE_NAME } = process.env;
-  // const POSTGRESQL_PORT = rawPostgresqlPort ? parseInt(rawPostgresqlPort, 10) : undefined;
+  const { POSTGRESQL_USERNAME, POSTGRESQL_PASSWORD, POSTGRESQL_HOST, POSTGRESQL_PORT: rawPostgresqlPort, POSTGRESQL_DATABASE_NAME } = process.env;
+  const POSTGRESQL_PORT = rawPostgresqlPort ? parseInt(rawPostgresqlPort, 10) : undefined;
 
-  // const postgreSQLPool = new Pool({
-  //   user: POSTGRESQL_USERNAME,
-  //   password: POSTGRESQL_PASSWORD,
-  //   host: POSTGRESQL_HOST,
-  //   port: POSTGRESQL_PORT,
-  //   database: POSTGRESQL_DATABASE_NAME,
-  //   connectionTimeoutMillis: 1000
-  // });
+  const postgreSQLPool = new Pool({
+    user: POSTGRESQL_USERNAME,
+    password: POSTGRESQL_PASSWORD,
+    host: POSTGRESQL_HOST,
+    port: POSTGRESQL_PORT,
+    database: POSTGRESQL_DATABASE_NAME,
+    connectionTimeoutMillis: 1000
+  });
+
+  console.log("Initializing resource tables...");
+  await Server.initializeResourceTables(postgreSQLPool);
 
   // Set up routes
   console.log("Setting up routes...");
 
   const app = express();
+  app.use((_, response, next) => {
+
+    response.locals.pool = postgreSQLPool;
+    next();
+
+  });
   app.use(express.json());
   app.use(cors());
   app.disable("x-powered-by");

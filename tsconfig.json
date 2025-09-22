@@ -3,20 +3,22 @@
     "baseUrl": ".",
     "esModuleInterop": true,
     "importHelpers": true,
-    "module": "NodeNext",
+    "module": "nodenext",
     "outDir": "dist",
     "rootDir": "src",
-    "target": "ESNext",
+    "target": "es2024",
     "strict": true,
     "declaration": true,
     "resolveJsonModule": true,
     "paths": {
       "#utilities/*": ["src/utilities/*"],
-      "#resources/*": ["src/resources/*"]
+      "#resources/*": ["src/resources/*"],
+      "#errors/*": ["src/errors/*"]
     },
     "sourceMap": true,
     "composite": true,
     "declarationMap": true,
+
   },
   "include": [
     "src/**/*",
