@@ -14,12 +14,15 @@ export type ProjectProperties = CollectionProperties & {
  */
 export default class Project extends Collection {
 
+  key: ProjectProperties["key"];
+
   /** The client used to make requests. */
   readonly #pool: Pool;
 
   constructor(data: ProjectProperties, pool: Pool) {
 
     super(data);
+    this.key = data.key;
     this.#pool = pool;
 
   }
