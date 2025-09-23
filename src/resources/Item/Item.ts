@@ -3,6 +3,7 @@ import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
 import Project from "#resources/Project/Project.js";
+import Workspace from "#resources/Workspace/Workspace.js";
 
 export type ItemProperties = {
   id: string;
@@ -15,6 +16,7 @@ export type ItemProperties = {
 
 export type ItemIncludedResourcesConstructorMap = {
   Project?: typeof Project;
+  Workspace?: typeof Workspace;
 }
 
 /**
@@ -41,7 +43,7 @@ export default class Item {
 
   readonly number: ItemProperties["number"];
 
-  #pool: Pool;
+  readonly #pool: Pool;
 
   constructor(data: ItemProperties, pool: Pool) {
 
@@ -105,6 +107,13 @@ export default class Item {
     // Convert the list of rows to AccessPolicy objects.
     const items = result.rows.map((row) => {
 
+      const workspace = includedResources?.Workspace ? new includedResources.Workspace({
+        id: row.workspace_id,
+        name: row.workspace_name,
+        displayName: row.workspace_display_name,
+        description: row.workspace_description
+      }, pool) : undefined;
+
       const project = includedResources?.Project ? new includedResources.Project({
         id: row.project_id,
         name: row.project_name,
@@ -112,7 +121,9 @@ export default class Item {
         key: row.project_key,
         description: row.project_description,
         startDate: row.project_start_date,
-        endDate: row.project_end_date
+        endDate: row.project_end_date,
+        workspaceID: row.workspace_id,
+        workspace
       }, pool) : undefined;
 
       const item = new Item({

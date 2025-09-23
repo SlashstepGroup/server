@@ -4,9 +4,12 @@ import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
 import HTTPError from "#errors/HTTPError.js";
+import Workspace from "#resources/Workspace/Workspace.js";
 
 export type ProjectProperties = CollectionProperties & {
   key: string;
+  workspaceID: string;
+  workspace?: Workspace;
 };
 
 /**
@@ -16,6 +19,10 @@ export default class Project extends Collection {
 
   key: ProjectProperties["key"];
 
+  workspace: ProjectProperties["workspace"];
+
+  workspaceID: ProjectProperties["workspaceID"];
+
   /** The client used to make requests. */
   readonly #pool: Pool;
 
@@ -23,6 +30,8 @@ export default class Project extends Collection {
 
     super(data);
     this.key = data.key;
+    this.workspaceID = data.workspaceID;
+    this.workspace = data.workspace;
     this.#pool = pool;
 
   }
@@ -32,7 +41,7 @@ export default class Project extends Collection {
    *
    * @param data The data for the new item, excluding the ID, creation time, and update time.
    */
-  static async create(data: Omit<ProjectProperties, "id">, pool: Pool): Promise<Project> {
+  static async create(data: Omit<ProjectProperties, "id" | "workspace">, pool: Pool): Promise<Project> {
 
     // Insert the item data into the database.
     const poolClient = await pool.connect();
@@ -54,9 +63,9 @@ export default class Project extends Collection {
 
     const poolClient = await pool.connect();
     const createProjectsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "create-projects-table.pgsql"), "utf8");
-    const createCamelcaseProjectsViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "create-camelcase-projects-view.pgsql"), "utf8");
+    const createHydratedProjectsViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "create-hydrated-projects-view.pgsql"), "utf8");
     await poolClient.query(createProjectsTableQuery);
-    await poolClient.query(createCamelcaseProjectsViewQuery);
+    await poolClient.query(createHydratedProjectsViewQuery);
     poolClient.release();
 
   }
@@ -70,7 +79,7 @@ export default class Project extends Collection {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "camelcase_projects_view", filterQuery, defaultLimit: 1000});
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_projects_view", filterQuery, defaultLimit: 1000});
     const result = await poolClient.query(`select * from projects${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
 

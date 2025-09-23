@@ -1,1 +1,0 @@
-create or replace view camelcase_projects_view as select id, name, display_name as "displayName", description, start_date as "startDate", end_date as "endDate" from projects;

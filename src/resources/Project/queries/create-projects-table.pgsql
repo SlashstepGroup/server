@@ -5,5 +5,6 @@ create table if not exists projects (
   key text not null,
   description text,
   start_date timestamptz,
-  end_date timestamptz
+  end_date timestamptz,
+  workspace_id UUID not null references workspaces(id) on delete cascade
 );
