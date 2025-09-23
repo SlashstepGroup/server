@@ -67,8 +67,8 @@ export default class Project extends Collection {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { query, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "camelcase_projects_view", filterQuery, defaultLimit: 1000});
-    const result = await poolClient.query(query, values);
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "camelcase_projects_view", filterQuery, defaultLimit: 1000});
+    const result = await poolClient.query(`select * from projects${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
 
     // Convert the list of rows to AccessPolicy objects.

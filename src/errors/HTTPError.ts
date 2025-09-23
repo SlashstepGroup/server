@@ -6,6 +6,7 @@ export default class HTTPError extends Error {
 
     super(message);
     this.statusCode = statusCode;
+    this.message = message;
 
   }
 

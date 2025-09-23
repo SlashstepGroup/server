@@ -13,6 +13,10 @@ export type ItemProperties = {
   number: string;
 }
 
+export type ItemIncludedResourcesConstructorMap = {
+  Project?: typeof Project;
+}
+
 /**
  * An Item represents a collection of tasks and milestones that are organized to achieve a specific goal.
  */
@@ -78,9 +82,9 @@ export default class Item {
     // Insert the item data into the database.
     const poolClient = await pool.connect();
     const createItemsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "create-items-table.pgsql"), "utf8");
-    const createCamelcaseItemsViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "create-camelcase-items-view.pgsql"), "utf8");
+    const createHydratedItemsViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "create-hydrated-items-view.pgsql"), "utf8");
     await poolClient.query(createItemsTableQuery);
-    await poolClient.query(createCamelcaseItemsViewQuery);
+    await poolClient.query(createHydratedItemsViewQuery);
     poolClient.release();
 
   }
@@ -90,16 +94,36 @@ export default class Item {
    *
    * @param filterQuery The query to filter the items.
    */
-  static async list(filterQuery: string, pool: Pool): Promise<Item[]> {
+  static async list(filterQuery: string, pool: Pool, includedResources?: ItemIncludedResourcesConstructorMap): Promise<Item[]> {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { query, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "camelcase_items_view", filterQuery, defaultLimit: 1000});
-    const result = await poolClient.query(query, values);
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_items_view", filterQuery, defaultLimit: 1000});
+    const result = await poolClient.query(`select * from hydrated_items_view${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
 
     // Convert the list of rows to AccessPolicy objects.
-    const items = result.rows.map(row => new Item(row, pool));
+    const items = result.rows.map((row) => {
+
+      const project = includedResources?.Project ? new includedResources.Project({
+        id: row.project_id,
+        name: row.project_name,
+        displayName: row.project_display_name,
+        key: row.project_key,
+        description: row.project_description,
+        startDate: row.project_start_date,
+        endDate: row.project_end_date
+      }, pool) : undefined;
+
+      const item = new Item({
+        ...row,
+        projectID: row.project_id,
+        project
+      }, pool);
+
+      return item;
+    
+    });
 
     // Return the list.
     return items;
@@ -115,15 +139,13 @@ export default class Item {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { query, values } = SlashstepQLFilterSanitizer.sanitize({
-      tableName: "camelcase_items_view", 
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({
+      tableName: "hydrated_items_view", 
       filterQuery, 
-      defaultLimit: null, 
-      columns: "count(*)", 
       shouldIgnoreOffset: true,
       shouldIgnoreLimit: true
     });
-    const result = await poolClient.query(query, values);
+    const result = await poolClient.query(`select count(*) from hydrated_items_view${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
 
     // Convert the list of rows to AccessPolicy objects.

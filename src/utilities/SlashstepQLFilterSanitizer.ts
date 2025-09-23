@@ -3,18 +3,16 @@ import SlashstepQLInvalidKeyError from "#errors/SlashstepQLInvalidKeyError.js";
 import { escapeIdentifier } from "pg";
 
 export type SlashstepQLSanitizedFilter = {
-  query: string;
   values: unknown[];
   whereClause?: string;
-  limitClause?: number;
-  offsetClause?: number;
+  limit?: number;
+  offset?: number;
 }
 
 export type SanitizeFunctionProperties = {
   tableName: string;
   filterQuery: string;
-  columns?: string;
-  defaultLimit?: number | null;
+  defaultLimit?: number;
   maximumLimit?: number;
   shouldIgnoreLimit?: boolean;
   shouldIgnoreOffset?: boolean;
@@ -22,14 +20,13 @@ export type SanitizeFunctionProperties = {
 
 export default class SlashstepQLFilterSanitizer {
 
-  static sanitize({tableName, filterQuery, columns = "*", defaultLimit = 1000, maximumLimit = 1000, shouldIgnoreLimit = false, shouldIgnoreOffset = false}: SanitizeFunctionProperties): SlashstepQLSanitizedFilter {
+  static sanitize({tableName, filterQuery, defaultLimit, maximumLimit, shouldIgnoreLimit = false, shouldIgnoreOffset = false}: SanitizeFunctionProperties): SlashstepQLSanitizedFilter {
 
-    let query = `select ${columns} from ${tableName}`;
-    let didAddWhereClause = false;
+    let whereClause = "";
     const values: string[] = [];
     let openParenthesisCount = 0;
     let limit = defaultLimit;
-    let offset = null;
+    let offset;
 
     while (filterQuery !== "") {
 
@@ -47,41 +44,34 @@ export default class SlashstepQLFilterSanitizer {
 
       }
 
-      if (!didAddWhereClause && (match.groups.openParenthesis || match.groups.assignment)) {
-
-        query += " where";
-        didAddWhereClause = true;
-
-      }
-
       if (match.groups.openParenthesis) { 
 
         openParenthesisCount++;
-        query += " (";
+        whereClause += " (";
 
       } else if (match.groups.closedParenthesis) {
 
         openParenthesisCount--;
-        query += " )";
+        whereClause += " )";
 
       } else if (match.groups.and) {
 
-        query += " and";
+        whereClause += " and";
 
       } else if (match.groups.or) {
 
-        query += " or";
+        whereClause += " or";
 
       } else if (match.groups.not) {
 
-        query += " not";
+        whereClause += " not";
 
       } else if (match.groups.assignment) {
 
         // Ensure the key is valid. Very important to prevent SQL injection.
         const allowedKeys: Record<string, string[]> = {
           camelcase_access_policies_view: ["principalType", "principalID", "scopeType", "scopeID", "actionID", "permissionLevel"],
-          camelcase_items_view: ["id", "summary", "description", "projectID"]
+          hydrated_items_view: ["id", "summary", "description", "projectID"]
         };
         const key = match.groups.key;
 
@@ -95,7 +85,7 @@ export default class SlashstepQLFilterSanitizer {
         const { operator } = match.groups;
         const booleanValue = match.groups.boolean !== undefined ? match.groups.boolean === "true" : undefined;
         const value = stringValue ?? numberValue ?? booleanValue;
-        query += ` ${escapeIdentifier(key)} ${operator} $${values.length + 1}`;
+        whereClause += ` ${escapeIdentifier(key)} ${operator} $${values.length + 1}`;
         values.push(value);
 
       } else if (match.groups.limit) {
@@ -140,19 +130,7 @@ export default class SlashstepQLFilterSanitizer {
 
     }
 
-    if (typeof(limit) === "number") {
-
-      query += ` limit ${limit}`;
-
-    }
-
-    if (typeof(offset) === "number") {
-
-      query += ` offset ${offset}`;
-
-    }
-
-    return {query, values};
+    return {whereClause, values, limit, offset};
 
   }
 
