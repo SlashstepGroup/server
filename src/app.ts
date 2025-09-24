@@ -7,6 +7,7 @@ import { createServer as createHTTPSServer } from "https";
 import { readFileSync } from "fs";
 import instanceRouter from "./routes/instance/index.js";
 import itemsRouter from "./routes/items/index.js";
+import workspacesRouter from "./routes/workspaces/index.js";
 // import userRouter from "./routes/user/index.js";
 // import usersRouter from "./routes/users/index.js";
 // import runsRouter from "./routes/runs/index.js";
@@ -58,6 +59,7 @@ if (process.argv[2]?.toLowerCase() === "--setup") {
   app.disable("x-powered-by");
   app.use("/instance", instanceRouter);
   app.use("/items", itemsRouter);
+  app.use("/workspaces", workspacesRouter);
 
   app.get("/", (_, response) => {
     

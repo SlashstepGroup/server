@@ -4,3 +4,5 @@ create table if not exists workspaces (
   display_name text not null,
   description text
 );
+
+create unique index if not exists workspaces_name_unique on workspaces (upper(name));

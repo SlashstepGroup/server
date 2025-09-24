@@ -8,3 +8,6 @@ create table if not exists projects (
   end_date timestamptz,
   workspace_id UUID not null references workspaces(id) on delete cascade
 );
+
+create unique index if not exists projects_name_unique on projects (upper(name), workspace_id);
+create unique index if not exists projects_key_unique on projects (upper(key), workspace_id);
