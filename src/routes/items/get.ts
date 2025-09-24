@@ -4,6 +4,7 @@ import HTTPError from "#errors/HTTPError.js";
 import SlashstepQLInvalidKeyError from "#errors/SlashstepQLInvalidKeyError.js";
 import SlashstepQLInvalidQueryError from "#errors/SlashstepQLInvalidQueryError.js";
 import Project from "#resources/Project/Project.js";
+import Workspace from "#resources/Workspace/Workspace.js";
 
 const getItemsRouter = Router({mergeParams: true})
 getItemsRouter.get("/", async (request, response) => {
@@ -29,8 +30,12 @@ getItemsRouter.get("/", async (request, response) => {
             includedResources.Project = Project;
             break;
 
+          case "project.workspace":
+            includedResources.Workspace = Workspace;
+            break;
+
           default:
-            throw new HTTPError(400, "include query must be \"project\", or excluded.");
+            throw new HTTPError(400, "include query must be \"project\", \"project.workspace\", or excluded.");
 
         }
 

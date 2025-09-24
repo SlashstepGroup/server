@@ -5,12 +5,17 @@ import { dirname, resolve } from "path";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
 import HTTPError from "#errors/HTTPError.js";
 import Workspace from "#resources/Workspace/Workspace.js";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 
 export type ProjectProperties = CollectionProperties & {
   key: string;
   workspaceID: string;
   workspace?: Workspace;
 };
+
+export type ProjectIncludedResourcesConstructorMap = {
+  Workspace?: typeof Workspace;
+}
 
 /**
  * A Project represents a collection of tasks and milestones that are organized to achieve a specific goal.
@@ -52,8 +57,10 @@ export default class Project extends Collection {
     poolClient.release();
 
     // Convert the row to a project object.
+    const row = result.rows[0];
     const project = new Project({
-      ...result.rows[0],
+      ...row,
+      workspaceID: row.workspace_id,
       workspace: data.workspace
     }, pool);
 
@@ -100,11 +107,11 @@ export default class Project extends Collection {
    * @param id The ID of the project to get.
    * @param pool The pool to use to connect to the database.
    */
-  static async getByID(id: string, pool: Pool): Promise<Project> {
+  static async getByID(id: string, pool: Pool, includedResources?: ProjectIncludedResourcesConstructorMap): Promise<Project> {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const result = await poolClient.query("select * from projects where id = $1", [id]);
+    const result = await poolClient.query("select * from hydrated_projects_view where id = $1", [id]);
     poolClient.release();
 
     if (result.rows.length === 0) {
@@ -114,7 +121,25 @@ export default class Project extends Collection {
     }
 
     // Convert the project data into a Project object.
-    const project = new Project(result.rows[0], pool);
+    const row = result.rows[0];
+    if (!row) {
+
+      throw new ResourceNotFoundError("Project");
+
+    }
+
+    console.log(row);
+
+    const project = new Project({
+      ...row,
+      workspaceID: row.workspace_id,
+      workspace: includedResources?.Workspace ? new includedResources.Workspace({
+        id: row.workspace_id,
+        name: row.workspace_name,
+        displayName: row.workspace_display_name,
+        description: row.workspace_description
+      }, pool) : undefined
+    }, pool);
 
     // Return the project.
     return project;

@@ -4,6 +4,7 @@ import { dirname, resolve } from "path";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
 import Project from "#resources/Project/Project.js";
 import Workspace from "#resources/Workspace/Workspace.js";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 
 export type ItemProperties = {
   id: string;
@@ -72,7 +73,18 @@ export default class Item {
     poolClient.release();
 
     // Convert the row to an item object.
-    const item = new Item(result.rows[0], pool);
+    const row = result.rows[0];
+    if (!row) {
+
+      throw new ResourceNotFoundError("Item");
+
+    }
+
+    const item = new Item({
+      ...row,
+      projectID: row.project_id,
+      project: data.project
+    }, pool);
 
     // Return the item.
     return item;

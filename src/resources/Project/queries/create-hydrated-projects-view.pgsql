@@ -9,7 +9,8 @@ create or replace view hydrated_projects_view as
     projects.workspace_id,
     workspaces.name as workspace_name,
     workspaces.display_name as workspace_display_name,
-    workspaces.description as workspace_description
+    workspaces.description as workspace_description,
+    projects.key
   from 
     projects
   inner join 
