@@ -121,16 +121,16 @@ export default class Workspace {
 
   }
 
-  // /**
-  //  * Requests the server to delete this workspace.
-  //  */
-  // async delete(): Promise<void> {
+  /**
+   * Requests the server to delete this workspace.
+   */
+  async delete(): Promise<void> {
 
-  //   await this.#client.fetch(`/workspaces/${this.id}`, {
-  //     method: "DELETE"
-  //   });
+    const poolClient = await this.#pool.connect();
+    await poolClient.query("delete from workspaces where id = $1", [this.id]);
+    poolClient.release();
 
-  // }
+  }
 
   // /**
   //  * Requests the server to update this workspace.
