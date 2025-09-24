@@ -1,5 +1,5 @@
 import Collection, { CollectionProperties } from "#resources/Collection/Collection.js";
-import { Pool } from "pg";
+import { DatabaseError, Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
@@ -109,40 +109,60 @@ export default class Project extends Collection {
    */
   static async getByID(id: string, pool: Pool, includedResources?: ProjectIncludedResourcesConstructorMap): Promise<Project> {
 
-    // Get the list from the database.
-    const poolClient = await pool.connect();
-    const result = await poolClient.query("select * from hydrated_projects_view where id = $1", [id]);
+    try {
+
+      // Get the list from the database.
+      const poolClient = await pool.connect();
+      const result = await poolClient.query("select * from hydrated_projects_view where id = $1", [id]);
+      poolClient.release();
+
+      if (result.rows.length === 0) {
+
+        throw new HTTPError(404, "Project not found.");
+
+      }
+
+      // Convert the project data into a Project object.
+      const row = result.rows[0];
+      if (!row) {
+
+        throw new ResourceNotFoundError("Project");
+
+      }
+
+      const project = new Project({
+        ...row,
+        workspaceID: row.workspace_id,
+        workspace: includedResources?.Workspace ? new includedResources.Workspace({
+          id: row.workspace_id,
+          name: row.workspace_name,
+          displayName: row.workspace_display_name,
+          description: row.workspace_description
+        }, pool) : undefined
+      }, pool);
+
+      // Return the project.
+      return project;
+
+    } catch (error) {
+
+      if (error instanceof DatabaseError && error.code === "22P02") {
+
+        throw new ResourceNotFoundError("Project");
+
+      }
+
+      throw error;
+
+    }
+
+  }
+
+  async delete(): Promise<void> {
+
+    const poolClient = await this.#pool.connect();
+    await poolClient.query("delete from projects where id = $1", [this.id]);
     poolClient.release();
-
-    if (result.rows.length === 0) {
-
-      throw new HTTPError(404, "Project not found.");
-
-    }
-
-    // Convert the project data into a Project object.
-    const row = result.rows[0];
-    if (!row) {
-
-      throw new ResourceNotFoundError("Project");
-
-    }
-
-    console.log(row);
-
-    const project = new Project({
-      ...row,
-      workspaceID: row.workspace_id,
-      workspace: includedResources?.Workspace ? new includedResources.Workspace({
-        id: row.workspace_id,
-        name: row.workspace_name,
-        displayName: row.workspace_display_name,
-        description: row.workspace_description
-      }, pool) : undefined
-    }, pool);
-
-    // Return the project.
-    return project;
 
   }
 
