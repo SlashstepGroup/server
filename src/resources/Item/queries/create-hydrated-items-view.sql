@@ -1,3 +1,5 @@
+set search_path to app;
+
 create or replace view hydrated_items_view as 
   select 
     items.id,

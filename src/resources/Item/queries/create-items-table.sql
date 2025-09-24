@@ -1,3 +1,5 @@
+set search_path to app;
+
 create table if not exists items (
   id UUID default uuidv7() primary key,
   summary text not null,

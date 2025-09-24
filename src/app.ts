@@ -1,7 +1,7 @@
 import express from "express";
 import { Pool } from "pg";
 import cors from "cors";
-import Server from "#utilities/Server.js";
+import Server from "#utilities/Server/Server.js";
 import os from "os";
 import { createServer as createHTTPSServer } from "https";
 import { readFileSync } from "fs";

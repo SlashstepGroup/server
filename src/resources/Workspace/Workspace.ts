@@ -45,7 +45,7 @@ export default class Workspace {
 
     // Insert the item data into the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "Workspace", "queries", "insert-workspace-row.pgsql"), "utf8");
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "Workspace", "queries", "insert-workspace-row.sql"), "utf8");
     const values = [data.name, data.displayName, data.description];
     const result = await poolClient.query(query, values);
     poolClient.release();
@@ -67,7 +67,7 @@ export default class Workspace {
   static async initializeTable(pool: Pool): Promise<void> {
 
     const poolClient = await pool.connect();
-    const createProjectsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Workspace", "queries", "create-workspace-table.pgsql"), "utf8");
+    const createProjectsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Workspace", "queries", "create-workspace-table.sql"), "utf8");
     await poolClient.query(createProjectsTableQuery);
     poolClient.release();
 
@@ -82,7 +82,7 @@ export default class Workspace {
 
     // Get the workspace data from the database.
     const poolClient = await pool.connect();
-    const result = await poolClient.query(`select * from workspaces where id = $1`, [id]);
+    const result = await poolClient.query(`set search_path to app; select * from workspaces where id = $1`, [id]);
     poolClient.release();
 
     // Convert the data to an workspace object.
@@ -103,7 +103,7 @@ export default class Workspace {
 
     // Get the workspace data from the database.
     const poolClient = await pool.connect();
-    const result = await poolClient.query(`select * from workspaces where lower(name) = lower($1)`, [name]);
+    const result = await poolClient.query(`set search_path to app; select * from workspaces where lower(name) = lower($1)`, [name]);
     poolClient.release();
 
     // Convert the data to an workspace object.

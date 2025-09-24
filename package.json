@@ -6,7 +6,7 @@
   "main": "./dist/app.js",
   "scripts": {
     "build": "tsc -b --clean && tsc -b",
-    "dev": "tsc && copyfiles -u 1 src/**/*.pgsql dist && node --env-file=.env --trace-deprecation ./dist/app.js",
+    "dev": "tsc && copyfiles -u 1 src/**/*.sql dist && node --env-file=.env --trace-deprecation ./dist/app.js",
     "start": "node ./dist/app.js",
     "setup": "node ./dist/app.js --setup"
   },

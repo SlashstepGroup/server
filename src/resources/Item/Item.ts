@@ -67,7 +67,7 @@ export default class Item {
 
     // Insert the item data into the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "insert-item-row.pgsql"), "utf8");
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "insert-item-row.sql"), "utf8");
     const values = [data.summary, data.description, data.projectID, data.projectID];
     const result = await poolClient.query(query, values);
     poolClient.release();
@@ -95,8 +95,8 @@ export default class Item {
 
     // Insert the item data into the database.
     const poolClient = await pool.connect();
-    const createItemsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "create-items-table.pgsql"), "utf8");
-    const createHydratedItemsViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "create-hydrated-items-view.pgsql"), "utf8");
+    const createItemsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "create-items-table.sql"), "utf8");
+    const createHydratedItemsViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "create-hydrated-items-view.sql"), "utf8");
     await poolClient.query(createItemsTableQuery);
     await poolClient.query(createHydratedItemsViewQuery);
     poolClient.release();
@@ -113,7 +113,7 @@ export default class Item {
     // Get the list from the database.
     const poolClient = await pool.connect();
     const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_items_view", filterQuery, defaultLimit: 1000});
-    const result = await poolClient.query(`select * from hydrated_items_view${whereClause ? ` where ${whereClause}` : ""}`, values);
+    const result = await poolClient.query(`set search_path to app; select * from hydrated_items_view${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
 
     // Convert the list of rows to AccessPolicy objects.
@@ -188,7 +188,7 @@ export default class Item {
 
     // Get the item data from the database.
     const poolClient = await pool.connect();
-    const result = await poolClient.query(`select * from hydrated_items_view where id = $1`, [id]);
+    const result = await poolClient.query(`set search_path to app; select * from hydrated_items_view where id = $1`, [id]);
     poolClient.release();
 
     // Convert the data to an item object.
