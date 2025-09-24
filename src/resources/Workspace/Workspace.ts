@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 
 export type WorkspaceProperties = {
   id: string;
@@ -72,29 +73,53 @@ export default class Workspace {
 
   }
 
-  // /**
-  //  * Requests the server for a specific workspace by ID.
-  //  *
-  //  * @param id The ID of the workspace to retrieve.
-  //  */
-  // static async getFromID(id: string, pool: Pool): Promise<Workspace> {
+  /**
+   * Gets a workspace by its ID.
+   *
+   * @param id The ID of the workspace to retrieve.
+   */
+  static async getFromID(id: string, pool: Pool): Promise<Workspace> {
 
-  //   const workspaceData = await client.fetch(`/workspaces/${id}`);
+    // Get the workspace data from the database.
+    const poolClient = await pool.connect();
+    const result = await poolClient.query(`select * from workspaces where id = $1`, [id]);
+    poolClient.release();
 
-  //   return new Workspace(workspaceData, client);
+    // Convert the data to an workspace object.
+    const row = result.rows[0];
+    const workspace = new Workspace(row, pool);
 
-  // }
+    // Return the item.
+    return workspace;
 
-  // /**
-  //  * Requests the server for a specific workspace by name.
-  //  */
-  // static async getFromName(name: string, client: Client): Promise<Workspace> {
+  }
 
-  //   const workspaceData = await client.fetch(`/workspaces?name=${name}`);
+  /**
+   * Gets a workspace by its name.
+   * 
+   * @param name The name of the workspace to retrieve.
+   */
+  static async getFromName(name: string, pool: Pool): Promise<Workspace> {
 
-  //   return new Workspace(workspaceData, client);
+    // Get the workspace data from the database.
+    const poolClient = await pool.connect();
+    const result = await poolClient.query(`select * from workspaces where lower(name) = lower($1)`, [name]);
+    poolClient.release();
 
-  // }
+    // Convert the data to an workspace object.
+    const row = result.rows[0];
+    if (!row) {
+
+      throw new ResourceNotFoundError("Workspace");
+
+    }
+
+    const workspace = new Workspace(row, pool);
+
+    // Return the item.
+    return workspace;
+
+  }
 
   // /**
   //  * Requests the server to delete this workspace.

@@ -142,7 +142,7 @@ export default class Item {
   }
 
   /**
-   * Requests the server for a list of items.
+   * Gets the number of items that match the given query.
    *
    * @param filterQuery The query to filter the items.
    */
@@ -167,18 +167,50 @@ export default class Item {
 
   }
 
-  // /**
-  //  * Requests the server for a specific item by ID.
-  //  *
-  //  * @param id The ID of the item to retrieve.
-  //  */
-  // static async get(id: string, client: Client): Promise<Item> {
+  /**
+   * Gets an item by its ID.
+   *
+   * @param id The ID of the item to retrieve.
+   */
+  static async get(id: string, pool: Pool, includedResources?: ItemIncludedResourcesConstructorMap): Promise<Item> {
 
-  //   const itemData = await client.fetch(`/items/${id}`);
+    // Get the item data from the database.
+    const poolClient = await pool.connect();
+    const result = await poolClient.query(`select * from hydrated_items_view where id = $1`, [id]);
+    poolClient.release();
 
-  //   return new Item(itemData, client);
+    // Convert the data to an item object.
+    const row = result.rows[0];
 
-  // }
+    const workspace = includedResources?.Workspace ? new includedResources.Workspace({
+      id: row.workspace_id,
+      name: row.workspace_name,
+      displayName: row.workspace_display_name,
+      description: row.workspace_description
+    }, pool) : undefined;
+
+    const project = includedResources?.Project ? new includedResources.Project({
+      id: row.project_id,
+      name: row.project_name,
+      displayName: row.project_display_name,
+      key: row.project_key,
+      description: row.project_description,
+      startDate: row.project_start_date,
+      endDate: row.project_end_date,
+      workspaceID: row.workspace_id,
+      workspace
+    }, pool) : undefined;
+
+    const item = new Item({
+      ...row,
+      projectID: row.project_id,
+      project
+    }, pool);
+
+    // Return the item.
+    return item;
+
+  }
 
   // /**
   //  * Requests the server to delete this item.

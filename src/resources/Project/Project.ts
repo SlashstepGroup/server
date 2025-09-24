@@ -41,18 +41,21 @@ export default class Project extends Collection {
    *
    * @param data The data for the new item, excluding the ID, creation time, and update time.
    */
-  static async create(data: Omit<ProjectProperties, "id" | "workspace">, pool: Pool): Promise<Project> {
+  static async create(data: Omit<ProjectProperties, "id">, pool: Pool): Promise<Project> {
 
     // Insert the item data into the database.
     const poolClient = await pool.connect();
     const insertProjectRowQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "insert-project-row.pgsql"), "utf8");
-    const values = [data.name, data.displayName, data.key, data.description, data.startDate, data.endDate];
+    const values = [data.name, data.displayName, data.key, data.description, data.startDate, data.endDate, data.workspaceID];
     const result = await poolClient.query(insertProjectRowQuery, values);
     await poolClient.query(`select create_project_sequence($1);`, [result.rows[0].id]);
     poolClient.release();
 
     // Convert the row to a project object.
-    const project = new Project(result.rows[0], pool);
+    const project = new Project({
+      ...result.rows[0],
+      workspace: data.workspace
+    }, pool);
 
     // Return the project.
     return project;
