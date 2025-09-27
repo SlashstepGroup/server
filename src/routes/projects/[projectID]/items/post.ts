@@ -1,12 +1,21 @@
-import { Request, Router } from "express";
+import { Request, Response, Router } from "express";
 import HTTPError from "#errors/HTTPError.js";
 import Project from "#resources/Project/Project.js";
-import { DatabaseError } from "pg";
+import { DatabaseError, Pool } from "pg";
 import Item from "#resources/Item/Item.js";
 import Workspace from "#resources/Workspace/Workspace.js";
+import authenticateUser from "#utilities/hooks/authenticateUser.js";
+import User from "#resources/User/User.js";
+import Action from "#resources/Action/Action.js";
+import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import PermissionDeniedError from "#errors/PermissionDeniedError.js";
+import ActionLog from "#resources/ActionLog/ActionLog.js";
 
-const createProjectItemRouter = Router({mergeParams: true})
-createProjectItemRouter.post("/", async (request: Request<{ projectID: string }>, response) => {
+const createProjectItemRouter = Router({mergeParams: true});
+
+createProjectItemRouter.use(authenticateUser);
+createProjectItemRouter.post("/", async (request: Request<{ projectID: string }>, response: Response<unknown, { pool: Pool, user: User }>) => {
 
   try {
 
@@ -37,21 +46,54 @@ createProjectItemRouter.post("/", async (request: Request<{ projectID: string }>
     verifyString(summary, "summary");
     verifyString(description, "description");
 
-    // Get the project.
+    // Make sure the user has permission to create an item in the project.
     const { projectID } = request.params;
-    const { pool } = response.locals;
+    const { pool, user } = response.locals;
     const { include } = request.query;
     const project = await Project.getByID(projectID, pool, {
       Workspace: include === "project.workspace" || (include instanceof Array && include?.includes("project.workspace")) ? Workspace : undefined
     });
 
+    const action = await Action.getByName("slashstep.items.create", pool);
+
     try {
 
+      const deepestAccessPolicy = await AccessPolicy.getByDeepestScope(action.id, pool, {projectID: project.id, workspaceID: project.workspaceID}, user.id);
+
+      if (deepestAccessPolicy.permissionLevel < AccessPolicyPermissionLevel.User) {
+
+        throw new PermissionDeniedError();
+
+      }
+
+    } catch (error) {
+
+      if (error instanceof ResourceNotFoundError) {
+
+        throw new PermissionDeniedError();
+
+      }
+
+      throw error;
+
+    }
+
+    try {
+
+      // Create the item.
       const item = await Item.create({
         summary,
         description,
         projectID: project.id,
         project: include === "project" || (include instanceof Array && include?.includes("project")) ? project : undefined
+      }, pool);
+
+      // Log the action.
+      await ActionLog.create({
+        actionID: action.id,
+        actorID: user.id,
+        actorIPAddress: request.ip,
+        targetItemID: item.id
       }, pool);
       
       response.json(item);

@@ -1,174 +1,237 @@
 
-// import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
-// import { ResourceType } from "#utilities/types.js";
-// import { Pool } from "pg";
+import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
+import { ResourceType } from "#utilities/types.js";
+import { Pool } from "pg";
+import { readFileSync } from "fs";
+import { dirname, resolve } from "path";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 
-// export enum AccessPolicyPermissionLevel {
+export enum AccessPolicyPermissionLevel {
   
-//   /** Principal cannot perform this action. */
-//   None,
+  /** Principal cannot perform this action. */
+  None = "None",
 
-//   /** Principal can perform this action. */
-//   User,
+  /** Principal can perform this action. */
+  User = "User",
 
-//   /** Principal can perform this action, along with managing the permission level of other principals. */
-//   Admin
+  /** Principal can perform this action, along with managing the permission level of other principals. */
+  Admin = "Admin"
 
-// }
+}
 
-// export type AccessPolicyProperties = {
-//   id: string;
-//   principalType: "User" | "Group";
-//   principalID: string;
-//   scopeType: ResourceType;
-//   scopeID?: string;
-//   actionID: string;
-//   permissionLevel: AccessPolicyPermissionLevel;
-// }
+export declare enum AccessPolicyInheritanceLevel {
 
-// /**
-//  * An AccessPolicy defines the permissions a principal has on a resource.
-//  */
-// export default class AccessPolicy {
+  /** Child resources will not inherit this access policy. */
+  Disabled = "Disabled",
 
-//   static readonly name = "AccessPolicy";
+  /** Child resources will inherit this access policy by default. */
+  Recommended = "Recommended",
 
-//   /** The access policy's ID. */
-//   readonly id: AccessPolicyProperties["id"];
+  /** Child resources will inherit this access policy and are required to have the selected permission level at minimum. */
+  Required = "Required",
 
-//   /** The principal ID that this access policy applies to. */
-//   readonly principalID: AccessPolicyProperties["principalID"];
+  /** Child resources will inherit this access policy and cannot change the policy. */
+  Locked = "Locked"
 
-//   /** The type of principal this access policy applies to, such as "User" or "Group". */
-//   readonly principalType: AccessPolicyProperties["principalType"];
+}
 
-//   /** The type of resource this access policy applies to, such as "Workspace", "Project", etc. */
-//   readonly scopeType: AccessPolicyProperties["scopeType"];
+export type AccessPolicyProperties = {
+  id: string;
+  userID?: string;
+  scopeType: ResourceType;
+  workspaceID?: string;
+  projectID?: string;
+  itemID?: string;
+  actionID: string;
+  permissionLevel: AccessPolicyPermissionLevel;
+  inheritanceLevel: AccessPolicyInheritanceLevel;
+}
 
-//   /** The ID of the resource this access policy applies to. Currently, there is no ID if the scope type is "Instance". */
-//   readonly scopeID: AccessPolicyProperties["scopeID"];
+export type Scope = {
+  itemID?: string;
+  projectID?: string;
+  workspaceID?: string;
+};
 
-//   /** The ID of the action this access policy applies to. */
-//   readonly actionID: AccessPolicyProperties["actionID"];
+/**
+ * An AccessPolicy defines the permissions a principal has on a resource.
+ */
+export default class AccessPolicy {
 
-//   /** The level of permission granted by this access policy. */
-//   readonly permissionLevel: AccessPolicyProperties["permissionLevel"];
+  static readonly name = "AccessPolicy";
 
-//   constructor(data: AccessPolicyProperties) {
+  /** The access policy's ID. */
+  readonly id: AccessPolicyProperties["id"];
+  
+  /** The user ID that this access policy applies to. */
+  readonly userID: AccessPolicyProperties["userID"];
 
-//     this.id = data.id;
-//     this.principalID = data.principalID;
-//     this.principalType = data.principalType;
-//     this.scopeType = data.scopeType;
-//     this.scopeID = data.scopeID;
-//     this.actionID = data.actionID;
-//     this.permissionLevel = data.permissionLevel;
+  /** The type of resource this access policy applies to, such as "Workspace", "Project", etc. */
+  readonly scopeType: AccessPolicyProperties["scopeType"];
 
-//   }
+  /** The ID of the workspace this access policy applies to. */
+  readonly workspaceID: AccessPolicyProperties["workspaceID"];
 
-//   /**
-//    * Creates an access policy.
-//    * 
-//    * @param data The data for the new AccessPolicy, excluding the ID.
-//    * @returns The created AccessPolicy.
-//    */
-//   static async create(data: Omit<AccessPolicyProperties, "id">, pool: Pool): Promise<AccessPolicy> {
+  /** The ID of the project this access policy applies to. */
+  readonly projectID: AccessPolicyProperties["projectID"];
 
-//     // Insert the access policy into the database.
-//     const poolClient = await pool.connect();
-//     const query = `insert into accessPolicies (principalType, principalID, scopeType, scopeID, actionID, permissionLevel) values ($1, $2, $3, $4, $5, $6) returning *`;
-//     const values = [data.principalType, data.principalID, data.scopeType, data.scopeID, data.actionID, data.permissionLevel];
-//     const result = await poolClient.query(query, values);
-//     poolClient.release();
+  /** The ID of the item this access policy applies to. */
+  readonly itemID: AccessPolicyProperties["itemID"];
 
-//     // Convert the row to an AccessPolicy object.
-//     const accessPolicy = new AccessPolicy(result.rows[0]);
+  /** The ID of the action this access policy applies to. */
+  readonly actionID: AccessPolicyProperties["actionID"];
 
-//     // Return the access policy.
-//     return accessPolicy;
+  /** The level of permission granted by this access policy. */
+  readonly permissionLevel: AccessPolicyProperties["permissionLevel"];
 
-//   }
+  readonly #pool: Pool;
 
-//   /** 
-//    * Requests the server to return a list of access policies.
-//    * @param filterQuery A SlashstepQL filter to apply to the list of access policies.
-//    */
-//   static async list(filterQuery: string, pool: Pool): Promise<AccessPolicy[]> {
+  constructor(data: AccessPolicyProperties, pool: Pool) {
 
-//     // Get the list from the database.
-//     const poolClient = await pool.connect();
-//     const { query, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "accessPolicies", filterQuery});
-//     const result = await poolClient.query(query, values);
-//     poolClient.release();
+    this.id = data.id;
+    this.userID = data.userID;
+    this.scopeType = data.scopeType;
+    this.workspaceID = data.workspaceID;
+    this.projectID = data.projectID;
+    this.itemID = data.itemID;
+    this.actionID = data.actionID;
+    this.permissionLevel = data.permissionLevel;
+    this.#pool = pool;
 
-//     // Convert the list of rows to AccessPolicy objects.
-//     // const accessPolicies = result.rows.map(row => new AccessPolicy(row));
-//     const accessPolicies: AccessPolicy[] = [];
+  }
 
-//     // Return the list.
-//     return accessPolicies;
+  /**
+   * Creates an access policy.
+   * 
+   * @param data The data for the new AccessPolicy, excluding the ID.
+   * @returns The created AccessPolicy.
+   */
+  static async create(data: Omit<AccessPolicyProperties, "id">, pool: Pool): Promise<AccessPolicy> {
 
-//   }
+    // Insert the access policy into the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "AccessPolicy", "queries", "insert-access-policy-row.sql"), "utf8");
+    const values = [data.userID, data.scopeType, data.workspaceID, data.projectID, data.itemID, data.actionID, data.permissionLevel, data.inheritanceLevel];
+    const result = await poolClient.query(query, values);
+    poolClient.release();
 
-//   /**
-//    * Creates the accessPolicies table in the database.
-//    * @param pool 
-//    */
-//   static async createTable(pool: Pool): Promise<void> {
+    // Convert the row to an AccessPolicy object.
+    const accessPolicy = new AccessPolicy(result.rows[0], pool);
 
-//     // Create the table.
-//     await pool.query(`create table if not exists accessPolicies (
-//       id UUID primary key,
-//       principalType text not null,
-//       principalID text not null,
-//       scopeType text not null,
-//       scopeID text,
-//       actionID text not null,
-//       permissionLevel text not null
-//     );`);
+    // Return the access policy.
+    return accessPolicy;
 
-//   }
+  }
 
-//   // /**
-//   //  * Requests the server to return a specific access policy by ID.
-//   //  * @param id The ID of the access policy to retrieve.
-//   //  * @param client The client used to make requests.
-//   //  * @returns The requested access policy.
-//   //  */
-//   // static async get(id: string, pool: Pool): Promise<AccessPolicy> {
+  /** 
+   * Requests the server to return a list of access policies.
+   * @param filterQuery A SlashstepQL filter to apply to the list of access policies.
+   */
+  static async list(filterQuery: string, pool: Pool): Promise<AccessPolicy[]> {
 
-//   //   // Get the access policy from the database.
-//   //   const poolClient = await pool.connect();
-//   //   const result = await poolClient.query(`select * from accessPolicies where id = $1`, [id]);
-//   //   poolClient.release();
+    // Get the list from the database.
+    const poolClient = await pool.connect();
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "access_policies", filterQuery, defaultLimit: 1000});
+    await poolClient.query(`set search_path to app`);
+    const result = await poolClient.query(`select * from access_policies${whereClause ? ` where ${whereClause}` : ""}`, values);
+    poolClient.release();
 
-//   // }
+    // Convert the list of rows to AccessPolicy objects.
+    const accessPolicies = result.rows.map(row => new AccessPolicy(row, pool));
 
-//   // /**
-//   //  * Requests the server to delete this access policy.
-//   //  */
-//   // async delete(): Promise<void> {
+    // Return the list.
+    return accessPolicies;
 
-//   //   await this.#client.fetch(`/access-policies/${this.id}`, {
-//   //     method: "DELETE"
-//   //   });
+  }
 
-//   // }
+  /**
+   * Creates the accessPolicies table in the database.
+   * @param pool 
+   */
+  static async initializeTable(pool: Pool): Promise<void> {
 
-//   // /**
-//   //  * Requests the server to update this access policy.
-//   //  * 
-//   //  * @param data The data to update the AccessPolicy with.
-//   //  */
-//   // async update(data: Partial<AccessPolicyProperties>): Promise<AccessPolicy> {
+    // Create the table.
+    const poolClient = await pool.connect();
+    const createAccessPoliciesTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "AccessPolicy", "queries", "create-access-policies-table.sql"), "utf8");
+    await poolClient.query(createAccessPoliciesTableQuery);
+    poolClient.release();
 
-//   //   const editedAccessPolicyData = await this.#client.fetch(`/access-policies/${this.id}`, {
-//   //     method: "PATCH",
-//   //     body: JSON.stringify(data)
-//   //   });
+  }
 
-//   //   return new AccessPolicy(editedAccessPolicyData, this.#client);
+  /**
+   * Requests the server to return a specific access policy by ID.
+   * @param id The ID of the access policy to retrieve.
+   * @param client The client used to make requests.
+   * @returns The requested access policy.
+   */
+  static async getByDeepestScope(actionID: string, pool: Pool, scope: Scope, userID: string | null = null): Promise<AccessPolicy> {
 
-//   // }
+    // Get the user's access policies.
+    const scopeArray = [];
+    if (scope.itemID) {
 
-// }
+      scopeArray.push(`item_id = ${scope.itemID}`);
+
+    }
+
+    if (scope.projectID) {
+
+      scopeArray.push(`project_id = ${scope.projectID}`);
+
+    }
+
+    if (scope.workspaceID) {
+
+      scopeArray.push(`workspace_id = ${scope.workspaceID}`);
+
+    }
+
+    scopeArray.push("scope_type = 'Instance'");
+
+    const accessPolicies = await AccessPolicy.list(`action_id = ${actionID} and user_id = ${userID} and (${scopeArray.join(" or ")})`, pool);
+
+    const instanceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopeType === "Instance");
+    const workspaceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopeType === "Workspace");
+    const projectAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopeType === "Project");
+    const itemAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopeType === "Item");
+
+    const accessPolicy = itemAccessPolicy ?? projectAccessPolicy ?? workspaceAccessPolicy ?? instanceAccessPolicy;
+
+    if (!accessPolicy) {
+
+      throw new ResourceNotFoundError("AccessPolicy");
+
+    }
+
+    return accessPolicy;
+
+  }
+
+  // /**
+  //  * Requests the server to delete this access policy.
+  //  */
+  // async delete(): Promise<void> {
+
+  //   await this.#client.fetch(`/access-policies/${this.id}`, {
+  //     method: "DELETE"
+  //   });
+
+  // }
+
+  // /**
+  //  * Requests the server to update this access policy.
+  //  * 
+  //  * @param data The data to update the AccessPolicy with.
+  //  */
+  // async update(data: Partial<AccessPolicyProperties>): Promise<AccessPolicy> {
+
+  //   const editedAccessPolicyData = await this.#client.fetch(`/access-policies/${this.id}`, {
+  //     method: "PATCH",
+  //     body: JSON.stringify(data)
+  //   });
+
+  //   return new AccessPolicy(editedAccessPolicyData, this.#client);
+
+  // }
+
+}

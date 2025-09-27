@@ -1,5 +1,3 @@
-set search_path to app;
-
 create or replace view hydrated_projects_view as 
   select
     projects.id,

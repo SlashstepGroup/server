@@ -9,17 +9,7 @@ import instanceRouter from "./routes/instance/index.js";
 import itemsRouter from "./routes/items/index.js";
 import workspacesRouter from "./routes/workspaces/index.js";
 import projectsRouter from "./routes/projects/index.js";
-// import userRouter from "./routes/user/index.js";
-// import usersRouter from "./routes/users/index.js";
-// import runsRouter from "./routes/runs/index.js";
-// import gamesRouter from "./routes/games/index.js";
-// import groupsRouter from "./routes/groups/index.js";
-// import forumsRouter from "./routes/forums/index.js";
-// import likesRouter from "./routes/likes/index.js";
-// import postsRouter from "./routes/posts/index.js";
-// import threadsRouter from "./routes/threads/index.js";
-// import permissionsRouter from "./routes/permissions/index.js";
-// import Permission from "#classes/Permission.js";
+import usersRouter from "./routes/users/index.js";
 
 if (process.argv[2]?.toLowerCase() === "--setup") {
 
@@ -48,6 +38,7 @@ if (process.argv[2]?.toLowerCase() === "--setup") {
   // Set up routes
   console.log("Setting up routes...");
 
+  const { APP_ENVIRONMENT } = process.env;
   const app = express();
   app.use((_, response, next) => {
 
@@ -56,11 +47,27 @@ if (process.argv[2]?.toLowerCase() === "--setup") {
 
   });
   app.use(express.json());
-  app.use(cors());
+  app.use(cors({
+    origin(requestOrigin, callback) {
+      
+      if (APP_ENVIRONMENT === "production") {
+
+        callback(null, requestOrigin === "https://beastslash.slashstep.com");
+
+      } else {
+
+        callback(null, true);
+
+      }
+
+    },
+    credentials: true
+  }));
   app.disable("x-powered-by");
   app.use("/instance", instanceRouter);
   app.use("/items", itemsRouter);
   app.use("/projects", projectsRouter);
+  app.use("/users", usersRouter);
   app.use("/workspaces", workspacesRouter);
 
   app.get("/", (_, response) => {
@@ -96,7 +103,7 @@ if (process.argv[2]?.toLowerCase() === "--setup") {
 
   const ipv4Address = getIPv4Address();
 
-  const { APP_PORT, APP_ENVIRONMENT } = process.env;
+  const { APP_PORT } = process.env;
 
   if (APP_ENVIRONMENT === "development") {
 

@@ -1,5 +1,3 @@
-set search_path to app;
-
 /* See the UUID Version 7 specification at
    https://www.rfc-editor.org/rfc/rfc9562#name-uuid-version-7 */
 

@@ -1,4 +1,4 @@
-export type ResourceType = "Workspace" | "Project" | "Iteration" | "Item" | "Group" | "Milestone";
+export type ResourceType = "Instance" | "Workspace" | "Project" | "Iteration" | "Item" | "Group" | "Milestone";
 
 export type Resource = {
   id: string;

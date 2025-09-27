@@ -1,5 +1,3 @@
-set search_path to app;
-
 create or replace function create_project_sequence(project_id UUID) returns void as $$
 declare sequence_name text;
 begin

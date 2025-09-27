@@ -82,7 +82,8 @@ export default class Workspace {
 
     // Get the workspace data from the database.
     const poolClient = await pool.connect();
-    const result = await poolClient.query(`set search_path to app; select * from workspaces where id = $1`, [id]);
+    await poolClient.query("set search_path to app");
+    const result = await poolClient.query("select * from workspaces where id = $1", [id]);
     poolClient.release();
 
     // Convert the data to an workspace object.
@@ -103,7 +104,8 @@ export default class Workspace {
 
     // Get the workspace data from the database.
     const poolClient = await pool.connect();
-    const result = await poolClient.query(`set search_path to app; select * from workspaces where lower(name) = lower($1)`, [name]);
+    await poolClient.query("set search_path to app");
+    const result = await poolClient.query("select * from workspaces where lower(name) = lower($1)", [name]);
     poolClient.release();
 
     // Convert the data to an workspace object.
@@ -127,7 +129,8 @@ export default class Workspace {
   async delete(): Promise<void> {
 
     const poolClient = await this.#pool.connect();
-    await poolClient.query("delete from workspaces where id = $1", [this.id]);
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "Workspace", "queries", "delete-workspace-row.sql"), "utf8");
+    await poolClient.query(query, [this.id]);
     poolClient.release();
 
   }

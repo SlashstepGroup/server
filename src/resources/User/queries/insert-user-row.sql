@@ -1,0 +1,1 @@
+insert into users (username, display_name) values ($1, $2) returning *;

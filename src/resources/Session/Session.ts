@@ -1,115 +1,127 @@
-// import User from "#resources/User/User.js";
-// import Client from "#utilities/Client.js";
+import User from "#resources/User/User.js";
+import { Pool } from "pg";
+import { readFileSync } from "fs";
+import { dirname, resolve } from "path";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 
-// export type SessionProperties = {
-//   id: string;
-//   userID: string;
-//   expirationDate: Date;
-//   creationIP?: string;
-//   token?: string;
-// };
+export type SessionProperties = {
+  id: string;
+  userID: string;
+  expirationDate: Date;
+  creationIP: string;
+  token?: string;
+  user?: User;
+};
 
-// /**
-//  * A Session represents a user's session in the Slashstep application.
-//  */
-// export default class Session {
+/**
+ * A Session represents a user's session in the Slashstep application.
+ */
+export default class Session {
 
-//   /** The ID of the session. */
-//   readonly id: SessionProperties["id"];
+  /** The ID of the session. */
+  readonly id: SessionProperties["id"];
 
-//   /** The user ID associated with this session, if applicable. */
-//   readonly userID: SessionProperties["userID"];
+  /** The user ID associated with this session. */
+  readonly userID: SessionProperties["userID"];
 
-//   /** The expiration date of the session, if applicable. */
-//   readonly expirationDate: SessionProperties["expirationDate"];
+  /** The expiration date of the session. */
+  readonly expirationDate: SessionProperties["expirationDate"];
 
-//   /** The IP address from which the session was created, if applicable. */
-//   readonly creationIP: SessionProperties["creationIP"];
+  /** The IP address from which the session was created. */
+  readonly creationIP: SessionProperties["creationIP"];
 
-//   /** The token associated with the session, if applicable. */
-//   readonly token: SessionProperties["token"];
+  /** The token associated with the session, if applicable. */
+  readonly token: SessionProperties["token"];
 
-//   /** Cached user associated with this session, if applicable. */
-//   #cachedUser?: User;
+  readonly user?: User;
 
-//   /** The client used to make requests. */
-//   readonly #client: Client;
+  readonly #pool: Pool;
 
-//   constructor(properties: SessionProperties, client: Client) {
+  constructor(properties: SessionProperties, pool: Pool) {
 
-//     this.id = properties.id;
-//     this.userID = properties.userID;
-//     this.expirationDate = properties.expirationDate;
-//     this.creationIP = properties.creationIP;
-//     this.token = properties.token;
-//     this.#client = client;
+    this.id = properties.id;
+    this.userID = properties.userID;
+    this.user = properties.user;
+    this.expirationDate = properties.expirationDate;
+    this.creationIP = properties.creationIP;
+    this.token = properties.token;
+    this.#pool = pool;
 
-//   }
+  }
 
-//   static async create(authenticationProperties: { username: string; password: string }, client: Client): Promise<Session> {
+  static async create(data: Omit<SessionProperties, "id" | "user">, pool: Pool): Promise<Session> {
+    
+    // Insert the session data into the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "Session", "queries", "insert-session-row.sql"), "utf8");
+    const values = [data.userID, data.expirationDate, data.creationIP];
+    const result = await poolClient.query(query, values);
+    poolClient.release();
 
-//     const sessionProperties = await client.fetch("/user/sessions", {
-//       method: "POST",
-//       body: JSON.stringify(authenticationProperties)
-//     });
+    // Convert the row to a session object.
+    const row = result.rows[0];
+    const session = new Session({
+      id: row.id,
+      userID: row.user_id,
+      expirationDate: row.expiration_date,
+      creationIP: row.creation_ip
+    }, pool);
 
-//     const session = new Session(sessionProperties, client);
+    // Return the session.
+    return session;
 
-//     return session;
+  }
 
-//   }
+  /**
+   * Requests the server for a specific session by ID.
+   * @param id The ID of the session to retrieve.
+   */
+  static async get(id: string, pool: Pool): Promise<Session> {
+    
+    // Get the session data from the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "Session", "queries", "get-session-row.sql"), "utf8");
+    const result = await poolClient.query(query, [id]);
+    poolClient.release();
 
-//   /**
-//    * Requests the server for a specific session by ID.
-//    * @param id The ID of the session to retrieve.
-//    */
-//   static async get(id: string, client: Client): Promise<Session> {
+    // Convert the session data into a Session object.
+    const row = result.rows[0];
+    if (!row) {
 
-//     const sessionData = await client.fetch(`/sessions/${id}`);
+      throw new ResourceNotFoundError("Session");
 
-//     return new Session(sessionData, client);
+    }
 
-//   }
+    const session = new Session({
+      id: row.id,
+      userID: row.user_id,
+      expirationDate: row.expiration_date,
+      creationIP: row.creation_ip
+    }, pool);
 
-//   /**
-//    * Requests the server for a specific user by token.
-//    * @param token The token of the user to retrieve.
-//    * @param client The client used to make requests.
-//    */
-//   static async getFromToken(token: string, client: Client): Promise<User> {
+    // Return the session.
+    return session;
 
-//     const userData = await client.fetch(`/sessions`, {
-//       body: JSON.stringify({ token }),
-//     });
+  }
 
-//     return new User(userData, client);
+  static async initializeTable(pool: Pool): Promise<void> {
 
-//   }
+    const poolClient = await pool.connect();
+    const createSessionsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Session", "queries", "create-sessions-table.sql"), "utf8");
+    const createHydratedSessionsViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "Session", "queries", "create-hydrated-sessions-view.sql"), "utf8");
+    await poolClient.query(createSessionsTableQuery);
+    await poolClient.query(createHydratedSessionsViewQuery);
+    poolClient.release();
 
-//   async delete(): Promise<void> {
+  }
 
-//     await this.#client.fetch(`/sessions/${this.id}`, {
-//       method: "DELETE"
-//     });
+  async delete(): Promise<void> {
 
-//   }
+    const poolClient = await this.#pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "Session", "queries", "delete-session-row.sql"), "utf8");
+    await poolClient.query(query, [this.id]);
+    poolClient.release();
 
-//   async getUser(shouldRefreshCache = false): Promise<User> {
+  }
 
-//     if (!this.userID) {
-
-//       throw new Error("Cannot get user from session without a user ID.");
-
-//     }
-
-//     if (!this.#cachedUser || shouldRefreshCache) {
-
-//       this.#cachedUser = await User.getFromID(this.userID, this.#client);
-
-//     }
-
-//     return this.#cachedUser;
-
-//   }
-
-// }
+}

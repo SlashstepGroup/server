@@ -1,94 +1,153 @@
-// import Client from "#utilities/Client.js";
+import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
+import { Pool } from "pg";
+import { readFileSync } from "fs";
+import { dirname, resolve } from "path";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import Session from "#resources/Session/Session.js";
 
-// export type UserProperties = {
-//   id: string;
-//   username: string;
-// };
+export type UserProperties = {
+  id: string;
+  username: string;
+  displayName: string;
+};
 
-// export default class User {
+export default class User {
   
-//   /** The user's ID. */
-//   readonly id: UserProperties["id"];
+  /** The user's ID. */
+  readonly id: UserProperties["id"];
 
-//   /** The user's username. */
-//   readonly username: UserProperties["username"];
+  /** The user's username. */
+  readonly username: UserProperties["username"];
 
-//   /** The client used to make requests. */
-//   readonly #client: Client;
+  readonly displayName: UserProperties["displayName"];
 
-//   constructor(data: UserProperties, client: Client) {
+  /** The client used to make requests. */
+  readonly #pool: Pool;
 
-//     this.id = data.id;
-//     this.username = data.username;
-//     this.#client = client;
+  readonly #session?: Session;
 
-//   }
+  constructor(data: UserProperties, pool: Pool, session?: Session) {
 
-//   /**
-//    * Requests the server to create a new user.
-//    *
-//    * @param data The data for the new user, excluding the ID.
-//    */
-//   static async create(data: Omit<UserProperties, "id">, client: Client): Promise<User> {
+    this.id = data.id;
+    this.username = data.username;
+    this.displayName = data.displayName;
+    this.#pool = pool;
+    this.#session = session;
 
-//     const userProperties = await client.fetch("/users", {
-//       method: "POST",
-//       body: JSON.stringify(data)
-//     });
+  }
 
-//     const user = new User(userProperties, client);
+  /**
+   * Requests the server to create a new user.
+   *
+   * @param data The data for the new user, excluding the ID.
+   */
+  static async create(data: Omit<UserProperties, "id">, pool: Pool): Promise<User> {
 
-//     return user;
+    // Insert the user data into the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "insert-user-row.sql"), "utf8");
+    const values = [data.username, data.displayName];
+    const result = await poolClient.query(query, values);
+    poolClient.release();
 
-//   }
+    // Convert the row to a user object.
+    const row = result.rows[0];
+    const user = new User({
+      id: row.id,
+      username: row.username,
+      displayName: row.display_name
+    }, pool);
 
-//   /**
-//    * Requests the server for a specific user by ID.
-//    *
-//    * @param id The ID of the user to retrieve.
-//    */
-//   static async getFromID(id: string, client: Client): Promise<User> {
+    // Return the user.
+    return user;
 
-//     const userData = await client.fetch(`/users/${id}`);
+  }
 
-//     return new User(userData, client);
+  /**
+   * Requests the server for a specific user by ID.
+   *
+   * @param id The ID of the user to retrieve.
+   */
+  static async getFromID(id: string, pool: Pool): Promise<User> {
 
-//   }
+    // Get the user data from the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "get-user-row-by-id.sql"), "utf8");
+    const result = await poolClient.query(query, [id]);
+    poolClient.release();
 
-//   /**
-//    * Requests the server for a specific user by username.
-//    * @param username The username of the user to retrieve.
-//    * @param client The client used to make requests.
-//    */
-//   static async getFromUsername(username: string, client: Client): Promise<User> {
+    // Convert the user data into a User object.
+    const row = result.rows[0];
 
-//     const userData = await client.fetch(`/users?username=${username}`);
+    if (!row) {
 
-//     return new User(userData, client);
+      throw new ResourceNotFoundError("User");
 
-//   }
+    }
 
-//   /**
-//    * Requests the server to delete this user.
-//    */
-//   async delete(): Promise<void> {
+    const user = new User({
+      id: row.id,
+      username: row.username,
+      displayName: row.display_name
+    }, pool);
 
-//     await this.#client.fetch(`/users/${this.id}`, {
-//       method: "DELETE"
-//     });
+    // Return the user.
+    return user;
 
-//   }
+  }
 
-//   /**
-//    * Requests the server to update this user.
-//    */
-//   async update(data: Partial<UserProperties>): Promise<void> {
+  /**
+   * Requests the server for a specific user by username.
+   * @param username The username of the user to retrieve.
+   * @param client The client used to make requests.
+   */
+  static async getFromUsername(username: string, pool: Pool): Promise<User> {
 
-//     await this.#client.fetch(`/users/${this.id}`, {
-//       method: "PATCH",
-//       body: JSON.stringify(data)
-//     });
+    // Get the user data from the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "get-user-row-by-username.sql"), "utf8");
+    const result = await poolClient.query(query, [username]);
+    poolClient.release();
 
-//   }
+    // Convert the user data into a User object.
+    const row = result.rows[0];
 
-// }
+    if (!row) {
+
+      throw new ResourceNotFoundError("User");
+
+    }
+
+    const user = new User({
+      id: row.id,
+      username: row.username,
+      displayName: row.display_name
+    }, pool);
+
+    // Return the user.
+    return user;
+
+  }
+
+  static async initializeTable(pool: Pool): Promise<void> {
+
+    const poolClient = await pool.connect();
+    const createUsersTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "create-users-table.sql"), "utf8");
+    await poolClient.query(createUsersTableQuery);
+    poolClient.release();
+
+  }
+
+  /**
+   * Requests the server to delete this user.
+   */
+  async delete(): Promise<void> {
+
+    const poolClient = await this.#pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "delete-user-row.sql"), "utf8");
+    await poolClient.query(query, [this.id]);
+    poolClient.release();
+
+  }
+
+}

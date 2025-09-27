@@ -1,0 +1,1 @@
+insert into access_policies (user_id, scope_type, workspace_id, project_id, item_id, action_id, permission_level, inheritance_level) values ($1, $2, $3, $4, $5, $6, $7, $8) returning *;

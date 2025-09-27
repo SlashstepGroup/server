@@ -1,0 +1,1 @@
+select * from action_logs where id = $1;

@@ -4,13 +4,16 @@ import Workspace from "#resources/Workspace/Workspace.js";
 import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
+import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
+import Action from "#resources/Action/Action.js";
+import User from "#resources/User/User.js";
+import App from "#resources/App/App.js";
+import ActionLog from "#resources/ActionLog/ActionLog.js";
+import Session from "#resources/Session/Session.js";
 
 export default class Server {
 
-  constructor() {
-
-
-  }
+  constructor() {}
 
   static async initializeResourceTables(pool: Pool): Promise<void> {
 
@@ -20,9 +23,16 @@ export default class Server {
     await poolClient.query(createProjectsTableQuery);
     await poolClient.query(createUUIDv7FunctionsQuery);
     poolClient.release();
+
     await Workspace.initializeTable(pool);
     await Project.initializeTable(pool);
     await Item.initializeTable(pool);
+    await User.initializeTable(pool);
+    await App.initializeTable(pool);
+    await Action.initializeTable(pool);
+    await AccessPolicy.initializeTable(pool);
+    await ActionLog.initializeTable(pool);
+    await Session.initializeTable(pool);
 
   }
 

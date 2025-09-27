@@ -113,7 +113,8 @@ export default class Item {
     // Get the list from the database.
     const poolClient = await pool.connect();
     const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_items_view", filterQuery, defaultLimit: 1000});
-    const result = await poolClient.query(`set search_path to app; select * from hydrated_items_view${whereClause ? ` where ${whereClause}` : ""}`, values);
+    await poolClient.query("set search_path to app");
+    const result = await poolClient.query(`select * from hydrated_items_view${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
 
     // Convert the list of rows to AccessPolicy objects.

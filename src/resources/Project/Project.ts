@@ -53,6 +53,7 @@ export default class Project extends Collection {
     const insertProjectRowQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "insert-project-row.sql"), "utf8");
     const values = [data.name, data.displayName, data.key, data.description, data.startDate, data.endDate, data.workspaceID];
     const result = await poolClient.query(insertProjectRowQuery, values);
+    await poolClient.query("set search_path to app");
     await poolClient.query(`select create_project_sequence($1);`, [result.rows[0].id]);
     poolClient.release();
 
@@ -90,7 +91,8 @@ export default class Project extends Collection {
     // Get the list from the database.
     const poolClient = await pool.connect();
     const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_projects_view", filterQuery, defaultLimit: 1000});
-    const result = await poolClient.query(`set search_path to app; select * from projects${whereClause ? ` where ${whereClause}` : ""}`, values);
+    await poolClient.query(`set search_path to app`);
+    const result = await poolClient.query(`select * from projects${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
 
     // Convert the list of rows to AccessPolicy objects.
@@ -113,7 +115,8 @@ export default class Project extends Collection {
 
       // Get the list from the database.
       const poolClient = await pool.connect();
-      const result = await poolClient.query("set search_path to app; select * from hydrated_projects_view where id = $1", [id]);
+    await poolClient.query("set search_path to app");
+      const result = await poolClient.query("select * from hydrated_projects_view where id = $1", [id]);
       poolClient.release();
 
       if (result.rows.length === 0) {
@@ -161,6 +164,7 @@ export default class Project extends Collection {
   async delete(): Promise<void> {
 
     const poolClient = await this.#pool.connect();
+    await poolClient.query("set search_path to app");
     await poolClient.query("delete from projects where id = $1", [this.id]);
     poolClient.release();
 

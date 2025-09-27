@@ -1,5 +1,3 @@
-set search_path to app;
-
 create table if not exists projects (
   id UUID default uuidv7() primary key,
   name text not null,

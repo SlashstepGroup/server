@@ -1,5 +1,3 @@
-set search_path to app;
-
 insert into projects (
   name, 
   display_name, 

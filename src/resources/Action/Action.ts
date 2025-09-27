@@ -1,132 +1,177 @@
-// import Client from "../../utilities/Client.js";
+import { Pool } from "pg";
+import { readFileSync } from "fs";
+import { dirname, resolve } from "path";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
+import User from "#resources/User/User.js";
 
-// export type ActionProperties = {
-//   id: string;
-//   name: string;
-//   appID?: string;
-//   displayName: string;
-//   description: string;
-// }
+export type ActionProperties = {
+  id: string;
+  name: string;
+  appID?: string;
+  displayName: string;
+  description: string;
+}
 
-// /**
-//  * An Action is a type of process that is performed by an actor.
-//  */
-// export default class Action {
+/**
+ * An Action is a type of process that is performed by an actor.
+ */
+export default class Action {
 
-//   /** The action's ID. */
-//   readonly id: ActionProperties["id"];
+  /** The action's ID. */
+  readonly id: ActionProperties["id"];
 
-//   /** The action's name. */
-//   readonly name: ActionProperties["name"];
+  /** The action's name. */
+  readonly name: ActionProperties["name"];
 
-//   /** The action's display name. */
-//   readonly displayName: ActionProperties["displayName"];
+  /** The action's display name. */
+  readonly displayName: ActionProperties["displayName"];
 
-//   /** The action's description. */
-//   readonly description: ActionProperties["description"];
+  /** The action's description. */
+  readonly description: ActionProperties["description"];
 
-//   /** The action's application ID. If there isn't one, then the action is directly associated with the instance. */
-//   readonly appID: ActionProperties["appID"];
+  /** The action's application ID. If there isn't one, then the action is directly associated with the instance. */
+  readonly appID: ActionProperties["appID"];
 
-//   /** The client used to make requests. */
-//   readonly #client: Client;
+  /** The client used to make requests. */
+  readonly #pool: Pool;
 
-//   constructor(data: ActionProperties, client: Client) {
+  constructor(data: ActionProperties, pool: Pool) {
 
-//     this.id = data.id;
-//     this.name = data.name;
-//     this.displayName = data.displayName;
-//     this.description = data.description;
-//     this.appID = data.appID;
-//     this.#client = client;
+    this.id = data.id;
+    this.name = data.name;
+    this.displayName = data.displayName;
+    this.description = data.description;
+    this.appID = data.appID;
+    this.#pool = pool;
 
-//   }
+  }
 
-//   /**
-//    * Requests the server to create a new action.
-//    * 
-//    * @param data The data for the new Action, excluding the ID.
-//    */
-//   static async create(data: Omit<ActionProperties, "id">, client: Client): Promise<Action> {
+  /**
+   * Requests the server to create a new action.
+   * 
+   * @param data The data for the new Action, excluding the ID.
+   */
+  static async create(data: Omit<ActionProperties, "id">, pool: Pool): Promise<Action> {
 
-//     const actionProperties = await client.fetch("/actions", {
-//       method: "POST",
-//       body: JSON.stringify(data)
-//     });
+    // Insert the access policy into the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "Action", "queries", "insert-action-row.sql"), "utf8");
+    const values = [data.name, data.displayName, data.description, data.appID];
+    const result = await poolClient.query(query, values);
+    poolClient.release();
 
-//     const action = new Action(actionProperties, client);
+    // Convert the row to an Action object.
+    const accessPolicy = new Action(result.rows[0], pool);
 
-//     return action;
+    // Return the access policy.
+    return accessPolicy;
 
-//   }
+  }
 
-//   /**
-//    * Requests the server to return a specific action by ID.
-//    * @param id The ID of the action to retrieve.
-//    * @param client The client used to make requests.
-//    * @returns The requested action.
-//    */
-//   static async get(id: string, client: Client): Promise<Action> {
+  static async initializeTable(pool: Pool): Promise<void> {
 
-//     const actionProperties = await client.fetch(`/actions/${id}`);
+    const poolClient = await pool.connect();
+    const createActionsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Action", "queries", "create-actions-table.sql"), "utf8");
+    const createHydratedActionsViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "Action", "queries", "create-hydrated-actions-view.sql"), "utf8");
+    const insertDefaultActionsQuery = readFileSync(resolve(dirname(import.meta.dirname), "Action", "queries", "insert-default-actions.sql"), "utf8");
+    await poolClient.query(createActionsTableQuery);
+    await poolClient.query(insertDefaultActionsQuery);
+    await poolClient.query(createHydratedActionsViewQuery);
+    poolClient.release();
 
-//     return new Action(actionProperties, client);
+  }
 
-//   }
+  /**
+   * Requests the server to return a specific action by ID.
+   * @param id The ID of the action to retrieve.
+   * @returns The requested action.
+   */
+  static async getByID(id: string, pool: Pool): Promise<Action> {
 
-//   /** 
-//    * Requests the server to return a list of actions.
-//    * 
-//    * @param filterQuery A SlashstepQL filter to apply to the list of actions.
-//    */
-//   static async list(filterQuery: string, client: Client): Promise<Action[]> {
+    // Get the action data from the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "Action", "queries", "get-action-row-by-id.sql"), "utf8");
+    const result = await poolClient.query(query, [id]);
+    poolClient.release();
 
-//     const actionPropertiesList = await client.fetch(`/actions?filter-query=${filterQuery}`);
+    // Make sure the action data exists.
+    const data = result.rows[0];
 
-//     if (!(actionPropertiesList instanceof Array)) {
+    if (!data) {
 
-//       throw new Error(`Expected an array of actions, but received ${typeof actionPropertiesList}`);
+      throw new ResourceNotFoundError("Action");
 
-//     }
+    }
 
-//     const actions = actionPropertiesList.map((actionProperties) => new Action(actionProperties, client));
+    // Return the action.
+    const action = new Action(data, pool);
+    return action;
 
-//     return actions;
+  }
 
-//   }
+  /**
+   * Requests the server to return a specific action by ID.
+   * @param id The ID of the action to retrieve.
+   * @returns The requested action.
+   */
+  static async getByName(name: string, pool: Pool): Promise<Action> {
 
-//   /**
-//    * Requests the server to delete this action.
-//    * 
-//    * This method only works for app accounts.
-//    */
-//   async delete(): Promise<void> {
+    // Get the action data from the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "Action", "queries", "get-action-row-by-name.sql"), "utf8");
+    const result = await poolClient.query(query, [name]);
+    poolClient.release();
 
-//     await this.#client.fetch(`/actions/${this.id}`, {
-//       method: "DELETE",
-//       headers: {
-//         "Content-Type": "application/json",
-//       },
-//     });
+    // Make sure the action data exists.
+    const data = result.rows[0];
 
-//   }
+    if (!data) {
 
-//   /**
-//    * Requests the server to update this action.
-//    * 
-//    * This method only works for app accounts.
-//    * 
-//    * @param data The data to update the Action with.
-//    */
-//   async update(data: Partial<ActionProperties>): Promise<Action> {
+      throw new ResourceNotFoundError("Action");
 
-//     const editedActionData = await this.#client.fetch(`/actions/${this.id}`, {
-//       method: "PATCH",
-//       body: JSON.stringify(data)
-//     });
+    }
 
-//     return new Action(editedActionData, this.#client);
+    // Return the action.
+    const action = new Action(data, pool);
+    return action;
 
-//   }
+  }
 
-// }
+  /** 
+   * Requests the server to return a list of actions.
+   * 
+   * @param filterQuery A SlashstepQL filter to apply to the list of actions.
+   */
+  static async list(filterQuery: string, pool: Pool): Promise<Action[]> {
+
+    // Get the list from the database.
+    const poolClient = await pool.connect();
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_actions", filterQuery, defaultLimit: 1000});
+    await poolClient.query(`set search_path to app`);
+    const result = await poolClient.query(`select * from hydrated_actions${whereClause ? ` where ${whereClause}` : ""}`, values);
+    poolClient.release();
+
+    // Convert the list of rows to AccessPolicy objects.
+    const items = result.rows.map(row => new Action(row, pool));
+
+    // Return the list.
+    return items;
+
+  }
+
+  /**
+   * Requests the server to delete this action.
+   * 
+   * This method only works for app accounts.
+   */
+  async delete(): Promise<void> {
+
+    const query = readFileSync(resolve(dirname(import.meta.dirname), "Action", "queries", "delete-action-row.sql"), "utf8");
+    const poolClient = await this.#pool.connect();
+    await poolClient.query(query, [this.id]);
+    poolClient.release();
+
+  }
+
+}
