@@ -1,1 +1,1 @@
-insert into users (username, display_name) values ($1, $2) returning *;
+insert into users (username, display_name, hashed_password) values ($1, $2, $3) returning *;

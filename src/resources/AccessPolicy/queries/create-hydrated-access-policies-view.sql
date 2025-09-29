@@ -11,15 +11,15 @@ create view hydrated_access_policies as
     apps.description as app_description
   from 
     access_policies
-  inner join 
+  left join 
     actions on actions.id = access_policies.action_id
-  inner join
+  left join
     apps on apps.id = actions.app_id
-  inner join 
+  left join 
     users on users.id = access_policies.user_id
-  inner join 
+  left join 
     workspaces on workspaces.id = access_policies.workspace_id
-  inner join 
+  left join 
     projects on projects.id = access_policies.project_id
-  inner join 
+  left join 
     items on items.id = access_policies.item_id;

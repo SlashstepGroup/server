@@ -1,11 +1,19 @@
 import Item, { ItemIncludedResourcesConstructorMap } from "#resources/Item/Item.js";
-import { Router } from "express";
+import { Response, Router } from "express";
 import HTTPError from "#errors/HTTPError.js";
 import Workspace from "#resources/Workspace/Workspace.js";
 import { DatabaseError } from "pg";
+import { ResponseLocals } from "#utilities/types.js";
+import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
+import authenticateUser from "#utilities/hooks/authenticateUser.js";
+import verifyUserPermissions from "#utilities/verifyUserPermissions.js";
+import Action from "#resources/Action/Action.js";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 
-const createWorkspaceRouter = Router({mergeParams: true})
-createWorkspaceRouter.post("/", async (request, response) => {
+const createWorkspaceRouter = Router({mergeParams: true});
+createWorkspaceRouter.use(allowUnauthenticatedRequests);
+createWorkspaceRouter.use(authenticateUser);
+createWorkspaceRouter.post("/", async (request, response: Response<unknown, ResponseLocals>) => {
 
   try {
 
@@ -30,11 +38,36 @@ createWorkspaceRouter.post("/", async (request, response) => {
     verifyString(displayName, "displayName");
     verifyString(description, "description");
 
-    const { pool } = response.locals;
+    const { server, authenticatedUser } = response.locals;
+
+    let action: Action;
 
     try {
 
-      const workspace = await Workspace.create(request.body, pool);
+      action = await Action.getByName("slashstep.workspaces.create", server.pool);
+
+    } catch (error) {
+
+      if (error instanceof ResourceNotFoundError) {
+
+        throw new Error("The slashstep.workspaces.create action does not exist. You may need to set up the default actions again.");
+
+      }
+
+      throw error;
+
+    }
+
+    await verifyUserPermissions({
+      actionID: action.id,
+      pool: server.pool,
+      scope: {},
+      userID: authenticatedUser?.id
+    });
+
+    try {
+
+      const workspace = await Workspace.create(request.body, server.pool);
       
       response.json(workspace);
 
@@ -50,6 +83,7 @@ createWorkspaceRouter.post("/", async (request, response) => {
 
     }
 
+
   } catch (error) {
 
     if (error instanceof HTTPError) {
@@ -61,7 +95,7 @@ createWorkspaceRouter.post("/", async (request, response) => {
       console.error(error);
 
       response.status(500).json({
-        message: "Internal server error. Please try again later."
+        message: "Something bad happened on our side. Please try again later."
       });
 
     }

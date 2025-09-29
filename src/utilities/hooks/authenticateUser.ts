@@ -2,15 +2,16 @@ import { NextFunction, Request, Response } from "express";
 import User from "#resources/User/User.js";
 import jsonwebtoken from "jsonwebtoken";
 import { readFileSync } from "fs";
-import { Pool } from "pg";
 import Session from "#resources/Session/Session.js";
+import Server from "#utilities/Server/Server.js";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 
-async function authenticateUser(request: Request, response: Response<unknown, { pool: Pool, authenticatedUser?: User }>, next: NextFunction) {
+async function authenticateUser(request: Request, response: Response<unknown, { server: Server, authenticatedUser?: User, areUnauthenticatedRequestsAllowed?: boolean }>, next: NextFunction) {
 
   try {
-
-    const { pool } = response.locals;
-    const { token: cookieToken } = request.cookies;
+  
+    const { server } = response.locals;
+    const { sessionToken: cookieToken } = request.cookies ?? {};
     const { authorization } = request.headers;
     const token = cookieToken ?? authorization?.match(/^Bearer (\S+)$/)?.[1];
 
@@ -20,7 +21,7 @@ async function authenticateUser(request: Request, response: Response<unknown, { 
       if (payload && typeof(payload) === "object" && payload.sub && payload.jti) {
 
         const sessionID = payload.jti;
-        const session = await Session.get(sessionID, pool);
+        const session = await Session.get(sessionID, server.pool);
 
         const { APP_JWT_PUBLIC_KEY_PATH } = process.env;
         if (!APP_JWT_PUBLIC_KEY_PATH) {
@@ -29,18 +30,20 @@ async function authenticateUser(request: Request, response: Response<unknown, { 
         
         }
 
-        jsonwebtoken.verify(token, readFileSync(APP_JWT_PUBLIC_KEY_PATH));
+        jsonwebtoken.verify(token, readFileSync(APP_JWT_PUBLIC_KEY_PATH), {
+          algorithms: ["RS256"]
+        });
 
         if (session) {
 
           // Save account data.
           const userID = payload.sub;
-          const user = await User.getFromID(userID, pool);
-          const userWithSession = new User(user, pool, session);
+          const user = await User.getFromID(userID, server.pool);
+          const userWithSession = new User({
+            ...user,
+            hashedPassword: user.getHashedPassword()
+          }, server.pool, session);
           response.locals.authenticatedUser = userWithSession;
-
-          next();
-          return;
 
         }
         
@@ -48,13 +51,20 @@ async function authenticateUser(request: Request, response: Response<unknown, { 
 
     }
 
-    response.status(401).json({
-      message: "Provide a valid authentication token."
-    });
+    if (!response.locals.areUnauthenticatedRequestsAllowed && !response.locals.authenticatedUser) {
+
+      response.status(401).json({
+        message: "Provide a valid authentication token."
+      });
+
+    }
+
+    next();
+    return;
 
   } catch (error: unknown) {
 
-    if (error instanceof jsonwebtoken.JsonWebTokenError) {
+    if (error instanceof jsonwebtoken.JsonWebTokenError || error instanceof ResourceNotFoundError) {
 
       response.status(401).json({
         message: "Provide a valid authentication token."

@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express";
 import HTTPError from "#errors/HTTPError.js";
 import Project from "#resources/Project/Project.js";
-import { DatabaseError, Pool } from "pg";
+import { DatabaseError } from "pg";
 import Item from "#resources/Item/Item.js";
 import Workspace from "#resources/Workspace/Workspace.js";
 import authenticateUser from "#utilities/hooks/authenticateUser.js";
@@ -11,11 +11,15 @@ import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPoli
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
 import ActionLog from "#resources/ActionLog/ActionLog.js";
+import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
+import Server from "#utilities/Server/Server.js";
+import verifyUserPermissions from "#utilities/verifyUserPermissions.js";
 
 const createProjectItemRouter = Router({mergeParams: true});
 
+createProjectItemRouter.use(allowUnauthenticatedRequests);
 createProjectItemRouter.use(authenticateUser);
-createProjectItemRouter.post("/", async (request: Request<{ projectID: string }>, response: Response<unknown, { pool: Pool, user: User }>) => {
+createProjectItemRouter.post("/", async (request: Request<{ projectID: string }>, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
 
   try {
 
@@ -48,35 +52,20 @@ createProjectItemRouter.post("/", async (request: Request<{ projectID: string }>
 
     // Make sure the user has permission to create an item in the project.
     const { projectID } = request.params;
-    const { pool, user } = response.locals;
+    const { server, authenticatedUser } = response.locals;
     const { include } = request.query;
-    const project = await Project.getByID(projectID, pool, {
+    const project = await Project.getByID(projectID, server.pool, {
       Workspace: include === "project.workspace" || (include instanceof Array && include?.includes("project.workspace")) ? Workspace : undefined
     });
 
-    const action = await Action.getByName("slashstep.items.create", pool);
+    const action = await Action.getByName("slashstep.items.create", server.pool);
 
-    try {
-
-      const deepestAccessPolicy = await AccessPolicy.getByDeepestScope(action.id, pool, {projectID: project.id, workspaceID: project.workspaceID}, user.id);
-
-      if (deepestAccessPolicy.permissionLevel < AccessPolicyPermissionLevel.User) {
-
-        throw new PermissionDeniedError();
-
-      }
-
-    } catch (error) {
-
-      if (error instanceof ResourceNotFoundError) {
-
-        throw new PermissionDeniedError();
-
-      }
-
-      throw error;
-
-    }
+    await verifyUserPermissions({
+      actionID: action.id,
+      pool: server.pool,
+      scope: {projectID: project.id, workspaceID: project.workspaceID},
+      userID: authenticatedUser?.id
+    });
 
     try {
 
@@ -86,15 +75,15 @@ createProjectItemRouter.post("/", async (request: Request<{ projectID: string }>
         description,
         projectID: project.id,
         project: include === "project" || (include instanceof Array && include?.includes("project")) ? project : undefined
-      }, pool);
+      }, server.pool);
 
       // Log the action.
       await ActionLog.create({
         actionID: action.id,
-        actorID: user.id,
+        actorID: authenticatedUser?.id,
         actorIPAddress: request.ip,
         targetItemID: item.id
-      }, pool);
+      }, server.pool);
       
       response.json(item);
 
@@ -122,7 +111,7 @@ createProjectItemRouter.post("/", async (request: Request<{ projectID: string }>
       console.error(error);
 
       response.status(500).json({
-        message: "Internal server error. Please try again later."
+        message: "Something bad happened on our side. Please try again later."
       });
 
     }

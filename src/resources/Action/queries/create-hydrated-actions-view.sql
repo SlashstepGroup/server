@@ -8,5 +8,5 @@ create view hydrated_actions as
     apps.description as app_description
   from
     actions
-  inner join
+  left join
     apps on apps.id = actions.app_id;

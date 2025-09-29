@@ -5,10 +5,9 @@ import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 
 export type ActionLogProperties = {
   id: string;
-  actorID: string;
+  actorID?: string;
   actionID: string;
   actorIPAddress?: string;
-  delegateID?: string;
   targetItemID?: string;
   targetProjectID?: string;
   targetWorkspaceID?: string;
@@ -30,9 +29,6 @@ export default class ActionLog {
 
   /** The action log's actor IP address, if applicable. */
   readonly actorIPAddress: ActionLogProperties["actorIPAddress"];
-
-  /** The action log's delegate ID, if applicable. */
-  readonly delegateID: ActionLogProperties["delegateID"];
 
   /** The action log's target item ID, if applicable. */
   readonly targetItemID: ActionLogProperties["targetItemID"];
@@ -61,7 +57,6 @@ export default class ActionLog {
     this.actionID = data.actionID;
     this.actorID = data.actorID;
     this.actorIPAddress = data.actorIPAddress;
-    this.delegateID = data.delegateID;
     this.targetItemID = data.targetItemID;
     this.targetProjectID = data.targetProjectID;
     this.targetWorkspaceID = data.targetWorkspaceID;
@@ -82,7 +77,7 @@ export default class ActionLog {
     // Insert the action log data into the database.
     const poolClient = await pool.connect();
     const query = readFileSync(resolve(dirname(import.meta.dirname), "ActionLog", "queries", "insert-action-log-row.sql"), "utf8");
-    const values = [data.actionID, data.actorID, data.actorIPAddress, data.delegateID, data.targetItemID, data.targetProjectID, data.targetWorkspaceID, data.targetAccessPolicyID, data.targetUserID, data.reason];
+    const values = [data.actionID, data.actorID, data.actorIPAddress, data.targetItemID, data.targetProjectID, data.targetWorkspaceID, data.targetAccessPolicyID, data.targetUserID, data.reason];
     const result = await poolClient.query(query, values);
     poolClient.release();
 
@@ -93,7 +88,6 @@ export default class ActionLog {
       actionID: row.action_id,
       actorID: row.actor_id,
       actorIPAddress: row.actor_ip_address,
-      delegateID: row.delegate_id,
       targetItemID: row.target_item_id,
       targetProjectID: row.target_project_id,
       targetWorkspaceID: row.target_workspace_id,
@@ -134,7 +128,6 @@ export default class ActionLog {
       actionID: row.action_id,
       actorID: row.actor_id,
       actorIPAddress: row.actor_ip_address,
-      delegateID: row.delegate_id,
       targetItemID: row.target_item_id,
       targetProjectID: row.target_project_id,
       targetWorkspaceID: row.target_workspace_id,

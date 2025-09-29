@@ -9,6 +9,7 @@ export type UserProperties = {
   id: string;
   username: string;
   displayName: string;
+  hashedPassword: string;
 };
 
 export default class User {
@@ -26,11 +27,14 @@ export default class User {
 
   readonly #session?: Session;
 
+  readonly #hashedPassword: string;
+
   constructor(data: UserProperties, pool: Pool, session?: Session) {
 
     this.id = data.id;
     this.username = data.username;
     this.displayName = data.displayName;
+    this.#hashedPassword = data.hashedPassword;
     this.#pool = pool;
     this.#session = session;
 
@@ -46,7 +50,7 @@ export default class User {
     // Insert the user data into the database.
     const poolClient = await pool.connect();
     const query = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "insert-user-row.sql"), "utf8");
-    const values = [data.username, data.displayName];
+    const values = [data.username, data.displayName, data.hashedPassword];
     const result = await poolClient.query(query, values);
     poolClient.release();
 
@@ -55,7 +59,8 @@ export default class User {
     const user = new User({
       id: row.id,
       username: row.username,
-      displayName: row.display_name
+      displayName: row.display_name,
+      hashedPassword: row.hashed_password
     }, pool);
 
     // Return the user.
@@ -88,7 +93,8 @@ export default class User {
     const user = new User({
       id: row.id,
       username: row.username,
-      displayName: row.display_name
+      displayName: row.display_name,
+      hashedPassword: row.hashed_password
     }, pool);
 
     // Return the user.
@@ -121,7 +127,8 @@ export default class User {
     const user = new User({
       id: row.id,
       username: row.username,
-      displayName: row.display_name
+      displayName: row.display_name,
+      hashedPassword: row.hashed_password
     }, pool);
 
     // Return the user.
@@ -147,6 +154,12 @@ export default class User {
     const query = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "delete-user-row.sql"), "utf8");
     await poolClient.query(query, [this.id]);
     poolClient.release();
+
+  }
+
+  getHashedPassword(): string {
+
+    return this.#hashedPassword;
 
   }
 

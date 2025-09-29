@@ -81,7 +81,7 @@ getItemsRouter.get("/", async (request, response) => {
       console.error(error);
 
       response.status(500).json({
-        message: "Internal server error. Please try again later."
+        message: "Something bad happened on our side. Please try again later."
       });
 
     }

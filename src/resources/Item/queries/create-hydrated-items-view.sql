@@ -1,6 +1,6 @@
-drop view if exists hydrated_items_view;
+drop view if exists hydrated_items;
 
-create view hydrated_items_view as 
+create view hydrated_items as 
   select 
     items.*,
     projects.name as project_name,

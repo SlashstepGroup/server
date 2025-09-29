@@ -35,7 +35,7 @@ export default class SlashstepQLFilterSanitizer {
 
       // Find the next search match.
       // Append the match to the actual filter query and remove it from the requested filter query.
-      const searchRegex = /^((?<openParenthesis>\()|(?<closedParenthesis>\))|(?<and>and)|(?<or>or)|(?<not>not)|(?<assignment>(?<key>\w+) *(?<operator>~|~\*|!~|!~\*|=|>|<|>=|<=) *(("(?<stringDoubleQuotes>[^"\\]*(?:\\.[^"\\]*)*)")|(('(?<stringSingleQuotes>[^'\\]*(?:\\.[^'\\]*)*)'))|(?<number>(\d+\.?\d*|(\.\d+)))|(?<boolean>(true|false))))|(limit ((?<limit>\d+)))|(offset ((?<offset>\d+))))/gmi;
+      const searchRegex = /^((?<openParenthesis>\()|(?<closedParenthesis>\))|(?<and>and)|(?<or>or)|(?<not>not)|(?<assignment>(?<key>\w+) *(?<operator>is|~|~\*|!~|!~\*|=|>|<|>=|<=) *(("(?<stringDoubleQuotes>[^"\\]*(?:\\.[^"\\]*)*)")|(('(?<stringSingleQuotes>[^'\\]*(?:\\.[^'\\]*)*)'))|(?<number>(\d+\.?\d*|(\.\d+)))|(?<boolean>(true|false))|(?<null>null)))|(limit ((?<limit>\d+)))|(offset ((?<offset>\d+))))/gmi;
       const match = searchRegex.exec(filterQuery);
 
       if (match === null || !match.groups) {
@@ -70,8 +70,10 @@ export default class SlashstepQLFilterSanitizer {
 
         // Ensure the key is valid. Very important to prevent SQL injection.
         const allowedKeys: Record<string, string[]> = {
-          camelcase_access_policies_view: ["principalType", "principalID", "scopeType", "scopeID", "actionID", "permissionLevel"],
-          hydrated_items_view: ["id", "summary", "description", "projectID"]
+          hydrated_items: ["id", "summary", "description", "project_id"],
+          hydrated_access_policies: ["id", "user_id", "scope_type", "workspace_id", "project_id", "item_id", "action_id", "permission_level", "inheritance_level"],
+          hydrated_actions: ["id", "name", "display_name", "description"],
+          hydrated_apps: ["id", "name", "display_name", "description"],
         };
         const key = match.groups.key;
 
@@ -84,9 +86,15 @@ export default class SlashstepQLFilterSanitizer {
         const numberValue = match.groups.number !== undefined ? parseFloat(match.groups.number) : undefined;
         const { operator } = match.groups;
         const booleanValue = match.groups.boolean !== undefined ? match.groups.boolean === "true" : undefined;
-        const value = stringValue ?? numberValue ?? booleanValue;
-        whereClause += ` ${escapeIdentifier(key)} ${operator} $${values.length + 1}`;
-        values.push(value);
+        const nullValue = match.groups.null !== undefined ? null : undefined;
+        const value = stringValue ?? numberValue ?? booleanValue ?? nullValue;
+        whereClause += ` ${escapeIdentifier(key)} ${operator} ${value === null ? "null" : `$${values.length + 1}`}`;
+        
+        if (value !== null) {
+
+          values.push(value);
+
+        }
 
       } else if (match.groups.limit) {
 
@@ -126,7 +134,7 @@ export default class SlashstepQLFilterSanitizer {
       }
 
       // Remove the matched part of the filter query.
-      filterQuery = filterQuery.slice(match[0].length + 1);
+      filterQuery = filterQuery.slice(match[0].length);
 
     }
 

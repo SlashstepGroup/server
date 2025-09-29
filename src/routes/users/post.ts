@@ -6,16 +6,19 @@ import ActionLog from "#resources/ActionLog/ActionLog.js";
 import Action from "#resources/Action/Action.js";
 import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import { hash as hashPassword } from "argon2";
+import Server from "#utilities/Server/Server.js";
 
 const createUserRouter = Router({mergeParams: true})
-createUserRouter.post("/", async (request, response: Response<unknown, { pool: Pool, authenticatedUser?: User }>) => {
+createUserRouter.post("/", async (request, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
 
   try {
 
-    const { username, displayName } = request.body ?? {};
-    if (!username || !displayName) {
+    const { username, displayName, password } = request.body ?? {};
+    if (!username || !displayName || !password) {
 
-      throw new HTTPError(400, "Username and display name must be provided.");
+      throw new HTTPError(400, "Username, display name, and password must be provided.");
     
     }
 
@@ -31,26 +34,75 @@ createUserRouter.post("/", async (request, response: Response<unknown, { pool: P
 
     verifyString(username, "Username");
     verifyString(displayName, "Display name");
+    verifyString(password, "Password");
 
-    const { pool, authenticatedUser } = response.locals;
+    // Make sure the password is strong enough.
+    if (password.length < 8) {
+
+      throw new HTTPError(400, "Password must be at least 8 characters long.");
+
+    }
+
+    if (password.length > 128) {
+
+      throw new HTTPError(400, "Password must be at most 128 characters long.");
+
+    }
+
+    const { server, authenticatedUser } = response.locals;
 
     // Make sure the user has permission to create an item in the project.
-    const action = await Action.getByName("slashstep.users.register", pool);
-    const deepestAccessPolicy = await AccessPolicy.getByDeepestScope(action.id, pool, {}, authenticatedUser?.id);
+    let action: Action;
+    
+    try {
 
-    if (deepestAccessPolicy.permissionLevel < AccessPolicyPermissionLevel.User) {
+      action = await Action.getByName("slashstep.users.register", server.pool);
 
-      throw new PermissionDeniedError();
+    } catch (error) {
+
+      if (error instanceof ResourceNotFoundError) {
+
+        throw new Error("The slashstep.users.register action does not exist. You may need to set up the default actions again.");
+
+      }
+
+      throw error;
+
+    }
+
+    try {
+
+      // Get the deepest access policy for the user.
+      const deepestAccessPolicy = await AccessPolicy.getByDeepestScope(action.id, server.pool, {}, authenticatedUser?.id);
+
+      if (deepestAccessPolicy.permissionLevel < AccessPolicyPermissionLevel.User) {
+
+        throw new PermissionDeniedError();
+
+      }
+
+    } catch (error) {
+
+      if (error instanceof ResourceNotFoundError) {
+
+        throw new PermissionDeniedError();
+
+      }
+
+      throw error;
 
     }
 
     try {
 
       // Create the user.
+      const hashedPassword = await hashPassword(password);
+
       const user = await User.create({
         username,
-        displayName
-      }, pool);
+        displayName,
+        hashedPassword
+      }, server.pool);
 
       // Log the action.
       await ActionLog.create({
@@ -58,7 +110,7 @@ createUserRouter.post("/", async (request, response: Response<unknown, { pool: P
         actorID: (authenticatedUser ?? user).id,
         actorIPAddress: request.ip,
         targetUserID: user.id
-      }, pool);
+      }, server.pool);
       
       response.json(user);
 
@@ -85,7 +137,7 @@ createUserRouter.post("/", async (request, response: Response<unknown, { pool: P
       console.error(error);
 
       response.status(500).json({
-        message: "Internal server error. Please try again later."
+        message: "Something bad happened on our side. Please try again later."
       });
 
     }

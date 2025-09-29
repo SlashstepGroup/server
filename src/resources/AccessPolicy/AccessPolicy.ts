@@ -123,6 +123,35 @@ export default class AccessPolicy {
 
   }
 
+  static async grantDefaultAdminPermissions(userID: string, pool: Pool): Promise<AccessPolicy[]> {
+
+    const poolClient = await pool.connect();
+    const rows = [];
+    const adminActions = ["slashstep.users.register", "slashstep.items.create", "slashstep.accessPolicies.bypass", "slashstep.sessions.create"];
+    for (const adminAction of adminActions) {
+
+      const result = await poolClient.query(readFileSync(resolve(dirname(import.meta.dirname), "AccessPolicy", "queries", "grant-admin-permissions.sql"), "utf8"), [userID, adminAction]);
+      rows.push(...result.rows);
+
+    }
+    poolClient.release();
+
+    const accessPolicies = rows.map(row => new AccessPolicy({
+      id: row.id,
+      userID: row.user_id,
+      scopeType: row.scope_type,
+      workspaceID: row.workspace_id,
+      projectID: row.project_id,
+      itemID: row.item_id,
+      actionID: row.action_id,
+      permissionLevel: row.permission_level,
+      inheritanceLevel: row.inheritance_level
+    }, pool));
+
+    return accessPolicies;
+
+  }
+
   /** 
    * Requests the server to return a list of access policies.
    * @param filterQuery A SlashstepQL filter to apply to the list of access policies.
@@ -131,13 +160,23 @@ export default class AccessPolicy {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "access_policies", filterQuery, defaultLimit: 1000});
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_access_policies", filterQuery, defaultLimit: 1000});
     await poolClient.query(`set search_path to app`);
-    const result = await poolClient.query(`select * from access_policies${whereClause ? ` where ${whereClause}` : ""}`, values);
+    const result = await poolClient.query(`select * from hydrated_access_policies${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
 
     // Convert the list of rows to AccessPolicy objects.
-    const accessPolicies = result.rows.map(row => new AccessPolicy(row, pool));
+    const accessPolicies = result.rows.map(row => new AccessPolicy({
+      id: row.id,
+      userID: row.user_id,
+      scopeType: row.scope_type,
+      workspaceID: row.workspace_id,
+      projectID: row.project_id,
+      itemID: row.item_id,
+      actionID: row.action_id,
+      permissionLevel: row.permission_level,
+      inheritanceLevel: row.inheritance_level
+    }, pool));
 
     // Return the list.
     return accessPolicies;
@@ -153,7 +192,9 @@ export default class AccessPolicy {
     // Create the table.
     const poolClient = await pool.connect();
     const createAccessPoliciesTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "AccessPolicy", "queries", "create-access-policies-table.sql"), "utf8");
+    const createHydratedAccessPoliciesViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "AccessPolicy", "queries", "create-hydrated-access-policies-view.sql"), "utf8");
     await poolClient.query(createAccessPoliciesTableQuery);
+    await poolClient.query(createHydratedAccessPoliciesViewQuery);
     poolClient.release();
 
   }
@@ -188,7 +229,7 @@ export default class AccessPolicy {
 
     scopeArray.push("scope_type = 'Instance'");
 
-    const accessPolicies = await AccessPolicy.list(`action_id = ${actionID} and user_id = ${userID} and (${scopeArray.join(" or ")})`, pool);
+    const accessPolicies = await AccessPolicy.list(`action_id = '${actionID}' and user_id ${userID ? `= '${userID}'` : "is null"} and (${scopeArray.join(" or ")})`, pool);
 
     const instanceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopeType === "Instance");
     const workspaceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopeType === "Workspace");

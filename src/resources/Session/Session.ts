@@ -64,7 +64,8 @@ export default class Session {
       id: row.id,
       userID: row.user_id,
       expirationDate: row.expiration_date,
-      creationIP: row.creation_ip
+      creationIP: row.creation_ip,
+      token: data.token
     }, pool);
 
     // Return the session.
