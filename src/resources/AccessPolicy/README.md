@@ -17,7 +17,7 @@ An access policy can apply to an app, but it may be ignored if [the app imperson
 
 ### Principal priorities
 1. **User** and **App:** Since a user or an app is specifically targeted, this should be the top priority.
-2. **Group:** Since a group is more specific than a role, but more vague than a user, this should be the middle priority.
+2. **Group:** Since a group is more specific than a role, but more broad than a user, this should be the middle priority.
 3. **Role:** Since a role can be granted to both users and groups, this should be the lowest priority.
 
 ## Access levels
