@@ -84,8 +84,8 @@ But, User 5 doesn't want User 4 to see what they're doing in Workspace C. Since 
 So, User 4 can create projects on any workspace; but, anyone with workspace-level editor access to the action can disable that permission specifically for their workspace.
 
 #### Granting a group access to view projects on any workspace, but disallowing a specific member of a group
-An admin assigns `slashstep.projects.view` to Group 1 on the instance. Group 1 has [user access](#user-access) with [required inheritance](#required). So, any member of Group 1 can view projects on any workspace in the instance.
+An editor assigns `slashstep.projects.view` to Group 1 on the instance. Group 1 has [user access](#user-access) with [required inheritance](#required). So, any member of Group 1 can view projects on any workspace in the instance.
 
-But, the admin wants to keep all projects on Workspace D a secret from Member 1. As such, the admin assigns the `slashstep.projects.view` action to Member 1 on Workspace D with [no access](#no-access). The admin only needs [editor access](#editor-access) because the [principal priorities](#principal-priorities) call for user access policies to take priority over group access policies.
+But, the editor wants to keep all projects on Workspace D a secret from Member 1. As such, the admin assigns the `slashstep.projects.view` action to Member 1 on Workspace D with [no access](#no-access). The editor only needs [editor access](#editor-access) because the [principal priorities](#principal-priorities) call for user access policies to take priority over group access policies.
 
 So, any member of Group 1 can view projects on any workspace in the instance; except for Member 1, who cannot view Workspace D's projects.
