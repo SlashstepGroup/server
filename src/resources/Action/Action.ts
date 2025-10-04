@@ -3,7 +3,6 @@ import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
-import User from "#resources/User/User.js";
 
 export type ActionProperties = {
   id: string;
