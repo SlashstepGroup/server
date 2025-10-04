@@ -16,7 +16,7 @@ An access policy can apply to all users and groups that have a specific role.
 An access policy can apply to an app, but it may be ignored if [the app impersonates a user and assumes the user's access policies](../App/README.md#impersonating-a-user).
 
 ### Principal priorities
-1. **Users and apps** Since a user or an app is specifically targeted, this should be the top priority.
+1. **Users and apps:** Since a user or an app is specifically targeted, this should be the top priority.
 2. **Groups:** Since a group is more specific than a role, but more broad than a user, this should be the middle priority. If there are multiple group access policies, the one with the highest access will take priority.
 3. **Role:** Since a role can be granted to both users and groups, this should be the lowest priority. If there multiple roles, the one with the highest access will take priority.
 
