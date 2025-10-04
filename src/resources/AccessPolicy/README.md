@@ -31,12 +31,16 @@ The principal can perform an action.
 The principal can perform an action, along with managing the permission level of other principals. 
 
 > [!WARNING]
-> An editor can potentially affect any editor, including themself. Admin permissions are protected, but an editor can possibly modify access levels on child resources, depending on their inheritance level.
+> Be careful when granting editor access.
+> 
+> An editor can potentially affect any editor, including themself. Admin permissions are protected, but an editor can possibly modify an admin's access levels on child resources, depending on the admin's inheritance level.
 
 ### Admin access
 The principal can perform an action, along with managing the permission level of other principals, in addition to overriding the inheritance requirements on child resources.
 
 > [!WARNING]
+> Be careful when granting admin access.
+> 
 > An admin can potentially affect any admin, including themself. All admins have the same level of access and are not protected from another admin's actions.
 > 
 > If you manage the server that hosts the Slashstep Server instance, you may be able recover by creating an admin user account in setup mode.
