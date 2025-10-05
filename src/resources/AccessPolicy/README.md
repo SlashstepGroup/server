@@ -1,6 +1,26 @@
 # Access policies
 **Access policies** are definitions of what a principal can access, the type of access that they have, and how it is inherited to child resources. 
 
+## Access
+### Inheritance
+Although access policies can be granted at many levels (i.e. items, projects, workspaces, etc.), access policies do not have access policies themselves. As such, there is no inheritance.
+
+### Actions
+#### slashstep.accessPolicies.admin
+The principal can manage access policies on a particular scope, regardless of their permission level.
+
+> [!CAUTION]
+> This is a highly dangerous action that should only be used by trusted principals. This is a "break-glass" action, as it laughs in the face of any access policy on a specific scope.
+
+> [!NOTE]
+> Although users of this action can grant most permissions, users will not automatically be able to do everything. This action simply allows principals to grant or revoke any permission. Principals will need to grant themselves permission to do certain actions.
+
+#### slashstep.accessPolicies.manage
+The principal can manage access policies on a particular scope. The principal can only manage access policies that they have at least [editor access](#editor-access) to.
+
+#### slashstep.accessPolicies.view
+The principal can view any access policies on a particular scope.
+
 ## Principals
 ### Principal types
 #### Users
