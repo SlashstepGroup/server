@@ -164,12 +164,12 @@ export default class Item {
     // Get the list from the database.
     const poolClient = await pool.connect();
     const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({
-      tableName: "hydrated_items_view", 
+      tableName: "hydrated_items", 
       filterQuery, 
       shouldIgnoreOffset: true,
       shouldIgnoreLimit: true
     });
-    const result = await poolClient.query(`select count(*) from hydrated_items_view${whereClause ? ` where ${whereClause}` : ""}`, values);
+    const result = await poolClient.query(`select count(*) from hydrated_items${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
 
     // Convert the list of rows to AccessPolicy objects.
@@ -189,7 +189,7 @@ export default class Item {
 
     // Get the item data from the database.
     const poolClient = await pool.connect();
-    const result = await poolClient.query(`set search_path to app; select * from hydrated_items_view where id = $1`, [id]);
+    const result = await poolClient.query(`set search_path to app; select * from hydrated_items where id = $1`, [id]);
     poolClient.release();
 
     // Convert the data to an item object.

@@ -1,7 +1,31 @@
+# Action logs
+**Action logs** are records that Slashstep Server creates when a principal performs an [action](../Action/README.md). 
+
+Action logs cannot be modified through Slashstep Server. The only way logs can be modified are through the database itself.
+
 ## Access
-### Inheritance
-1. **Action log:** This is the log itself, so access policies set at this level are highest priority.
-2. **App:** The app can owns the action. This should be skipped if the action is an instance action.
-3. **Project:** The project can own the app. This should be skipped if a project doesn't own the app or if the action is an instance action.
-4. **Workspace:** The workspace either owns the app or the project. This should be skipped if the action is an instance action.
-5. **Instance:** The instance owns the workspace or the project that owns the app.
+### Actions
+#### slashstep.actionLogs.create
+The principal can create action logs.
+
+> [!NOTE]
+Only Slashstep Server and apps should use this action. Users should not use this action, as they are the performers of actions.
+
+> [!NOTE]
+> This permission should be granted at a higher level than the action log-level. You shouldn't be able to create logs *in* logs. That'd be weird.
+
+#### slashstep.actionLogs.delete
+The principal can delete action logs.
+
+#### slashstep.actionLogs.get
+The principal can get action logs.
+
+#### slashstep.actionLogs.list
+The principal can list action logs.
+
+### Possible parent resources
+* App
+* Instance
+* Project
+* User
+* Workspace

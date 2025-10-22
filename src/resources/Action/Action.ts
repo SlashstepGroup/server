@@ -114,7 +114,7 @@ export default class Action {
    * @param id The ID of the action to retrieve.
    * @returns The requested action.
    */
-  static async getByName(name: string, pool: Pool): Promise<Action> {
+  static async getByName(name: string, pool: Pool, isDefaultAction: boolean = false): Promise<Action> {
 
     // Get the action data from the database.
     const poolClient = await pool.connect();
@@ -127,7 +127,15 @@ export default class Action {
 
     if (!data) {
 
-      throw new ResourceNotFoundError("Action");
+      if (isDefaultAction) {
+
+        throw new Error(`The ${name} action does not exist. You may need to set up the default actions again.`);
+
+      } else {
+
+        throw new ResourceNotFoundError("Action");
+
+      }
 
     }
 

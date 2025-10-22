@@ -93,7 +93,7 @@ createUserSessionRouter.post("/", async (request, response: Response<unknown, { 
     try {
 
       // Get the deepest access policy for the user.
-      const deepestAccessPolicy = await AccessPolicy.getByDeepestScope(action.id, server.pool, {}, user.id);
+      const deepestAccessPolicy = await AccessPolicy.getByDeepestScope(action.id, server.pool, user.id);
 
       if (deepestAccessPolicy.permissionLevel !== AccessPolicyPermissionLevel.User && deepestAccessPolicy.permissionLevel !== AccessPolicyPermissionLevel.Admin) {
 

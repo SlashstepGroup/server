@@ -1,4 +1,4 @@
-create or replace view hydrated_projects_view as 
+create or replace view hydrated_projects as 
   select
     projects.id,
     projects.name,

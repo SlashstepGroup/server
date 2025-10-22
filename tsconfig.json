@@ -17,10 +17,12 @@
     },
     "sourceMap": true,
     "composite": true,
-    "declarationMap": true,
-
+    "declarationMap": true
   },
   "include": [
     "src/**/*",
+  ],
+  "exclude": [
+    "**/*.test.ts"
   ]
 }

@@ -2,6 +2,6 @@ import { Router } from "express";
 import createProjectRouter from "./post.js";
 
 const workspaceProjectsRouter = Router({mergeParams: true});
-workspaceProjectsRouter.use("/", createProjectRouter);
+workspaceProjectsRouter.post("/", createProjectRouter);
 
 export default workspaceProjectsRouter;

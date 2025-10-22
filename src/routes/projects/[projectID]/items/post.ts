@@ -13,7 +13,6 @@ import PermissionDeniedError from "#errors/PermissionDeniedError.js";
 import ActionLog from "#resources/ActionLog/ActionLog.js";
 import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
 import Server from "#utilities/Server/Server.js";
-import verifyUserPermissions from "#utilities/verifyUserPermissions.js";
 
 const createProjectItemRouter = Router({mergeParams: true});
 
@@ -60,12 +59,7 @@ createProjectItemRouter.post("/", async (request: Request<{ projectID: string }>
 
     const action = await Action.getByName("slashstep.items.create", server.pool);
 
-    await verifyUserPermissions({
-      actionID: action.id,
-      pool: server.pool,
-      scope: {projectID: project.id, workspaceID: project.workspaceID},
-      userID: authenticatedUser?.id
-    });
+    await AccessPolicy.verifyUserPermissions(action.id, server.pool, authenticatedUser?.id, AccessPolicyPermissionLevel.User, {projectID: project.id, workspaceID: project.workspaceID});
 
     try {
 

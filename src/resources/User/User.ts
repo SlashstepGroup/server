@@ -1,9 +1,10 @@
-import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
+import AccessPolicy, { AccessPolicyPermissionLevel, Scope } from "#resources/AccessPolicy/AccessPolicy.js";
 import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import Session from "#resources/Session/Session.js";
+import PermissionDeniedError from "#errors/PermissionDeniedError.js";
 
 export type UserProperties = {
   id: string;
@@ -27,7 +28,7 @@ export default class User {
 
   readonly #session?: Session;
 
-  readonly #hashedPassword: string;
+  readonly #hashedPassword: UserProperties["hashedPassword"];
 
   constructor(data: UserProperties, pool: Pool, session?: Session) {
 
@@ -154,6 +155,12 @@ export default class User {
     const query = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "delete-user-row.sql"), "utf8");
     await poolClient.query(query, [this.id]);
     poolClient.release();
+
+  }
+
+  async verifyPermissions(actionID: string, scope: Scope) {
+
+    
 
   }
 

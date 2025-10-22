@@ -23,6 +23,7 @@ import { read } from "read";
 import { hash as hashPassword } from "argon2";
 import userRouter from "#routes/user/index.js";
 import cookieParser from "cookie-parser";
+import accessPoliciesRouter from "#routes/access-policies/index.js";
 
 export type ServerProperties = {
   environment: string;
@@ -307,6 +308,7 @@ export default class Server {
       credentials: true
     }));
     this.app.disable("x-powered-by");
+    this.app.use("/access-policies", accessPoliciesRouter);
     this.app.use("/instance", instanceRouter);
     this.app.use("/items", itemsRouter);
     this.app.use("/projects", projectsRouter);

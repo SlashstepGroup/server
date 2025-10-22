@@ -3,47 +3,34 @@ import HTTPError from "#errors/HTTPError.js";
 import Project from "#resources/Project/Project.js";
 import { DatabaseError } from "pg";
 import Workspace from "#resources/Workspace/Workspace.js";
+import HTTPInputValidator from "#utilities/HTTPInputValidator/HTTPInputValidator.js";
+import Action from "#resources/Action/Action.js";
+import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
+import authenticateUser from "#utilities/hooks/authenticateUser.js";
 
-const createProjectRouter = Router({mergeParams: true})
+const createProjectRouter = Router({mergeParams: true});
+createProjectRouter.use(authenticateUser);
 createProjectRouter.post("/", async (request: Request<{ workspaceName: string }>, response) => {
 
   try {
 
     // Verify the user inputs.
     const { name, displayName, description, key } = request.body ?? {};
-    const ensureValue = (name: string, value: unknown) => {
-
-      if (!value) {
-
-        throw new HTTPError(400, `${name} must be provided.`);
-    
-      }
-
-    }
-
-    ensureValue("name", name);
-    ensureValue("displayName", displayName);
-    ensureValue("key", key);
-
-    const verifyString = (value: unknown, name: string) => {
-
-      if (value && typeof(value) !== "string") {
-
-        throw new HTTPError(400, `${name} must be a string.`);
-      
-      }
-
-    }
-
-    verifyString(name, "name");
-    verifyString(displayName, "displayName");
-    verifyString(description, "description");
-    verifyString(key, "key");
+    HTTPInputValidator.verifyString(name, "name", {isRequired: true, minLength: 1, maxLength: 255});
+    HTTPInputValidator.verifyString(displayName, "displayName", {isRequired: true, minLength: 1, maxLength: 255});
+    HTTPInputValidator.verifyString(description, "description", {minLength: 0, maxLength: 4000});
+    HTTPInputValidator.verifyString(key, "key", {isRequired: true, minLength: 1, maxLength: 20});
 
     // Get the workspace.
     const { workspaceName } = request.params;
     const { pool } = response.locals;
     const workspace = await Workspace.getFromName(workspaceName, pool);
+
+    // Make sure the user can create projects in the workspace.
+    const getWorkspaceAction = await Action.getByName("slashstep.projects.create", response.locals.server.pool, true);
+    await AccessPolicy.verifyUserPermissions(getWorkspaceAction.id, response.locals.server.pool, response.locals.authenticatedUser?.id, AccessPolicyPermissionLevel.User, {
+      workspaceID: workspace.id
+    });
 
     try {
 

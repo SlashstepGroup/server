@@ -12,14 +12,30 @@ The principal can view and manage access policies on a particular scope, regardl
 > [!NOTE]
 > Although users of this action can grant most permissions, users will not automatically be able to do everything. This action simply allows principals to grant or revoke any permission. Principals will need to grant themselves permission to do certain actions.
 
+#### slashstep.accessPolicies.get
+The principal can view any access policies on a particular scope.
+
+#### slashstep.accessPolicies.list
+The principal can list any access policies on a particular scope.
+
 #### slashstep.accessPolicies.manage
 The principal can manage access policies on a particular scope. The principal can only manage access policies that they have at least [editor access](#editor-access) to.
 
-#### slashstep.accessPolicies.view
-The principal can view any access policies on a particular scope.
-
-### Inheritance
-Although access policies can be granted at many levels (i.e. items, projects, workspaces, etc.), access policies do not have access policies themselves. As such, there is no inheritance.
+### Possible parent resources
+* Action
+* Action log
+* App
+* App authorization
+* Field
+* Group
+* Instance
+* Item
+* Item connection type
+* Milestone
+* Project
+* Session
+* User
+* Workspace
 
 ## Principals
 ### Principal types

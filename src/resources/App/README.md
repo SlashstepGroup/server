@@ -5,3 +5,27 @@ When apps are authorized on a user, the app assumes the identity of the user. Fo
 
 ### Acting independently
 When apps are authorized on other resources like a workspace or a project, apps assume their own identity. For example, if a project owner authorizes an app to automatically create a project item when someone raises an issue on their repository, the app will asusme its own identity and it will appear that the app created the issue by itself. As long as the app has the permission to create projects, the app's request will succeed.
+
+### Actions
+#### slashstep.apps.create
+The principal can create apps.
+
+#### slashstep.apps.delete
+The principal can delete apps.
+
+#### slashstep.apps.generateAuthenticationKeys
+The principal can generate keys that the app uses to authenticate and [act independently](#acting-independently).
+
+#### slashstep.apps.get
+The principal can get apps.
+
+#### slashstep.apps.list
+The principal can list apps.
+
+#### slashstep.apps.update
+The principal can update apps.
+
+### Possible parent resources
+* Instance
+* User
+* Workspace

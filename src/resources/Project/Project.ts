@@ -90,7 +90,7 @@ export default class Project extends Collection {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_projects_view", filterQuery, defaultLimit: 1000});
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_projects", filterQuery, defaultLimit: 1000});
     await poolClient.query(`set search_path to app`);
     const result = await poolClient.query(`select * from projects${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
@@ -115,8 +115,8 @@ export default class Project extends Collection {
 
       // Get the list from the database.
       const poolClient = await pool.connect();
-    await poolClient.query("set search_path to app");
-      const result = await poolClient.query("select * from hydrated_projects_view where id = $1", [id]);
+      await poolClient.query("set search_path to app");
+      const result = await poolClient.query("select * from hydrated_projects where id = $1", [id]);
       poolClient.release();
 
       if (result.rows.length === 0) {

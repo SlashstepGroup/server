@@ -4,22 +4,102 @@ create view hydrated_access_policies as
   select
     access_policies.*,
     actions.name as action_name,
+    actions.app_id as action_app_id,
     actions.display_name as action_display_name,
     actions.description as action_description,
-    apps.name as app_name,
-    apps.display_name as app_display_name,
-    apps.description as app_description
+
+    /** Principals */
+    /* User */
+    principal_users.username as principal_user_username,
+    principal_users.id as principal_user_id,
+    principal_users.display_name as principal_user_display_name,
+
+    /* Group */
+    principal_groups.name as principal_group_name,
+    principal_groups.id as principal_group_id,
+    principal_groups.display_name as principal_group_display_name,
+
+    /* Role */
+    principal_roles.name as principal_role_name,
+    principal_roles.id as principal_role_id,
+    principal_roles.display_name as principal_role_display_name,
+
+    /** Scopes */
+    /* Action */
+    scoped_actions.name as scoped_action_name,
+    scoped_actions.id as scoped_action_id,
+    scoped_actions.display_name as scoped_action_display_name,
+    scoped_actions.description as scoped_action_description,
+
+    /* App */
+    scoped_apps.name as scoped_app_name,
+    scoped_apps.id as scoped_app_id,
+    scoped_apps.display_name as scoped_app_display_name,
+    scoped_apps.description as scoped_app_description,
+
+    /* Group */
+    scoped_groups.name as scoped_group_name,
+    scoped_groups.id as scoped_group_id,
+    scoped_groups.display_name as scoped_group_display_name,
+
+    /* Item */
+    scoped_items.name as scoped_item_name,
+    scoped_items.id as scoped_item_id,
+    scoped_items.display_name as scoped_item_display_name,
+    scoped_items.description as scoped_item_description,
+
+    /* Milestone */
+    scoped_milestones.name as scoped_milestone_name,
+    scoped_milestones.id as scoped_milestone_id,
+    scoped_milestones.display_name as scoped_milestone_display_name,
+
+    /* Project */
+    scoped_projects.name as scoped_project_name,
+    scoped_projects.id as scoped_project_id,
+    scoped_projects.display_name as scoped_project_display_name,
+    scoped_projects.description as scoped_project_description,
+    scoped_projects.key as scoped_project_key,
+    
+    /* Role */
+    scoped_roles.name as scoped_role_name,
+    scoped_roles.id as scoped_role_id,
+    scoped_roles.display_name as scoped_role_display_name,
+
+    /* User */
+    scoped_users.username as scoped_user_username,
+    scoped_users.id as scoped_user_id,
+    scoped_users.display_name as scoped_user_display_name,
+
+    /* Workspace */
+    scoped_workspaces.name as scoped_workspace_name,
+    scoped_workspaces.id as scoped_workspace_id,
+    scoped_workspaces.display_name as scoped_workspace_display_name,
+    scoped_workspaces.description as scoped_workspace_description,
   from 
     access_policies
-  left join 
-    actions on actions.id = access_policies.action_id
   left join
-    apps on apps.id = actions.app_id
+    users as principal_users on principal_users.id = access_policies.principal_user_id
+  left join
+    groups as principal_groups on principal_groups.id = access_policies.principal_group_id
+  left join
+    roles as principal_roles on principal_roles.id = access_policies.principal_role_id
   left join 
-    users on users.id = access_policies.user_id
+    hydrated_actions as actions on actions.id = access_policies.action_id
+  left join
+    hydrated_actions as scoped_actions on scoped_actions.id = access_policies.scoped_action_id
+  left join
+    hydrated_apps as scoped_apps on scoped_apps.id = actions.scoped_app_id
+  left join
+    hydrated_groups as scoped_groups on scoped_groups.id = access_policies.scoped_group_id
   left join 
-    workspaces on workspaces.id = access_policies.workspace_id
+    hydrated_items as scoped_items on scoped_items.id = access_policies.scoped_item_id
   left join 
-    projects on projects.id = access_policies.project_id
+    hydrated_milestones as scoped_milestones on scoped_milestones.id = access_policies.scoped_milestone_id
   left join 
-    items on items.id = access_policies.item_id;
+    hydrated_projects as scoped_projects on scoped_projects.id = access_policies.scoped_project_id
+  left join
+    hydrated_roles as scoped_roles on scoped_roles.id = access_policies.scoped_role_id
+  left join 
+    hydrated_users as scoped_users on scoped_users.id = access_policies.principal_user_id
+  left join 
+    hydrated_workspaces as scoped_workspaces on scoped_workspaces.id = access_policies.scoped_workspace_id

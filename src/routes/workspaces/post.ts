@@ -1,4 +1,3 @@
-import Item, { ItemIncludedResourcesConstructorMap } from "#resources/Item/Item.js";
 import { Response, Router } from "express";
 import HTTPError from "#errors/HTTPError.js";
 import Workspace from "#resources/Workspace/Workspace.js";
@@ -6,9 +5,9 @@ import { DatabaseError } from "pg";
 import { ResponseLocals } from "#utilities/types.js";
 import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
 import authenticateUser from "#utilities/hooks/authenticateUser.js";
-import verifyUserPermissions from "#utilities/verifyUserPermissions.js";
 import Action from "#resources/Action/Action.js";
-import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
+import HTTPInputValidator from "#utilities/HTTPInputValidator/HTTPInputValidator.js";
 
 const createWorkspaceRouter = Router({mergeParams: true});
 createWorkspaceRouter.use(allowUnauthenticatedRequests);
@@ -17,53 +16,16 @@ createWorkspaceRouter.post("/", async (request, response: Response<unknown, Resp
 
   try {
 
+    // Make sure the inputs are valid.
     const { name, displayName, description } = request.body ?? {};
-    if (!name || !displayName) {
+    HTTPInputValidator.verifyString(name, "name", {isRequired: true, minLength: 1, maxLength: 255});
+    HTTPInputValidator.verifyString(displayName, "displayName", {isRequired: true, minLength: 1, maxLength: 255});
+    HTTPInputValidator.verifyString(description, "description", {minLength: 0, maxLength: 255});
 
-      throw new HTTPError(400, "Workspace name and display name must be provided.");
-    
-    }
-
-    const verifyString = (value: any, name: string) => {
-
-      if (value && typeof(value) !== "string") {
-
-        throw new HTTPError(400, `${name} must be a string.`);
-      
-      }
-
-    }
-
-    verifyString(name, "name");
-    verifyString(displayName, "displayName");
-    verifyString(description, "description");
-
+    // Make sure the user has permission to create a workspace.
     const { server, authenticatedUser } = response.locals;
-
-    let action: Action;
-
-    try {
-
-      action = await Action.getByName("slashstep.workspaces.create", server.pool);
-
-    } catch (error) {
-
-      if (error instanceof ResourceNotFoundError) {
-
-        throw new Error("The slashstep.workspaces.create action does not exist. You may need to set up the default actions again.");
-
-      }
-
-      throw error;
-
-    }
-
-    await verifyUserPermissions({
-      actionID: action.id,
-      pool: server.pool,
-      scope: {},
-      userID: authenticatedUser?.id
-    });
+    const action = await Action.getByName("slashstep.workspaces.create", server.pool, true);
+    await AccessPolicy.verifyUserPermissions(action.id, server.pool, authenticatedUser?.id);
 
     try {
 
@@ -82,7 +44,6 @@ createWorkspaceRouter.post("/", async (request, response: Response<unknown, Resp
       throw error;
 
     }
-
 
   } catch (error) {
 
