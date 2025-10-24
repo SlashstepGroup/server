@@ -13,7 +13,8 @@
     "paths": {
       "#utilities/*": ["src/utilities/*"],
       "#resources/*": ["src/resources/*"],
-      "#errors/*": ["src/errors/*"]
+      "#errors/*": ["src/errors/*"],
+      "#routes/*": ["src/routes/*"]
     },
     "sourceMap": true,
     "composite": true,
@@ -21,8 +22,5 @@
   },
   "include": [
     "src/**/*",
-  ],
-  "exclude": [
-    "**/*.test.ts"
   ]
 }

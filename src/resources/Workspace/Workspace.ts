@@ -67,8 +67,10 @@ export default class Workspace {
   static async initializeTable(pool: Pool): Promise<void> {
 
     const poolClient = await pool.connect();
-    const createProjectsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Workspace", "queries", "create-workspace-table.sql"), "utf8");
+    const createProjectsTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-workspace-table.sql"), "utf8");
+    const createHydratedWorkspacesViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-workspaces-view.sql"), "utf8");
     await poolClient.query(createProjectsTableQuery);
+    await poolClient.query(createHydratedWorkspacesViewQuery);
     poolClient.release();
 
   }

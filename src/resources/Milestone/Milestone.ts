@@ -1,8 +1,17 @@
 import Collection, { CollectionProperties } from "#resources/Collection/Collection.js";
 import { Pool } from "pg";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+
+export enum ParentResourceType {
+  Project = "Project",
+  Workspace = "Workspace"
+}
 
 export type MilestoneProperties = CollectionProperties & {
-  parentResourceType: "Project" | "Workspace";
+  parentResourceType: ParentResourceType | `${ParentResourceType}`;
+  parentProjectID?: string;
+  parentWorkspaceID?: string;
 }
 
 /**
@@ -22,88 +31,20 @@ export default class Milestone extends Collection {
 
   }
 
-  // /**
-  //  * Requests the server to create a new milestone.
-  //  *
-  //  * @param data The data for the new milestone, excluding the ID, creation time, and update time.
-  //  */
-  // static async create(data: Omit<MilestoneProperties, "id" | "creationTime" | "updateTime">, client: Client): Promise<Milestone> {
+  /**
+   * Creates the groups table in the database.
+   * @param pool 
+   */
+  static async initializeTable(pool: Pool): Promise<void> {
 
-  //   const milestoneProperties = await client.fetch(`/milestones`, {
-  //     method: "POST",
-  //     body: JSON.stringify(data)
-  //   });
+    // Create the table.
+    const poolClient = await pool.connect();
+    const createAccessPoliciesTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-milestones-table.sql"), "utf8");
+    const createHydratedAccessPoliciesViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-milestones-view.sql"), "utf8");
+    await poolClient.query(createAccessPoliciesTableQuery);
+    await poolClient.query(createHydratedAccessPoliciesViewQuery);
+    poolClient.release();
 
-  //   const milestone = new Milestone(milestoneProperties, client);
-
-  //   return milestone;
-
-  // }
-
-  // /**
-  //  * Requests the server for a list of milestones.
-  //  *
-  //  * @param filterQuery The query to filter the milestones.
-  //  */
-  // static async list(filterQuery: string, client: Client): Promise<Milestone[]> {
-
-  //   const milestonesData = await client.fetch(`/milestones?filter-query=${filterQuery}`);
-
-  //   const milestones = milestonesData.map((milestoneData: MilestoneProperties) => new Milestone(milestoneData, client));
-
-  //   return milestones;
-
-  // }
-
-  // /**
-  //  * Requests the server for a specific milestone by ID.
-  //  *
-  //  * @param id The ID of the milestone to retrieve.
-  //  */
-  // static async get(id: string, client: Client): Promise<Milestone> {
-
-  //   const milestoneData = await client.fetch(`/milestones/${id}`);
-
-  //   return new Milestone(milestoneData, client);
-
-  // }
-
-  // /**
-  //  * Requests the server to delete this milestone.
-  //  */
-  // async delete(): Promise<void> {
-
-  //   await this.#client.fetch(`/milestones/${this.id}`, {
-  //     method: "DELETE"
-  //   });
-
-  // }
-
-  // /**
-  //  * Requests the server to update this milestone.
-  //  *
-  //  * @param data The data to update the milestone with.
-  //  */
-  // async update(data: Partial<Omit<MilestoneProperties, "id" | "creationTime" | "updateTime">>): Promise<Milestone> {
-
-  //   const editedInstanceData = await this.#client.fetch(`/milestones/${this.id}`, {
-  //     method: "PATCH",
-  //     body: JSON.stringify(data)
-  //   });
-
-  //   return new Milestone(editedInstanceData, this.#client);
-
-  // }
-
-  // /**
-  //  * Requests the server to get an updated version of this milestone.
-  //  */
-  // async refresh(): Promise<Milestone> {
-
-  //   const milestone = await Milestone.get(this.id, this.#client);
-
-  //   return milestone;
-
-  // }
+  }
 
 }

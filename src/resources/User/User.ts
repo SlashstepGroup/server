@@ -50,7 +50,7 @@ export default class User {
 
     // Insert the user data into the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "insert-user-row.sql"), "utf8");
+    const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-user-row.sql"), "utf8");
     const values = [data.username, data.displayName, data.hashedPassword];
     const result = await poolClient.query(query, values);
     poolClient.release();
@@ -140,8 +140,10 @@ export default class User {
   static async initializeTable(pool: Pool): Promise<void> {
 
     const poolClient = await pool.connect();
-    const createUsersTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "create-users-table.sql"), "utf8");
+    const createUsersTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-users-table.sql"), "utf8");
+    const createHydratedUsersViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-users-view.sql"), "utf8");
     await poolClient.query(createUsersTableQuery);
+    await poolClient.query(createHydratedUsersViewQuery);
     poolClient.release();
 
   }
@@ -152,7 +154,7 @@ export default class User {
   async delete(): Promise<void> {
 
     const poolClient = await this.#pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "delete-user-row.sql"), "utf8");
+    const query = readFileSync(resolve(import.meta.dirname, "queries", "delete-user-row.sql"), "utf8");
     await poolClient.query(query, [this.id]);
     poolClient.release();
 

@@ -24,6 +24,9 @@ import { hash as hashPassword } from "argon2";
 import userRouter from "#routes/user/index.js";
 import cookieParser from "cookie-parser";
 import accessPoliciesRouter from "#routes/access-policies/index.js";
+import Group from "#resources/Group/Group.js";
+import Role from "#resources/Role/Role.js";
+import Milestone from "#resources/Milestone/Milestone.js";
 
 export type ServerProperties = {
   environment: string;
@@ -59,17 +62,20 @@ export default class Server {
 
   }
 
-  async initializeResourceTables(pool: Pool): Promise<void> {
+  static async initializeResourceTables(pool: Pool): Promise<void> {
 
     const poolClient = await pool.connect();
-    const createProjectsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Server", "queries", "create-app-schema.sql"), "utf8");
-    const createUUIDv7FunctionsQuery = readFileSync(resolve(dirname(import.meta.dirname), "Server", "queries", "create-uuidv7-functions.sql"), "utf8");
+    const createProjectsTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-app-schema.sql"), "utf8");
+    const createUUIDv7FunctionsQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-uuidv7-functions.sql"), "utf8");
     await poolClient.query(createProjectsTableQuery);
     await poolClient.query(createUUIDv7FunctionsQuery);
     poolClient.release();
 
+    await Group.initializeTable(pool);
     await Workspace.initializeTable(pool);
     await Project.initializeTable(pool);
+    await Role.initializeTable(pool);
+    await Milestone.initializeTable(pool);
     await Item.initializeTable(pool);
     await User.initializeTable(pool);
     await App.initializeTable(pool);
@@ -139,7 +145,7 @@ export default class Server {
           case "1":
             
             console.log("\n\x1b[34mInitializing database tables, views, and initial rows...\x1b[0m");
-            await this.initializeResourceTables(this.pool);
+            await Server.initializeResourceTables(this.pool);
             console.log("\x1b[32mDone!\x1b[0m");
 
             break;

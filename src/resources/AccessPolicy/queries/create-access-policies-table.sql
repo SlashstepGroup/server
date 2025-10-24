@@ -11,9 +11,8 @@ begin
   if not exists (select 1 from pg_type where typname = 'inheritance_level') then
     create type inheritance_level as enum (
       'Disabled',
-      'Recommended',
-      'Required',
-      'Locked'
+      'Enabled',
+      'Required'
     );
   end if;
 
@@ -22,28 +21,34 @@ begin
       'Instance',
       'Workspace',
       'Project',
-      'Item'
+      'Item',
+      'Action',
+      'User',
+      'Role',
+      'Group',
+      'App',
+      'Milestone'
     );
   end if;
 
-  if not exists (select 1 from pg_type where typname = 'prinicpal_type') then
-    create type prinicpal_type as enum (
+  if not exists (select 1 from pg_type where typname = 'principal_type') then
+    create type principal_type as enum (
       'User',
       'Group',
       'Role'
     );
-  end
-END
+  end if;
+end
 $$ LANGUAGE plpgsql;
 
 create table if not exists access_policies (
   id UUID default uuidv7() primary key,
 
   /* Principals */
-  principal_type prinicpal_type not null,
-  prinicpal_user_id UUID references users(id) on delete cascade,
-  prinicpal_group_id UUID references groups(id) on delete cascade,
-  prinicpal_role_id UUID references roles(id) on delete cascade,
+  principal_type principal_type not null,
+  principal_user_id UUID references users(id) on delete cascade,
+  principal_group_id UUID references groups(id) on delete cascade,
+  principal_role_id UUID references roles(id) on delete cascade,
 
   /* Scopes */
   scope_type scope_type not null,
@@ -64,9 +69,9 @@ create table if not exists access_policies (
   
   /* Constraints */
   constraint one_principal_type check (
-    (principal_type = 'User' and prinicpal_user_id is not null and prinicial_group_id is null and prinicial_role_id is null)
-    or (principal_type = 'Group' and prinicpal_user_id is null and prinicial_group_id is not null and prinicial_role_id is null)
-    or (principal_type = 'Role' and prinicpal_user_id is null and prinicial_group_id is null and prinicial_role_id is not null)
+    (principal_type = 'User' and principal_user_id is not null and principal_group_id is null and principal_role_id is null)
+    or (principal_type = 'Group' and principal_user_id is null and principal_group_id is not null and principal_role_id is null)
+    or (principal_type = 'Role' and principal_user_id is null and principal_group_id is null and principal_role_id is not null)
   ),
 
   constraint one_scope_type check (

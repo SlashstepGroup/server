@@ -1,10 +1,14 @@
 import { Pool } from "pg";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
 export type GroupProperties = {
   id: string;
   name: string;
   displayName: string;
   description?: string;
+  parentGroup?: Group;
+  parentGroupID?: string;
 }
 
 /**
@@ -24,6 +28,10 @@ export default class Group {
   /** The group's description, if applicable. */
   readonly description: GroupProperties["description"];
 
+  readonly parentGroup: GroupProperties["parentGroup"];
+  
+  readonly parentGroupID: GroupProperties["parentGroupID"];
+
   /** The pool used to send queries to the database. */
   readonly #pool: Pool
 
@@ -37,34 +45,20 @@ export default class Group {
 
   }
 
-  // /**
-  //  * Requests the server to create a new group.
-  //  *
-  //  * @param data The data for the new group, excluding the ID.
-  //  */
-  // static async create(data: Omit<GroupProperties, "id">, client: Client): Promise<Group> {
+  /**
+   * Creates the groups table in the database.
+   * @param pool 
+   */
+  static async initializeTable(pool: Pool): Promise<void> {
 
-  // }
+    // Create the table.
+    const poolClient = await pool.connect();
+    const createAccessPoliciesTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-groups-table.sql"), "utf8");
+    const createHydratedGroupsViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-groups-view.sql"), "utf8");
+    await poolClient.query(createAccessPoliciesTableQuery);
+    await poolClient.query(createHydratedGroupsViewQuery);
+    poolClient.release();
 
-  // /**
-  //  * Requests the server to return a list of groups.
-  //  *
-  //  * @param filterQuery A SlashstepQL filter to apply to the list of groups.
-  //  */
-  // static async list(filterQuery: string, client: Client): Promise<Group[]> {
-
-  //   const groupPropertiesList = await client.fetch(`/groups?filter-query=${filterQuery}`);
-
-  //   if (!(groupPropertiesList instanceof Array)) {
-
-  //     throw new Error(`Expected an array of groups, but received ${typeof groupPropertiesList}`);
-
-  //   }
-
-  //   const groups = groupPropertiesList.map((groupProperties) => new Group(groupProperties, client));
-
-  //   return groups;
-
-  // }
+  }
 
 }

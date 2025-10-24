@@ -46,7 +46,7 @@ export default class App {
 
     // Insert the app data into the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "User", "queries", "insert-app-row.sql"), "utf8");
+    const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-app-row.sql"), "utf8");
     const values = [data.name, data.displayName, data.description];
     const result = await poolClient.query(query, values);
     poolClient.release();
@@ -75,7 +75,7 @@ export default class App {
 
     // Get the app data from the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "App", "queries", "get-app-row.sql"), "utf8");
+    const query = readFileSync(resolve(import.meta.dirname, "queries", "get-app-row.sql"), "utf8");
     const result = await poolClient.query(query, [id]);
     poolClient.release();
 
@@ -104,8 +104,10 @@ export default class App {
   static async initializeTable(pool: Pool): Promise<void> {
 
     const poolClient = await pool.connect();
-    const createAppsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "App", "queries", "create-apps-table.sql"), "utf8");
+    const createAppsTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-apps-table.sql"), "utf8");
+    const createHydratedAppsViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-apps-view.sql"), "utf8");
     await poolClient.query(createAppsTableQuery);
+    await poolClient.query(createHydratedAppsViewQuery);
     poolClient.release();
 
   }
@@ -116,7 +118,7 @@ export default class App {
   async delete(): Promise<void> {
 
     const poolClient = await this.#pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "App", "queries", "delete-app-row.sql"), "utf8");
+    const query = readFileSync(resolve(import.meta.dirname, "queries", "delete-app-row.sql"), "utf8");
     await poolClient.query(query, [this.id]);
     poolClient.release();
 
