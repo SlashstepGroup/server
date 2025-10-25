@@ -1,6 +1,4 @@
-drop view if exists hydrated_action_logs;
-
-create view hydrated_action_logs as
+create or replace view hydrated_action_logs as
   select
     actions.*,
     apps.name as app_name,

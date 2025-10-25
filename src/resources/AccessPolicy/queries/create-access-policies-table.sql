@@ -16,8 +16,8 @@ begin
     );
   end if;
 
-  if not exists (select 1 from pg_type where typname = 'scope_type') then
-    create type scope_type as enum (
+  if not exists (select 1 from pg_type where typname = 'scoped_resource_type') then
+    create type scoped_resource_type as enum (
       'Instance',
       'Workspace',
       'Project',
@@ -51,7 +51,7 @@ create table if not exists access_policies (
   principal_role_id UUID references roles(id) on delete cascade,
 
   /* Scopes */
-  scope_type scope_type not null,
+  scoped_resource_type scope_resource_type not null,
   scoped_workspace_id UUID references workspaces(id) on delete cascade,
   scoped_project_id UUID references projects(id) on delete cascade,
   scoped_item_id UUID references items(id) on delete cascade,
@@ -74,16 +74,16 @@ create table if not exists access_policies (
     or (principal_type = 'Role' and principal_user_id is null and principal_group_id is null and principal_role_id is not null)
   ),
 
-  constraint one_scope_type check (
-    (scope_type = 'Instance' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
-    or (scope_type = 'Workspace' and scoped_workspace_id is not null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
-    or (scope_type = 'Project' and scoped_workspace_id is null and scoped_project_id is not null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
-    or (scope_type = 'Item' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is not null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
-    or (scope_type = 'Action' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is not null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
-    or (scope_type = 'User' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is not null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
-    or (scope_type = 'Role' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is not null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
-    or (scope_type = 'Group' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is not null and scoped_app_id is null and scoped_milestone_id is null)
-    or (scope_type = 'App' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is not null and scoped_milestone_id is null)
-    or (scope_type = 'Milestone' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is not null)
+  constraint one_scoped_resource_type check (
+    (scoped_resource_type = 'Instance' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
+    or (scoped_resource_type = 'Workspace' and scoped_workspace_id is not null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
+    or (scoped_resource_type = 'Project' and scoped_workspace_id is null and scoped_project_id is not null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
+    or (scoped_resource_type = 'Item' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is not null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
+    or (scoped_resource_type = 'Action' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is not null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
+    or (scoped_resource_type = 'User' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is not null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
+    or (scoped_resource_type = 'Role' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is not null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is null)
+    or (scoped_resource_type = 'Group' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is not null and scoped_app_id is null and scoped_milestone_id is null)
+    or (scoped_resource_type = 'App' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is not null and scoped_milestone_id is null)
+    or (scoped_resource_type = 'Milestone' and scoped_workspace_id is null and scoped_project_id is null and scoped_item_id is null and scoped_action_id is null and scoped_user_id is null and scoped_role_id is null and scoped_group_id is null and scoped_app_id is null and scoped_milestone_id is not null)
   )
 );

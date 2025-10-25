@@ -1,6 +1,4 @@
-drop view if exists hydrated_groups;
-
-create view hydrated_groups as
+create or replace view hydrated_groups as
   select
     groups.*
   from 

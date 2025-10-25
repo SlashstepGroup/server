@@ -12,6 +12,7 @@ export type SlashstepQLSanitizedFilter = {
 export type SanitizeFunctionProperties = {
   tableName: string;
   filterQuery: string;
+  allowedQueryFields: Record<string, string>
   defaultLimit?: number;
   maximumLimit?: number;
   shouldIgnoreLimit?: boolean;
@@ -20,7 +21,7 @@ export type SanitizeFunctionProperties = {
 
 export default class SlashstepQLFilterSanitizer {
 
-  static sanitize({tableName, filterQuery, defaultLimit, maximumLimit, shouldIgnoreLimit = false, shouldIgnoreOffset = false}: SanitizeFunctionProperties): SlashstepQLSanitizedFilter {
+  static sanitize({tableName, filterQuery, defaultLimit, maximumLimit, shouldIgnoreLimit = false, shouldIgnoreOffset = false, allowedQueryFields}: SanitizeFunctionProperties): SlashstepQLSanitizedFilter {
 
     let whereClause = "";
     const values: string[] = [];
@@ -69,16 +70,11 @@ export default class SlashstepQLFilterSanitizer {
       } else if (match.groups.assignment) {
 
         // Ensure the key is valid. Very important to prevent SQL injection.
-        const allowedKeys: Record<string, string[]> = {
-          hydrated_items: ["id", "summary", "description", "project_id"],
-          hydrated_access_policies: ["id", "user_id", "scope_type", "workspace_id", "project_id", "item_id", "action_id", "permission_level", "inheritance_level"],
-          hydrated_actions: ["id", "name", "display_name", "description"],
-          hydrated_apps: ["id", "name", "display_name", "description"],
-        };
-        const key = match.groups.key;
+        const originalKey = match.groups.key;
+        const actualKey = allowedQueryFields[originalKey];
 
-        if (!allowedKeys[tableName].includes(key)) {
-          throw new SlashstepQLInvalidKeyError(key);
+        if (!actualKey) {
+          throw new SlashstepQLInvalidKeyError(originalKey);
         }
 
         // Ensure the value is valid.
@@ -88,7 +84,7 @@ export default class SlashstepQLFilterSanitizer {
         const booleanValue = match.groups.boolean !== undefined ? match.groups.boolean === "true" : undefined;
         const nullValue = match.groups.null !== undefined ? null : undefined;
         const value = stringValue ?? numberValue ?? booleanValue ?? nullValue;
-        whereClause += ` ${escapeIdentifier(key)} ${operator} ${value === null ? "null" : `$${values.length + 1}`}`;
+        whereClause += ` ${escapeIdentifier(actualKey)} ${operator} ${value === null ? "null" : `$${values.length + 1}`}`;
         
         if (value !== null) {
 

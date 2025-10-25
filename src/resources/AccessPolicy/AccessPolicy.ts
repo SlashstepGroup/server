@@ -1,5 +1,4 @@
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
-import { ResourceType } from "#utilities/types.js";
 import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
@@ -15,30 +14,23 @@ import Role from "#resources/Role/Role.js";
 import User from "#resources/User/User.js";
 import Workspace from "#resources/Workspace/Workspace.js";
 
-export type IncludedResourcesClassMap = {
+export type AccessPolicyIncludedResourceClassMap = {
   principalUser?: typeof User;
   principalGroup?: typeof Group;
   principalRole?: typeof Role;
   scopedAction?: typeof Action;
-  "scopedAction.app"?: typeof App;
   scopedApp?: typeof App;
   scopedGroup?: typeof Group;
   scopedItem?: typeof Item;
-  "scopedItem.project"?: typeof Project;
-  "scopedItem.project.workspace"?: typeof Workspace;
   scopedMilestone?: typeof Milestone;
-  "scopedMilestone.project"?: typeof Project;
-  "scopedMilestone.project.workspace"?: typeof Workspace;
   scopedProject?: typeof Project;
-  "scopedProject.workspace"?: typeof Workspace;
   scopedRole?: typeof Role;
   scopedUser?: typeof User;
   scopedWorkspace?: typeof Workspace;
   action?: typeof Action;
-  "action.app"?: typeof App;
 }
 
-export type IncludedResourcesMap = {
+export type AccessPolicyIncludedResourceMap = {
   principalUser?: User;
   principalGroup?: Group;
   principalRole?: Role;
@@ -89,39 +81,44 @@ export enum AccessPolicyPrincipalType {
   Role = "Role"
 }
 
-export type AccessPolicyProperties = {
+export type BaseAccessPolicyProperties = {
   id: string;
   principalType: AccessPolicyPrincipalType;
-  principalUser?: User;
   principalUserID?: string;
-  principalGroup?: Group;
   principalGroupID?: string;
-  principalRole?: Role;
   principalRoleID?: string;
-  scopeType: ResourceType;
-  scopedAction?: Action;
+  scopedResourceType: AccessPolicyScopedResourceType;
   scopedActionID?: string;
-  scopedApp?: App;
   scopedAppID?: string;
-  scopedGroup?: Group;
   scopedGroupID?: string;
-  scopedItem?: Item;
   scopedItemID?: string;
-  scopedMilestone?: Milestone;
   scopedMilestoneID?: string;
-  scopedProject?: Project;
   scopedProjectID?: string;
-  scopedRole?: Role;
   scopedRoleID?: string;
-  scopedUser?: User;
   scopedUserID?: string;
-  scopedWorkspace?: Workspace;
   scopedWorkspaceID?: string;
-  action?: Action;
   actionID: string;
   permissionLevel: AccessPolicyPermissionLevel;
   inheritanceLevel: AccessPolicyInheritanceLevel;
 }
+
+export type ExtendedAccessPolicyProperties = BaseAccessPolicyProperties & {
+  principalUser?: User;
+  principalGroup?: Group;
+  principalRole?: Role;
+  scopedAction?: Action;
+  scopedApp?: App;
+  scopedGroup?: Group;
+  scopedItem?: Item;
+  scopedMilestone?: Milestone;
+  scopedProject?: Project;
+  scopedRole?: Role;
+  scopedUser?: User;
+  scopedWorkspace?: Workspace;
+  action?: Action;
+}
+
+export type EditableAccessPolicyProperties = Omit<BaseAccessPolicyProperties, "id" | "principalType" | "principalUserID" | "principalGroupID" | "principalRoleID" | "scopedResourceType" | "scopedActionID" | "scopedAppID" | "scopedGroupID" | "scopedItemID" | "scopedMilestoneID" | "scopedProjectID" | "scopedRoleID" | "scopedUserID" | "scopedWorkspaceID" | "actionID">;
 
 export type Scope = {
   itemID?: string;
@@ -129,10 +126,24 @@ export type Scope = {
   workspaceID?: string;
 };
 
+export enum AccessPolicyScopedResourceType {
+  App = "App",
+  Action = "Action",
+  Instance = "Instance",
+  Workspace = "Workspace",
+  Project = "Project",
+  Iteration = "Iteration",
+  Item = "Item",
+  Group = "Group",
+  Milestone = "Milestone",
+  Role = "Role",
+  User = "User"
+}
+
 export type AccessPolicyTableQueryResult = {
   id: string;
   principal_type: AccessPolicyPrincipalType;
-  scope_type: ResourceType;
+  scoped_resource_type: AccessPolicyScopedResourceType;
   action_id: string;
   permission_level: AccessPolicyPermissionLevel;
   inheritance_level: AccessPolicyInheritanceLevel;
@@ -149,7 +160,7 @@ export type AccessPolicyListQueryResult = {
   principal_group_name?: string;
   principal_group_id?: string;
   principal_role_id?: string;
-  scope_type: ResourceType;
+  scoped_resource_type: AccessPolicyScopedResourceType;
   scoped_workspace_id?: string;
   scoped_project_id?: string;
   scoped_item_id?: string;
@@ -171,96 +182,123 @@ export default class AccessPolicy {
 
   static readonly name = "AccessPolicy";
 
-  /** The access policy's ID. */
-  readonly id: AccessPolicyProperties["id"];
+  static readonly allowedQueryFields = {
+    id: "id", 
+    userID: "user_id", 
+    scoped_resource_type: "scoped_resource_type",
+    workspaceID: "workspace_id", 
+    projectID: "project_id", 
+    itemID: "item_id", 
+    actionID: "action_id", 
+    permissionLevel: "permission_level", 
+    inheritanceLevel: "inheritance_level",
+    principalUserID: "principal_user_id",
+    principalGroupID: "principal_group_id",
+    principalRoleID: "principal_role_id"
+  }
 
-  readonly actionID: AccessPolicyProperties["actionID"];
+  /** The access policy's ID. */
+  readonly id: BaseAccessPolicyProperties["id"];
+
+  readonly actionID: BaseAccessPolicyProperties["actionID"];
 
   /** The type of principal this access policy applies to, such as "User", "Group", etc. */
-  readonly principalType: AccessPolicyProperties["principalType"];
+  readonly principalType: BaseAccessPolicyProperties["principalType"];
 
   /** The user principal this access policy applies to. */
-  readonly principalUser: AccessPolicyProperties["principalUser"];
+  readonly principalUser: ExtendedAccessPolicyProperties["principalUser"];
 
   /** The ID of the user principal this access policy applies to. */
-  readonly principalUserID: AccessPolicyProperties["principalUserID"];
+  readonly principalUserID: BaseAccessPolicyProperties["principalUserID"];
 
   /** The group principal this access policy applies to. */
-  readonly principalGroup: AccessPolicyProperties["principalGroup"];
+  readonly principalGroup: ExtendedAccessPolicyProperties["principalGroup"];
 
   /** The ID of the group principal this access policy applies to. */
-  readonly principalGroupID: AccessPolicyProperties["principalGroupID"];
+  readonly principalGroupID: BaseAccessPolicyProperties["principalGroupID"];
 
   /** The role principal this access policy applies to. */
-  readonly principalRole: AccessPolicyProperties["principalRole"];
+  readonly principalRole: ExtendedAccessPolicyProperties["principalRole"];
 
   /** The ID of the role principal this access policy applies to. */
-  readonly principalRoleID: AccessPolicyProperties["principalRoleID"];
+  readonly principalRoleID: BaseAccessPolicyProperties["principalRoleID"];
 
   /** The type of resource this access policy applies to, such as "Workspace", "Project", etc. */
-  readonly scopeType: AccessPolicyProperties["scopeType"];
+  readonly scopedResourceType: BaseAccessPolicyProperties["scopedResourceType"];
 
   /** The workspace this access policy applies to. */
-  readonly scopedWorkspace: AccessPolicyProperties["scopedWorkspace"];
+  readonly scopedWorkspace: ExtendedAccessPolicyProperties["scopedWorkspace"];
 
   /** The ID of the workspace this access policy applies to. */
-  readonly scopedWorkspaceID: AccessPolicyProperties["scopedWorkspaceID"];
+  readonly scopedWorkspaceID: BaseAccessPolicyProperties["scopedWorkspaceID"];
 
   /** The project this access policy applies to. */
-  readonly scopedProject: AccessPolicyProperties["scopedProject"];
+  readonly scopedProject: ExtendedAccessPolicyProperties["scopedProject"];
 
   /** The ID of the project this access policy applies to. */
-  readonly scopedProjectID: AccessPolicyProperties["scopedProjectID"];
+  readonly scopedProjectID: BaseAccessPolicyProperties["scopedProjectID"];
+
+  /** The app this access policy applies to. */
+  readonly scopedApp: ExtendedAccessPolicyProperties["scopedApp"];
+
+  /** The ID of the app this access policy applies to. */
+  readonly scopedAppID: BaseAccessPolicyProperties["scopedAppID"];
 
   /** The item this access policy applies to. */
-  readonly scopedItem?: AccessPolicyProperties["scopedItem"];
+  readonly scopedItem?: ExtendedAccessPolicyProperties["scopedItem"];
 
   /** The ID of the item this access policy applies to. */
-  readonly scopedItemID: AccessPolicyProperties["scopedItemID"];
+  readonly scopedItemID: BaseAccessPolicyProperties["scopedItemID"];
 
   /** The action this access policy applies to. */
-  readonly scopedAction: AccessPolicyProperties["scopedAction"];
+  readonly scopedAction: ExtendedAccessPolicyProperties["scopedAction"];
 
   /** The ID of the action this access policy applies to, such as "slashstep.items.create". */
-  readonly scopedActionID: AccessPolicyProperties["scopedActionID"];
+  readonly scopedActionID: BaseAccessPolicyProperties["scopedActionID"];
 
   /** The role this access policy applies to. */
-  readonly scopedRole: AccessPolicyProperties["scopedRole"];
+  readonly scopedRole: ExtendedAccessPolicyProperties["scopedRole"];
 
   /** The ID of the role this access policy applies to. */
-  readonly scopedRoleID: AccessPolicyProperties["scopedRoleID"];
+  readonly scopedRoleID: BaseAccessPolicyProperties["scopedRoleID"];
 
   /** The group this access policy applies to. */
-  readonly scopedGroup: AccessPolicyProperties["scopedGroup"];
+  readonly scopedGroup: ExtendedAccessPolicyProperties["scopedGroup"];
 
   /** The ID of the group this access policy applies to. */
-  readonly scopedGroupID: AccessPolicyProperties["scopedGroupID"];
+  readonly scopedGroupID: BaseAccessPolicyProperties["scopedGroupID"];
 
   /** The user this access policy applies to. */
-  readonly scopedUser: AccessPolicyProperties["scopedUser"];
+  readonly scopedUser: ExtendedAccessPolicyProperties["scopedUser"];
 
   /** The ID of the user this access policy applies to. */
-  readonly scopedUserID: AccessPolicyProperties["scopedUserID"];
+  readonly scopedUserID: BaseAccessPolicyProperties["scopedUserID"];
+
+  /** The milestone this access policy applies to. */
+  readonly scopedMilestone: ExtendedAccessPolicyProperties["scopedMilestone"];
+
+  /** The ID of the milestone this access policy applies to. */
+  readonly scopedMilestoneID: BaseAccessPolicyProperties["scopedMilestoneID"];
 
   /** The level of permission granted by this access policy. */
-  readonly permissionLevel: AccessPolicyProperties["permissionLevel"];
+  readonly permissionLevel: BaseAccessPolicyProperties["permissionLevel"];
 
   /** The level of inheritance granted by this access policy. */
-  readonly inheritanceLevel: AccessPolicyProperties["inheritanceLevel"];
+  readonly inheritanceLevel: BaseAccessPolicyProperties["inheritanceLevel"];
 
   /** The action this access policy applies to. */
-  readonly action: AccessPolicyProperties["action"];
+  readonly action: ExtendedAccessPolicyProperties["action"];
 
   readonly #pool: Pool;
 
-  constructor(data: AccessPolicyProperties, pool: Pool) {
+  constructor(data: ExtendedAccessPolicyProperties, pool: Pool) {
 
     this.id = data.id;
     this.principalType = data.principalType;
     this.principalUserID = data.principalUserID;
     this.principalGroupID = data.principalGroupID;
     this.principalRoleID = data.principalRoleID;
-    this.scopeType = data.scopeType;
+    this.scopedResourceType = data.scopedResourceType;
     this.scopedWorkspace = data.scopedWorkspace;
     this.scopedWorkspaceID = data.scopedWorkspaceID;
     this.scopedProject = data.scopedProject;
@@ -277,6 +315,10 @@ export default class AccessPolicy {
     this.scopedUserID = data.scopedUserID;
     this.scopedWorkspace = data.scopedWorkspace;
     this.scopedWorkspaceID = data.scopedWorkspaceID;
+    this.scopedApp = data.scopedApp;
+    this.scopedAppID = data.scopedAppID;
+    this.scopedMilestone = data.scopedMilestone;
+    this.scopedMilestoneID = data.scopedMilestoneID;
     this.action = data.action;
     this.permissionLevel = data.permissionLevel;
     this.inheritanceLevel = data.inheritanceLevel;
@@ -291,12 +333,13 @@ export default class AccessPolicy {
    * @param data The data for the new AccessPolicy, excluding the ID.
    * @returns The created AccessPolicy.
    */
-  static async create(data: Omit<AccessPolicyProperties, "id">, pool: Pool): Promise<AccessPolicy> {
+  static async create(data: Omit<BaseAccessPolicyProperties, "id">, pool: Pool): Promise<AccessPolicy> {
 
     // Insert the access policy into the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "AccessPolicy", "queries", "insert-access-policy-row.sql"), "utf8");
-    const values = [data.principalType, data.principalUserID, data.principalGroupID, data.principalRoleID, data.scopeType, data.scopedWorkspaceID, data.scopedProjectID, data.scopedItemID, data.scopedActionID, data.scopedRoleID, data.scopedGroupID, data.scopedUserID, data.permissionLevel, data.inheritanceLevel, data.actionID];
+
+    const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-access-policy-row.sql"), "utf8");
+    const values = [data.principalType, data.principalUserID, data.principalGroupID, data.principalRoleID, data.scopedResourceType, data.scopedWorkspaceID, data.scopedProjectID, data.scopedItemID, data.scopedActionID, data.scopedRoleID, data.scopedGroupID, data.scopedUserID, data.permissionLevel, data.inheritanceLevel, data.actionID];
     const result = await poolClient.query<AccessPolicyTableQueryResult>(query, values);
     poolClient.release();
 
@@ -305,7 +348,7 @@ export default class AccessPolicy {
     const accessPolicy = new AccessPolicy({
       id: rowData.id,
       principalType: rowData.principal_type,
-      scopeType: rowData.scope_type,
+      scopedResourceType: rowData.scoped_resource_type,
       actionID: rowData.action_id,
       permissionLevel: rowData.permission_level,
       inheritanceLevel: rowData.inheritance_level
@@ -335,7 +378,7 @@ export default class AccessPolicy {
       principalUserID: row.principal_user_id,
       principalGroupID: row.principal_group_id,
       principalRoleID: row.principal_role_id,
-      scopeType: row.scope_type,
+      scopedResourceType: row.scoped_resource_type,
       scopedWorkspaceID: row.scoped_workspace_id,
       scopedProjectID: row.scoped_project_id,
       scopedItemID: row.scoped_item_id,
@@ -352,11 +395,11 @@ export default class AccessPolicy {
 
   }
 
-  private static mapIncludedResources(rowData: AccessPolicyListQueryResult, includedResources: IncludedResourcesClassMap, pool: Pool): IncludedResourcesMap {
+  private static mapIncludedResources(rowData: AccessPolicyListQueryResult, includedResources: AccessPolicyIncludedResourceClassMap, pool: Pool): AccessPolicyIncludedResourceMap {
 
-    const mappedResources: IncludedResourcesMap = {};
+    const mappedResources: AccessPolicyIncludedResourceMap = {};
 
-    let User = includedResources.principalUser;
+    let User = includedResources.principalUser ?? includedResources.scopedUser;
     if (User && rowData.principal_user_id && rowData.principal_user_username && rowData.principal_user_display_name && rowData.principal_user_hashed_password) {
 
       mappedResources.principalUser = new User({
@@ -368,7 +411,7 @@ export default class AccessPolicy {
 
     }
 
-    let Group = includedResources.principalGroup;
+    let Group = includedResources.principalGroup ?? includedResources.scopedGroup;
     if (Group && rowData.principal_group_id && rowData.principal_group_display_name && rowData.principal_group_name) {
 
       mappedResources.principalGroup = new Group({
@@ -387,14 +430,29 @@ export default class AccessPolicy {
    * Requests the server to return a list of access policies.
    * @param filterQuery A SlashstepQL filter to apply to the list of access policies.
    */
-  static async list(filterQuery: string, pool: Pool, includedResources: IncludedResourcesClassMap = {}): Promise<AccessPolicy[]> {
+  static async list(filterQuery: string, pool: Pool, includedResources: AccessPolicyIncludedResourceClassMap = {}): Promise<AccessPolicy[]> {
 
     // Get the list from the database.
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({ 
+      tableName: "hydrated_access_policies", 
+      filterQuery, 
+      defaultLimit: 1000, 
+      allowedQueryFields: this.allowedQueryFields
+    });
+    const finalQuery = `select * from hydrated_access_policies${whereClause ? ` where ${whereClause}` : ""}`;
+    
+    let result;
     const poolClient = await pool.connect();
-    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({ tableName: "hydrated_access_policies", filterQuery, defaultLimit: 1000 });
-    await poolClient.query("set search_path to app");
-    const result = await poolClient.query<AccessPolicyListQueryResult>(`select * from hydrated_access_policies${whereClause ? ` where ${whereClause}` : ""}`, values);
-    poolClient.release();
+
+    try {
+
+      result = await poolClient.query<AccessPolicyListQueryResult>(finalQuery, values);
+
+    } finally {
+
+      poolClient.release();
+
+    }
 
     // Convert the list of rows to AccessPolicy objects.
     const accessPolicies: AccessPolicy[] = [];
@@ -411,7 +469,7 @@ export default class AccessPolicy {
         principalGroupID: row.principal_group_id,
         principalRole,
         principalRoleID: row.principal_role_id,
-        scopeType: row.scope_type,
+        scopedResourceType: row.scoped_resource_type,
         scopedWorkspace,
         scopedWorkspaceID: row.scoped_workspace_id,
         scopedProject,
@@ -449,7 +507,8 @@ export default class AccessPolicy {
       tableName: "hydrated_access_policies",
       filterQuery,
       shouldIgnoreOffset: true,
-      shouldIgnoreLimit: true
+      shouldIgnoreLimit: true,
+      allowedQueryFields: this.allowedQueryFields
     });
     const result = await poolClient.query(`select count(*) from hydrated_access_policies${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
@@ -506,14 +565,14 @@ export default class AccessPolicy {
 
     }
 
-    scopeArray.push("scope_type = 'Instance'");
+    scopeArray.push("scoped_resource_type = 'Instance'");
 
     const accessPolicies = await AccessPolicy.list(`action_id = '${actionID}' and user_id ${userID ? `= '${userID}'` : "is null"} and (${scopeArray.join(" or ")})`, pool);
 
-    const instanceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopeType === "Instance");
-    const workspaceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopeType === "Workspace");
-    const projectAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopeType === "Project");
-    const itemAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopeType === "Item");
+    const instanceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "Instance");
+    const workspaceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "Workspace");
+    const projectAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "Project");
+    const itemAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "Item");
 
     const accessPolicy = itemAccessPolicy ?? projectAccessPolicy ?? workspaceAccessPolicy ?? instanceAccessPolicy;
 

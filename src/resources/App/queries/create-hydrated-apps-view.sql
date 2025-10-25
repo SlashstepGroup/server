@@ -1,6 +1,4 @@
-drop view if exists hydrated_apps;
-
-create view hydrated_apps as
+create or replace view hydrated_apps as
   select
     apps.*
   from 

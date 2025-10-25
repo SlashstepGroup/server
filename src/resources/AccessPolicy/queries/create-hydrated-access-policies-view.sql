@@ -1,6 +1,4 @@
-drop view if exists hydrated_access_policies;
-
-create view hydrated_access_policies as
+create or replace view hydrated_access_policies as
   select
     access_policies.*,
     actions.name as action_name,

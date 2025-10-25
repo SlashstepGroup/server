@@ -1,6 +1,4 @@
-drop view if exists hydrated_sessions;
-
-create view hydrated_sessions as
+create or replace view hydrated_sessions as
   select
     sessions.*,
     users.username as user_username,

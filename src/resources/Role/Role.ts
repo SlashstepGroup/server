@@ -5,30 +5,43 @@ import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { resolve } from "path"
 
-export enum RoleParent {
+export enum RoleParentResourceType {
   Instance = "Instance",
   Workspace = "Workspace",
   Project = "Project",
   Group = "Group"
 }
 
-export type RoleProperties = {
+export type BaseRoleProperties = {
   id: string;
   name: string;
   displayName: string;
   description?: string;
-  parentResourceType: RoleParent;
+  parentResourceType: RoleParentResourceType;
   parentWorkspaceID?: string;
   parentProjectID?: string;
   parentGroupID?: string;
 }
 
-export type EditableRoleProperties = Omit<RoleProperties, "id" | "parentType" | "parentWorkspaceID" | "parentProjectID" | "parentGroupID">;
+export type InitialWritableRoleProperties = Omit<BaseRoleProperties, "id">;
 
-export type RoleObjectProperties = RoleProperties & {
+export type EditableRoleProperties = Omit<InitialWritableRoleProperties, "parentResourceType" | "parentWorkspaceID" | "parentProjectID" | "parentGroupID">;
+
+export type RoleObjectProperties = BaseRoleProperties & {
   parentWorkspace?: Workspace;
   parentProject?: Project;
   parentGroup?: Group;
+}
+
+export type RoleTableQueryResult = {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string;
+  parent_resource_type: RoleParentResourceType;
+  parent_workspace_id: string;
+  parent_project_id: string;
+  parent_group_id: string;
 }
 
 export default class Role {
@@ -99,6 +112,40 @@ export default class Role {
     await poolClient.query(createAccessPoliciesTableQuery);
     await poolClient.query(createHydratedRolesViewQuery);
     poolClient.release();
+
+  }
+
+  /**
+   * Creates a role.
+   * @param data The data for the new role.
+   * @param pool The pool to use to send queries to the database.
+   * @returns The created role.
+   */
+  static async create(data: InitialWritableRoleProperties, pool: Pool): Promise<Role> {
+
+    // Insert the role into the database.
+    const poolClient = await pool.connect();
+
+    const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-role-row.sql"), "utf8");
+    const values = [data.name, data.displayName, data.description, data.parentResourceType, data.parentWorkspaceID, data.parentProjectID, data.parentGroupID];
+    const result = await poolClient.query<RoleTableQueryResult>(query, values);
+    poolClient.release();
+
+    // Convert the row to a role object.
+    const rowData = result.rows[0];
+    const role = new Role({
+      id: rowData.id,
+      name: rowData.name,
+      displayName: rowData.display_name,
+      description: rowData.description,
+      parentResourceType: rowData.parent_resource_type,
+      parentWorkspaceID: rowData.parent_workspace_id,
+      parentProjectID: rowData.parent_project_id,
+      parentGroupID: rowData.parent_group_id
+    }, pool);
+
+    // Return the role.
+    return role;
 
   }
 

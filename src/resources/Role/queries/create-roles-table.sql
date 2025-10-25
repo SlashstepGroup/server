@@ -1,7 +1,7 @@
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'role_parent_type') THEN
-    CREATE TYPE role_parent_type AS ENUM (
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'role_parent_resource_type') THEN
+    CREATE TYPE role_parent_resource_type AS ENUM (
       'Instance',
       'Workspace',
       'Project',
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS roles (
   name TEXT NOT NULL,
   display_name TEXT NOT NULL,
   description TEXT NOT NULL,
-  parent_resource_type role_parent_type NOT NULL,
+  parent_resource_type role_parent_resource_type NOT NULL,
   parent_group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
   parent_workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
   parent_project_id UUID REFERENCES projects(id) ON DELETE CASCADE,

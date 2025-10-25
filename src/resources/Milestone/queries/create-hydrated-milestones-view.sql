@@ -1,6 +1,4 @@
-drop view if exists hydrated_milestones;
-
-create view hydrated_milestones as
+create or replace view hydrated_milestones as
   select
     groups.*
   from 
