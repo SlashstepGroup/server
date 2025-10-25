@@ -31,7 +31,7 @@ describe("The AccessPolicy class", async () => {
   let postgreSQLPool: Pool;
   let container: StartedPostgreSqlContainer;
 
-  const generateRandomString = (maximumLength: number) => randomBytes(Math.floor(Math.random() * maximumLength) + 1 / 2).toString("hex");
+  const generateRandomString = (length: number) => randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
 
   const createRandomAction = async () => {
 
