@@ -4,7 +4,7 @@ import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
 
-export type ActionProperties = {
+export type BaseActionProperties = {
   id: string;
   name: string;
   appID?: string;
@@ -12,30 +12,42 @@ export type ActionProperties = {
   description: string;
 }
 
+export type InitialWritableActionProperties = Omit<BaseActionProperties, "id">;
+
 /**
  * An Action is a type of process that is performed by an actor.
  */
 export default class Action {
 
+  static readonly name = "Action";
+
+  static readonly allowedQueryFields = {
+    id: "id", 
+    name: "name", 
+    displayName: "display_name", 
+    description: "description", 
+    appID: "app_id"
+  }
+
   /** The action's ID. */
-  readonly id: ActionProperties["id"];
+  readonly id: BaseActionProperties["id"];
 
   /** The action's name. */
-  readonly name: ActionProperties["name"];
+  readonly name: BaseActionProperties["name"];
 
   /** The action's display name. */
-  readonly displayName: ActionProperties["displayName"];
+  readonly displayName: BaseActionProperties["displayName"];
 
   /** The action's description. */
-  readonly description: ActionProperties["description"];
+  readonly description: BaseActionProperties["description"];
 
   /** The action's application ID. If there isn't one, then the action is directly associated with the instance. */
-  readonly appID: ActionProperties["appID"];
+  readonly appID: BaseActionProperties["appID"];
 
   /** The client used to make requests. */
   readonly #pool: Pool;
 
-  constructor(data: ActionProperties, pool: Pool) {
+  constructor(data: BaseActionProperties, pool: Pool) {
 
     this.id = data.id;
     this.name = data.name;
@@ -51,7 +63,7 @@ export default class Action {
    * 
    * @param data The data for the new Action, excluding the ID.
    */
-  static async create(data: Omit<ActionProperties, "id">, pool: Pool): Promise<Action> {
+  static async create(data: Omit<BaseActionProperties, "id">, pool: Pool): Promise<Action> {
 
     // Insert the access policy into the database.
     const poolClient = await pool.connect();
@@ -154,7 +166,7 @@ export default class Action {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_actions", filterQuery, defaultLimit: 1000});
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_actions", filterQuery, defaultLimit: 1000, allowedQueryFields: this.allowedQueryFields});
     await poolClient.query(`set search_path to app`);
     const result = await poolClient.query(`select * from hydrated_actions${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();

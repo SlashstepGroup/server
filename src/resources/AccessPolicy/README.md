@@ -3,22 +3,13 @@
 
 ## Access
 ### Actions
-#### slashstep.accessPolicies.admin
-The principal can view and manage access policies on a particular scope, regardless of their permission level.
-
-> [!CAUTION]
-> This is a highly dangerous action that should only be used by trusted principals. This is a "break-glass" action, as it laughs in the face of any access policy on a specific scope.
-
-> [!NOTE]
-> Although users of this action can grant most permissions, users will not automatically be able to do everything. This action simply allows principals to grant or revoke any permission. Principals will need to grant themselves permission to do certain actions.
-
 #### slashstep.accessPolicies.get
 The principal can view any access policies on a particular scope.
 
 #### slashstep.accessPolicies.list
 The principal can list any access policies on a particular scope.
 
-#### slashstep.accessPolicies.manage
+#### slashstep.accessPolicies.update
 The principal can manage access policies on a particular scope. The principal can only manage access policies that they have at least [editor access](#editor-access) to.
 
 ### Possible parent resources

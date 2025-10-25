@@ -8,7 +8,7 @@
  */
 
 import { after, afterEach, before, beforeEach, describe, it } from "node:test"
-import { fail, strictEqual, notStrictEqual } from "node:assert";
+import { fail, strictEqual, notStrictEqual, throws, rejects } from "node:assert";
 import { Pool } from "pg";
 import AccessPolicy, { AccessPolicyInheritanceLevel, AccessPolicyPermissionLevel, AccessPolicyPrincipalType, AccessPolicyScopedResourceType } from "./AccessPolicy.js";
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
@@ -25,6 +25,7 @@ import Milestone, { MilestoneParentResourceType } from "#resources/Milestone/Mil
 import Project from "#resources/Project/Project.js";
 import Role, { RoleParentResourceType } from "#resources/Role/Role.js";
 import Workspace from "#resources/Workspace/Workspace.js";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 
 describe("The AccessPolicy class", async () => {
 
@@ -162,9 +163,17 @@ describe("The AccessPolicy class", async () => {
 
   afterEach(async () => {
 
-    const client = await postgreSQLPool.connect();
-    await client.query("drop schema if exists app cascade;");
-    client.release();
+    try {
+
+      const client = await postgreSQLPool.connect();
+      await client.query("drop schema if exists app cascade;");
+      client.release();
+
+    } catch (error) {
+
+      throw error;
+
+    }
 
   });
 
@@ -175,13 +184,13 @@ describe("The AccessPolicy class", async () => {
 
   });
 
-  it("can initialize an access_policies table in a database", async () => {
+  it("can initialize an access_policies table in a database", {timeout: 500}, async () => {
 
     await AccessPolicy.initializeTable(postgreSQLPool);
 
   });
 
-  it("can create an access policy", {timeout: 1000}, async () => {
+  it("can create an access policy", {timeout: 500}, async () => {
 
     const action = await createRandomAction();
     const user = await createRandomUser();
@@ -214,7 +223,6 @@ describe("The AccessPolicy class", async () => {
   it("can return a list of access policies without a query", {timeout: 1000}, async () => {
 
     // Make sure there isn't any access policies right now.
-    await Server.initializeResourceTables(postgreSQLPool);
     const initialAccessPolicyList = await AccessPolicy.list("", postgreSQLPool);
     strictEqual(initialAccessPolicyList.length, 0);
 
@@ -251,7 +259,6 @@ describe("The AccessPolicy class", async () => {
   it("can return a list of access policies with a query", {timeout: 1000}, async () => {
 
     // Make sure there isn't any access policies right now.
-    await Server.initializeResourceTables(postgreSQLPool);
     const action = await createRandomAction();
     const initialAccessPolicyList = await AccessPolicy.list(`actionID = "${action.id}"`, postgreSQLPool);
     strictEqual(initialAccessPolicyList.length, 0);
@@ -294,7 +301,6 @@ describe("The AccessPolicy class", async () => {
   it("can return a list of access policies with related resources", {timeout: 1000}, async () => {
 
     // Make some access policies.
-    await Server.initializeResourceTables(postgreSQLPool);
     const accessPolicies = [];
     const action = await createRandomAction();
     const defaultProperties = {
@@ -470,15 +476,147 @@ describe("The AccessPolicy class", async () => {
 
   });
 
-  it("can return a count of access policies", () => {
+  it("can return up to 1,000 access policies at a time", {timeout: 3000}, async () => {
+
+    // Make sure there isn't any access policies right now.
+    const initialAccessPolicyList = await AccessPolicy.list("", postgreSQLPool);
+    strictEqual(initialAccessPolicyList.length, 0);
+
+    const maximumActionCount = 1001;
+    const accessPolicies = [];
+    const user = await createRandomUser();
+    for (let i = 0; maximumActionCount > i; i++) {
+
+      const action = await createRandomAction();
+      const accessPolicy = await AccessPolicy.create({
+        principalUserID: user.id,
+        actionID: action.id,
+        principalType: AccessPolicyPrincipalType.User,
+        permissionLevel: AccessPolicyPermissionLevel.Admin,
+        inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
+        scopedResourceType: AccessPolicyScopedResourceType.Action,
+        scopedActionID: action.id
+      }, postgreSQLPool);
+      accessPolicies.push(accessPolicy);
+
+    }
+
+    const updatedAccessPolicyList = await AccessPolicy.list("", postgreSQLPool);
+    accessPolicies.pop();
+    strictEqual(updatedAccessPolicyList.length, accessPolicies.length);
+
+    for (const accessPolicy of accessPolicies) {
+
+      notStrictEqual(updatedAccessPolicyList.findIndex((possibleAccessPolicy) => possibleAccessPolicy.id === accessPolicy.id), -1);
+
+    }
 
   });
 
-  it("can get the deepest access policy relative to a specific resource", () => {
+  it("can return a count of access policies", {timeout: 3000}, async () => {
+
+    // Make sure there isn't any access policies right now.
+    const accessPolicyCount = await AccessPolicy.count("", postgreSQLPool);
+    strictEqual(accessPolicyCount, 0);
+
+    const maximumActionCount = 1001;
+    const user = await createRandomUser();
+    for (let i = 0; maximumActionCount > i; i++) {
+
+      const action = await createRandomAction();
+      await AccessPolicy.create({
+        principalUserID: user.id,
+        actionID: action.id,
+        principalType: AccessPolicyPrincipalType.User,
+        permissionLevel: AccessPolicyPermissionLevel.Admin,
+        inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
+        scopedResourceType: AccessPolicyScopedResourceType.Action,
+        scopedActionID: action.id
+      }, postgreSQLPool);
+
+    }
+
+    const updatedAccessPolicyCount = await AccessPolicy.count("", postgreSQLPool);
+    strictEqual(updatedAccessPolicyCount, maximumActionCount);
 
   });
 
-  it("can delete access policies", () => {
+  it("can get the deepest access policy relative to a specific resource", {timeout: 1000}, async () => {
+
+    // Make sure there isn't any access policies right now.
+    const user = await createRandomUser();
+    const action = await createRandomAction();
+    const workspace = await createRandomWorkspace();
+    const project = await createRandomProject(workspace.id);
+    const item = await createRandomItem(project.id);
+    await rejects(async () => await AccessPolicy.getByDeepestScope(action.id, postgreSQLPool, user.id, {itemID: item.id, projectID: project.id, workspaceID: workspace.id}), ResourceNotFoundError);
+
+    const itemAccessPolicy = await AccessPolicy.create({
+      principalUserID: user.id,
+      actionID: action.id,
+      principalType: AccessPolicyPrincipalType.User,
+      permissionLevel: AccessPolicyPermissionLevel.Admin,
+      inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
+      scopedResourceType: AccessPolicyScopedResourceType.Item,
+      scopedItemID: item.id
+    }, postgreSQLPool);
+
+    const projectAccessPolicy = await AccessPolicy.create({
+      principalUserID: user.id,
+      actionID: action.id,
+      principalType: AccessPolicyPrincipalType.User,
+      permissionLevel: AccessPolicyPermissionLevel.Admin,
+      inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
+      scopedResourceType: AccessPolicyScopedResourceType.Project,
+      scopedProjectID: project.id
+    }, postgreSQLPool);
+
+    const workspaceAccessPolicy = await AccessPolicy.create({
+      principalUserID: user.id,
+      actionID: action.id,
+      principalType: AccessPolicyPrincipalType.User,
+      permissionLevel: AccessPolicyPermissionLevel.Admin,
+      inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
+      scopedResourceType: AccessPolicyScopedResourceType.Workspace,
+      scopedWorkspaceID: workspace.id
+    }, postgreSQLPool);
+
+    const instanceAccessPolicy = await AccessPolicy.create({
+      principalUserID: user.id,
+      actionID: action.id,
+      principalType: AccessPolicyPrincipalType.User,
+      permissionLevel: AccessPolicyPermissionLevel.Admin,
+      inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
+      scopedResourceType: AccessPolicyScopedResourceType.Instance
+    }, postgreSQLPool);
+
+    for (const accessPolicy of [itemAccessPolicy, projectAccessPolicy, workspaceAccessPolicy, instanceAccessPolicy]) {
+
+      const possibleItemAccessPolicy = await AccessPolicy.getByDeepestScope(action.id, postgreSQLPool, user.id, {itemID: item.id, projectID: project.id, workspaceID: workspace.id});
+      strictEqual(accessPolicy.id, possibleItemAccessPolicy.id);
+      await accessPolicy.delete();
+
+    }
+
+  });
+
+  it("can delete access policies", {timeout: 300}, async () => {
+
+    // Make sure there isn't any access policies right now.
+    const user = await createRandomUser();
+    const action = await createRandomAction();
+    const accessPolicy = await AccessPolicy.create({
+      principalUserID: user.id,
+      actionID: action.id,
+      principalType: AccessPolicyPrincipalType.User,
+      permissionLevel: AccessPolicyPermissionLevel.Admin,
+      inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
+      scopedResourceType: AccessPolicyScopedResourceType.Instance
+    }, postgreSQLPool);
+
+    await accessPolicy.delete();
+    
+    await rejects(async () => await AccessPolicy.getByID(accessPolicy.id, postgreSQLPool), ResourceNotFoundError);
 
   });
 

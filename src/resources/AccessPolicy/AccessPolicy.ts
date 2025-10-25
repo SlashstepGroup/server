@@ -4,7 +4,7 @@ import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
-import Action from "#resources/Action/Action.js";
+import Action, { BaseActionProperties, InitialWritableActionProperties } from "#resources/Action/Action.js";
 import App from "#resources/App/App.js";
 import Group from "#resources/Group/Group.js";
 import Item from "#resources/Item/Item.js";
@@ -102,6 +102,18 @@ export type BaseAccessPolicyProperties = {
   inheritanceLevel: AccessPolicyInheritanceLevel;
 }
 
+export type Scope = {
+  actionID?: string;
+  appID?: string;
+  groupID?: string;
+  itemID?: string;
+  milestoneID?: string;
+  projectID?: string;
+  roleID?: string;
+  userID?: string;
+  workspaceID?: string;
+};
+
 export type ExtendedAccessPolicyProperties = BaseAccessPolicyProperties & {
   principalUser?: User;
   principalGroup?: Group;
@@ -119,12 +131,6 @@ export type ExtendedAccessPolicyProperties = BaseAccessPolicyProperties & {
 }
 
 export type EditableAccessPolicyProperties = Omit<BaseAccessPolicyProperties, "id" | "principalType" | "principalUserID" | "principalGroupID" | "principalRoleID" | "scopedResourceType" | "scopedActionID" | "scopedAppID" | "scopedGroupID" | "scopedItemID" | "scopedMilestoneID" | "scopedProjectID" | "scopedRoleID" | "scopedUserID" | "scopedWorkspaceID" | "actionID">;
-
-export type Scope = {
-  itemID?: string;
-  projectID?: string;
-  workspaceID?: string;
-};
 
 export enum AccessPolicyScopedResourceType {
   App = "App",
@@ -229,17 +235,23 @@ export default class AccessPolicy {
 
   static readonly allowedQueryFields = {
     id: "id", 
-    userID: "user_id", 
-    scoped_resource_type: "scoped_resource_type",
-    workspaceID: "workspace_id", 
-    projectID: "project_id", 
-    itemID: "item_id", 
-    actionID: "action_id", 
-    permissionLevel: "permission_level", 
-    inheritanceLevel: "inheritance_level",
+    actionID: "action_id",
+    principalType: "principal_type",
     principalUserID: "principal_user_id",
     principalGroupID: "principal_group_id",
-    principalRoleID: "principal_role_id"
+    principalRoleID: "principal_role_id",
+    scopedResourceType: "scoped_resource_type",
+    scopedActionID: "scoped_action_id",
+    scopedAppID: "scoped_app_id",
+    scopedGroupID: "scoped_group_id",
+    scopedItemID: "scoped_item_id",
+    scopedMilestoneID: "scoped_milestone_id",
+    scopedProjectID: "scoped_project_id",
+    scopedRoleID: "scoped_role_id",
+    scopedUserID: "scoped_user_id",
+    scopedWorkspaceID: "scoped_workspace_id",
+    permissionLevel: "permission_level", 
+    inheritanceLevel: "inheritance_level"
   }
 
   /** The access policy's ID. */
@@ -441,6 +453,48 @@ export default class AccessPolicy {
       poolClient.release();
 
     }
+
+  }
+
+  static async initializeActions(actionClass: typeof Action, pool: Pool): Promise<Action[]> {
+
+    const actionPropertiesList: InitialWritableActionProperties[] = [
+      {
+        name: "slashstep.accessPolicies.get",
+        displayName: "Get access policy",
+        description: "View an access policy."
+      },
+      {
+        name: "slashstep.accessPolicies.list",
+        displayName: "List access policies",
+        description: "List access policies on a particular scope."
+      },
+      {
+        name: "slashstep.accessPolicies.create",
+        displayName: "Create access policies",
+        description: "Create access policies on a particular scope."
+      },
+      {
+        name: "slashstep.accessPolicies.update",
+        displayName: "Update access policies",
+        description: "Manage access policies on a particular scope."
+      },
+      {
+        name: "slashstep.accessPolicies.delete",
+        displayName: "Delete access policies",
+        description: "Delete access policies on a particular scope."
+      }
+    ];
+
+    const actions = [];
+    for (const actionProperties of actionPropertiesList) {
+
+      const action = await actionClass.create(actionProperties, pool);
+      actions.push(action);
+
+    }
+
+    return actions;
 
   }
 
@@ -664,13 +718,13 @@ export default class AccessPolicy {
   static async list(filterQuery: string, pool: Pool, includedResources: AccessPolicyIncludedResourceClassMap = {}): Promise<AccessPolicy[]> {
 
     // Get the list from the database.
-    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({ 
+    const { whereClause, values, limit } = SlashstepQLFilterSanitizer.sanitize({ 
       tableName: "hydrated_access_policies", 
       filterQuery, 
       defaultLimit: 1000, 
       allowedQueryFields: this.allowedQueryFields
     });
-    const finalQuery = `select * from hydrated_access_policies${whereClause ? ` where ${whereClause}` : ""}`;
+    const finalQuery = `select * from hydrated_access_policies${whereClause ? ` where ${whereClause}` : ""}${limit !== undefined ? ` limit ${limit}` : ""}`;
     
     let result;
     const poolClient = await pool.connect();
@@ -779,37 +833,68 @@ export default class AccessPolicy {
 
   }
 
+  static async getByID(id: string, pool: Pool): Promise<AccessPolicy> {
+
+    // Get the access policy data from the database.
+    const poolClient = await pool.connect();
+    
+    try {
+
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "get-access-policy-by-id.sql"), "utf8");
+      const result = await poolClient.query(query, [id]);
+
+      // Make sure the access policy data exists.
+      const data = result.rows[0];
+
+      if (!data) {
+
+        throw new ResourceNotFoundError("AccessPolicy");
+
+      }
+
+      // Return the access policy.
+      const accessPolicy = new AccessPolicy(data, pool);
+      return accessPolicy;
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
   /**
    * Requests the server to return a specific access policy by ID.
    * @param id The ID of the access policy to retrieve.
    * @param client The client used to make requests.
    * @returns The requested access policy.
    */
-  static async getByDeepestScope(actionID: string, pool: Pool, userID: string | null = null, scope: Scope = {}): Promise<AccessPolicy> {
+  static async getByDeepestScope(actionID: string, pool: Pool, principalUserID: string | null = null, scope: Scope = {}): Promise<AccessPolicy> {
 
     // Get the user's access policies.
     const scopeArray = [];
     if (scope.itemID) {
 
-      scopeArray.push(`item_id = ${scope.itemID}`);
+      scopeArray.push(`scopedItemID = '${scope.itemID}'`);
 
     }
 
     if (scope.projectID) {
 
-      scopeArray.push(`project_id = ${scope.projectID}`);
+      scopeArray.push(`scopedProjectID = '${scope.projectID}'`);
 
     }
 
     if (scope.workspaceID) {
 
-      scopeArray.push(`workspace_id = ${scope.workspaceID}`);
+      scopeArray.push(`scopedWorkspaceID = '${scope.workspaceID}'`);
 
     }
 
-    scopeArray.push("scoped_resource_type = 'Instance'");
+    scopeArray.push("scopedResourceType = 'Instance'");
 
-    const accessPolicies = await AccessPolicy.list(`action_id = '${actionID}' and user_id ${userID ? `= '${userID}'` : "is null"} and (${scopeArray.join(" or ")})`, pool);
+    const accessPolicies = await AccessPolicy.list(`actionID = '${actionID}' and principalUserID ${principalUserID ? `= '${principalUserID}'` : "is null"} and (${scopeArray.join(" or ")})`, pool);
 
     const instanceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "Instance");
     const workspaceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "Workspace");
@@ -859,7 +944,7 @@ export default class AccessPolicy {
    */
   async delete(): Promise<void> {
 
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "AccessPolicy", "queries", "delete-access-policy.sql"), "utf8");
+    const query = readFileSync(resolve(import.meta.dirname, "queries", "delete-access-policy.sql"), "utf8");
     const poolClient = await this.#pool.connect();
     await poolClient.query(query, [this.id]);
     poolClient.release();
