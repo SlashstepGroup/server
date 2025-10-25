@@ -9,7 +9,7 @@
     "dev": "tsc --project tsconfig.build.json && copyfiles -u 1 src/**/*.sql dist && node --env-file=.env --trace-deprecation ./dist/app.js",
     "start": "node ./dist/app.js",
     "setup": "node ./dist/app.js --setup",
-    "test": "node --import tsx --test"
+    "test": "node --import tsx --test --test-timeout=120000"
   },
   "imports": {
     "#utilities/*": "./dist/utilities/*",

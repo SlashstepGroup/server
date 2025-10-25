@@ -27,6 +27,21 @@ export default class Item {
 
   static readonly name = "Item";
 
+  static readonly allowedQueryFields = {
+    id: "id",
+    userID: "user_id",
+    workspaceID: "workspace_id",
+    workspace: "workspace",
+    projectID: "project_id",
+    project: "project",
+    summary: "summary",
+    description: "description",
+    startDate: "start_date",
+    endDate: "end_date",
+    milestoneID: "milestone_id",
+    milestone: "milestone"
+  }
+
   /** The ID of the item. */
   readonly id: ItemProperties["id"];
 
@@ -67,27 +82,35 @@ export default class Item {
 
     // Insert the item data into the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "Item", "queries", "insert-item-row.sql"), "utf8");
-    const values = [data.summary, data.description, data.projectID, data.projectID];
-    const result = await poolClient.query(query, values);
-    poolClient.release();
 
-    // Convert the row to an item object.
-    const row = result.rows[0];
-    if (!row) {
+    try {
 
-      throw new ResourceNotFoundError("Item");
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-item-row.sql"), "utf8");
+      const values = [data.summary, data.description, data.projectID, data.projectID];
+      const result = await poolClient.query(query, values);
+
+      // Convert the row to an item object.
+      const row = result.rows[0];
+      if (!row) {
+
+        throw new ResourceNotFoundError("Item");
+
+      }
+
+      const item = new Item({
+        ...row,
+        projectID: row.project_id,
+        project: data.project
+      }, pool);
+
+      // Return the item.
+      return item;
+
+    } finally {
+
+      poolClient.release();
 
     }
-
-    const item = new Item({
-      ...row,
-      projectID: row.project_id,
-      project: data.project
-    }, pool);
-
-    // Return the item.
-    return item;
 
   }
 
@@ -112,7 +135,12 @@ export default class Item {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_items", filterQuery, defaultLimit: 1000});
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({
+      tableName: "hydrated_items", 
+      filterQuery, 
+      defaultLimit: 1000,
+      allowedQueryFields: this.allowedQueryFields
+    });
     await poolClient.query("set search_path to app");
     const result = await poolClient.query(`select * from hydrated_items${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();
@@ -167,7 +195,8 @@ export default class Item {
       tableName: "hydrated_items", 
       filterQuery, 
       shouldIgnoreOffset: true,
-      shouldIgnoreLimit: true
+      shouldIgnoreLimit: true,
+      allowedQueryFields: this.allowedQueryFields
     });
     const result = await poolClient.query(`select count(*) from hydrated_items${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();

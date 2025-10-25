@@ -87,22 +87,29 @@ export default class Group {
     // Insert the group into the database.
     const poolClient = await pool.connect();
 
-    const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-group-row.sql"), "utf8");
-    const values = [data.name, data.displayName, data.description, data.parentGroupID];
-    const result = await poolClient.query<GroupTableQueryResult>(query, values);
-    poolClient.release();
+    try {
 
-    // Convert the row to a group object.
-    const rowData = result.rows[0];
-    const group = new Group({
-      id: rowData.id,
-      name: rowData.name,
-      displayName: rowData.display_name,
-      description: rowData.description,
-      parentGroupID: rowData.parent_group_id
-    }, pool);
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-group-row.sql"), "utf8");
+      const values = [data.name, data.displayName, data.description, data.parentGroupID];
+      const result = await poolClient.query<GroupTableQueryResult>(query, values);
 
-    return group;
+      // Convert the row to a group object.
+      const rowData = result.rows[0];
+      const group = new Group({
+        id: rowData.id,
+        name: rowData.name,
+        displayName: rowData.display_name,
+        description: rowData.description,
+        parentGroupID: rowData.parent_group_id
+      }, pool);
+
+      return group;
+
+    } finally {
+
+      poolClient.release();
+
+    }
 
   }
 

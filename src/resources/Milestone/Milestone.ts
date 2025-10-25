@@ -99,24 +99,31 @@ export default class Milestone extends Collection {
     // Insert the milestone into the database.
     const poolClient = await pool.connect();
 
-    const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-milestone-row.sql"), "utf8");
-    const values = [data.name, data.displayName, data.description, data.parentResourceType, data.parentProjectID, data.parentWorkspaceID];
-    const result = await poolClient.query<MilestoneTableQueryResult>(query, values);
-    poolClient.release();
+    try {
 
-    // Convert the row to a milestone object.
-    const rowData = result.rows[0];
-    const milestone = new Milestone({
-      id: rowData.id,
-      name: rowData.name,
-      displayName: rowData.display_name,
-      description: rowData.description,
-      parentResourceType: rowData.parent_resource_type,
-      parentProjectID: rowData.parent_project_id,
-      parentWorkspaceID: rowData.parent_workspace_id
-    }, pool);
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-milestone-row.sql"), "utf8");
+      const values = [data.name, data.displayName, data.description, data.parentResourceType, data.parentProjectID, data.parentWorkspaceID];
+      const result = await poolClient.query<MilestoneTableQueryResult>(query, values);
 
-    return milestone;
+      // Convert the row to a milestone object.
+      const rowData = result.rows[0];
+      const milestone = new Milestone({
+        id: rowData.id,
+        name: rowData.name,
+        displayName: rowData.display_name,
+        description: rowData.description,
+        parentResourceType: rowData.parent_resource_type,
+        parentProjectID: rowData.parent_project_id,
+        parentWorkspaceID: rowData.parent_workspace_id
+      }, pool);
+
+      return milestone;
+
+    } finally {
+
+      poolClient.release();
+
+    }
 
   }
 

@@ -10,6 +10,7 @@ create or replace view hydrated_access_policies as
     /* User */
     principal_users.username as principal_user_username,
     principal_users.display_name as principal_user_display_name,
+    principal_users.hashed_password as principal_user_hashed_password,
 
     /* Group */
     principal_groups.name as principal_group_name,
@@ -18,6 +19,10 @@ create or replace view hydrated_access_policies as
     /* Role */
     principal_roles.name as principal_role_name,
     principal_roles.display_name as principal_role_display_name,
+    principal_roles.parent_resource_type as principal_role_parent_resource_type,
+    principal_roles.parent_workspace_id as principal_role_parent_workspace_id,
+    principal_roles.parent_project_id as principal_role_parent_project_id,
+    principal_roles.parent_group_id as principal_role_parent_group_id,
 
     /** Scopes */
     /* Action */
@@ -37,24 +42,38 @@ create or replace view hydrated_access_policies as
     /* Item */
     scoped_items.summary as scoped_item_summary,
     scoped_items.description as scoped_item_description,
+    scoped_items.project_id as scoped_item_project_id,
+    scoped_items.number as scoped_item_number,
 
     /* Milestone */
     scoped_milestones.name as scoped_milestone_name,
     scoped_milestones.display_name as scoped_milestone_display_name,
+    scoped_milestones.description as scoped_milestone_description,
+    scoped_milestones.parent_resource_type as scoped_milestone_parent_resource_type,
+    scoped_milestones.parent_project_id as scoped_milestone_parent_project_id,
+    scoped_milestones.parent_workspace_id as scoped_milestone_parent_workspace_id,
 
     /* Project */
     scoped_projects.name as scoped_project_name,
     scoped_projects.display_name as scoped_project_display_name,
     scoped_projects.description as scoped_project_description,
     scoped_projects.key as scoped_project_key,
+    scoped_projects.start_date as scoped_project_start_date,
+    scoped_projects.end_date as scoped_project_end_date,
+    scoped_projects.workspace_id as scoped_project_workspace_id,
     
     /* Role */
     scoped_roles.name as scoped_role_name,
     scoped_roles.display_name as scoped_role_display_name,
+    scoped_roles.parent_resource_type as scoped_role_parent_resource_type,
+    scoped_roles.parent_workspace_id as scoped_role_parent_workspace_id,
+    scoped_roles.parent_project_id as scoped_role_parent_project_id,
+    scoped_roles.parent_group_id as scoped_role_parent_group_id,
 
     /* User */
     scoped_users.username as scoped_user_username,
     scoped_users.display_name as scoped_user_display_name,
+    scoped_users.hashed_password as scoped_user_hashed_password,
 
     /* Workspace */
     scoped_workspaces.name as scoped_workspace_name,

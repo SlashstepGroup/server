@@ -22,6 +22,22 @@ export type ProjectIncludedResourcesConstructorMap = {
  */
 export default class Project extends Collection {
 
+  static readonly name = "Project";
+
+  static readonly allowedQueryFields = {
+    id: "id",
+    userID: "user_id",
+    workspaceID: "workspace_id",
+    workspace: "workspace",
+    key: "key",
+    summary: "summary",
+    description: "description",
+    startDate: "start_date",
+    endDate: "end_date",
+    itemID: "item_id",
+    item: "item"
+  }
+
   key: ProjectProperties["key"];
 
   workspace: ProjectProperties["workspace"];
@@ -50,34 +66,52 @@ export default class Project extends Collection {
 
     // Insert the item data into the database.
     const poolClient = await pool.connect();
-    const insertProjectRowQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "insert-project-row.sql"), "utf8");
-    const values = [data.name, data.displayName, data.key, data.description, data.startDate, data.endDate, data.workspaceID];
-    const result = await poolClient.query(insertProjectRowQuery, values);
-    await poolClient.query("set search_path to app");
-    await poolClient.query(`select create_project_sequence($1);`, [result.rows[0].id]);
-    poolClient.release();
 
-    // Convert the row to a project object.
-    const row = result.rows[0];
-    const project = new Project({
-      ...row,
-      workspaceID: row.workspace_id,
-      workspace: data.workspace
-    }, pool);
+    try {
 
-    // Return the project.
-    return project;
+      const insertProjectRowQuery = readFileSync(resolve(import.meta.dirname, "queries", "insert-project-row.sql"), "utf8");
+      const values = [data.name, data.displayName, data.key, data.description, data.startDate, data.endDate, data.workspaceID];
+      const result = await poolClient.query(insertProjectRowQuery, values);
+      await poolClient.query("set search_path to app");
+      await poolClient.query(`select create_project_sequence($1);`, [result.rows[0].id]);
+
+      // Convert the row to a project object.
+      const row = result.rows[0];
+      const project = new Project({
+        ...row,
+        workspaceID: row.workspace_id,
+        workspace: data.workspace
+      }, pool);
+
+      // Return the project.
+      return project;
+
+    } finally {
+
+      poolClient.release();
+
+    }
 
   }
 
   static async initializeTable(pool: Pool): Promise<void> {
 
     const poolClient = await pool.connect();
-    const createProjectsTableQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "create-projects-table.sql"), "utf8");
-    const createHydratedProjectsViewQuery = readFileSync(resolve(dirname(import.meta.dirname), "Project", "queries", "create-hydrated-projects-view.sql"), "utf8");
-    await poolClient.query(createProjectsTableQuery);
-    await poolClient.query(createHydratedProjectsViewQuery);
-    poolClient.release();
+
+    try {
+
+      const createProjectsTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-projects-table.sql"), "utf8");
+      const createHydratedProjectsViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-projects-view.sql"), "utf8");
+      const createProjectSequenceFunctionQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-project-sequence.sql"), "utf8");
+      await poolClient.query(createProjectsTableQuery);
+      await poolClient.query(createHydratedProjectsViewQuery);
+      await poolClient.query(createProjectSequenceFunctionQuery);
+
+    } finally {
+
+      poolClient.release();
+
+    }
 
   }
 
@@ -90,7 +124,12 @@ export default class Project extends Collection {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_projects", filterQuery, defaultLimit: 1000});
+    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({
+      tableName: "hydrated_projects", 
+      filterQuery, 
+      defaultLimit: 1000,
+      allowedQueryFields: this.allowedQueryFields
+    });
     await poolClient.query(`set search_path to app`);
     const result = await poolClient.query(`select * from projects${whereClause ? ` where ${whereClause}` : ""}`, values);
     poolClient.release();

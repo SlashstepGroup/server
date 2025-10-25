@@ -51,7 +51,7 @@ create table if not exists access_policies (
   principal_role_id UUID references roles(id) on delete cascade,
 
   /* Scopes */
-  scoped_resource_type scope_resource_type not null,
+  scoped_resource_type scoped_resource_type not null,
   scoped_workspace_id UUID references workspaces(id) on delete cascade,
   scoped_project_id UUID references projects(id) on delete cascade,
   scoped_item_id UUID references items(id) on delete cascade,

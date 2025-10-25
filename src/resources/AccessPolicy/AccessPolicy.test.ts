@@ -181,11 +181,11 @@ describe("The AccessPolicy class", async () => {
 
   });
 
-  it("can create an access policy", async () => {
+  it("can create an access policy", {timeout: 1000}, async () => {
 
     const action = await createRandomAction();
     const user = await createRandomUser();
-    
+
     const accessPolicyProperties: Parameters<(typeof AccessPolicy)["create"]>[0] = {
       principalType: AccessPolicyPrincipalType.User,
       scopedResourceType: AccessPolicyScopedResourceType.Instance,
@@ -194,6 +194,7 @@ describe("The AccessPolicy class", async () => {
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
       principalUserID: user.id
     };
+
     const accessPolicy = await AccessPolicy.create(accessPolicyProperties, postgreSQLPool);
 
     // Verify the properties are the same.
@@ -207,9 +208,10 @@ describe("The AccessPolicy class", async () => {
     strictEqual(accessPolicy.permissionLevel, accessPolicyProperties.permissionLevel);
     strictEqual(accessPolicy.inheritanceLevel, accessPolicyProperties.inheritanceLevel);
 
+
   });
 
-  it("can return a list of access policies without a query", async () => {
+  it("can return a list of access policies without a query", {timeout: 1000}, async () => {
 
     // Make sure there isn't any access policies right now.
     await Server.initializeResourceTables(postgreSQLPool);
@@ -246,7 +248,7 @@ describe("The AccessPolicy class", async () => {
 
   });
 
-  it("can return a list of access policies with a query", async () => {
+  it("can return a list of access policies with a query", {timeout: 1000}, async () => {
 
     // Make sure there isn't any access policies right now.
     await Server.initializeResourceTables(postgreSQLPool);
@@ -289,7 +291,7 @@ describe("The AccessPolicy class", async () => {
 
   });
 
-  it("can return a list of access policies with related resources", async () => {
+  it("can return a list of access policies with related resources", {timeout: 1000}, async () => {
 
     // Make some access policies.
     await Server.initializeResourceTables(postgreSQLPool);
@@ -300,6 +302,7 @@ describe("The AccessPolicy class", async () => {
       permissionLevel: AccessPolicyPermissionLevel.Admin,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
     }
+
     const user = await createRandomUser();
     const role = await createRandomRole();
     const group = await createRandomGroup();
@@ -383,6 +386,7 @@ describe("The AccessPolicy class", async () => {
     const updatedAccessPolicyList = await AccessPolicy.list("", postgreSQLPool, {
       principalGroup: Group,
       principalUser: User,
+      principalRole: Role,
       scopedAction: Action,
       scopedApp: App,
       scopedGroup: Group,
@@ -396,9 +400,8 @@ describe("The AccessPolicy class", async () => {
     });
     strictEqual(updatedAccessPolicyList.length, accessPolicies.length);
 
-    for (const accessPolicy of accessPolicies) {
+    for (const accessPolicy of updatedAccessPolicyList) {
 
-      strictEqual(accessPolicy.action instanceof Action, true);
       switch (accessPolicy.principalType) {
 
         case AccessPolicyPrincipalType.User:
@@ -445,7 +448,7 @@ describe("The AccessPolicy class", async () => {
           break;
           
         case AccessPolicyScopedResourceType.Role:
-          strictEqual(accessPolicy.scopedAction?.id, role.id);
+          strictEqual(accessPolicy.scopedRole?.id, role.id);
           break;
           
         case AccessPolicyScopedResourceType.User:
@@ -455,6 +458,9 @@ describe("The AccessPolicy class", async () => {
         case AccessPolicyScopedResourceType.Workspace:
           strictEqual(accessPolicy.scopedWorkspace?.id, workspace.id);
           break;
+
+        default:
+          fail(`Unexpected scoped resource type: ${accessPolicy.scopedResourceType}`);
 
       }
 

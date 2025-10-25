@@ -3,5 +3,5 @@ create table if not exists groups (
   name text not null unique,
   display_name text not null,
   description text not null,
-  parentGroupID UUID references groups(id) on delete cascade
+  parent_group_id UUID references groups(id) on delete cascade
 )

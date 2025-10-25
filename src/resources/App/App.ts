@@ -46,23 +46,31 @@ export default class App {
 
     // Insert the app data into the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-app-row.sql"), "utf8");
-    const values = [data.name, data.displayName, data.description];
-    const result = await poolClient.query(query, values);
-    poolClient.release();
+    
+    try {
 
-    // Convert the row to an app object.
-    const row = result.rows[0];
-    const app = new App({
-      ...row,
-      id: row.id,
-      name: row.name,
-      displayName: row.display_name,
-      description: row.description
-    }, pool);
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-app-row.sql"), "utf8");
+      const values = [data.name, data.displayName, data.description];
+      const result = await poolClient.query(query, values);
 
-    // Return the user.
-    return app;
+      // Convert the row to an app object.
+      const row = result.rows[0];
+      const app = new App({
+        ...row,
+        id: row.id,
+        name: row.name,
+        displayName: row.display_name,
+        description: row.description
+      }, pool);
+
+      // Return the user.
+      return app;
+
+    } finally {
+
+      poolClient.release();
+
+    }
 
   }
 
