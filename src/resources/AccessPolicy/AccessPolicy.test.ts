@@ -21,7 +21,7 @@ import { randomBytes } from "crypto";
 import Group from "#resources/Group/Group.js";
 import App from "#resources/App/App.js";
 import Item from "#resources/Item/Item.js";
-import Milestone from "#resources/Milestone/Milestone.js";
+import Milestone, { MilestoneParentResourceType } from "#resources/Milestone/Milestone.js";
 import Project from "#resources/Project/Project.js";
 import Role, { RoleParentResourceType } from "#resources/Role/Role.js";
 import Workspace from "#resources/Workspace/Workspace.js";
@@ -94,36 +94,39 @@ describe("The AccessPolicy class", async () => {
 
   }
 
-  const createRandomProject = async () => {
+  const createRandomProject = async (workspaceID: string) => {
 
     const project = await Project.create({
-      name: `slashstep.${generateUUIDv7()}.${generateUUIDv7()}`,
+      name: `slashstep.${generateUUIDv7()}`,
       displayName: generateRandomString(16),
-      description: generateRandomString(128)
+      description: generateRandomString(128),
+      key: generateRandomString(16),
+      workspaceID
     }, postgreSQLPool);
 
     return project;
 
   }
 
-  const createRandomItem = async () => {
+  const createRandomItem = async (projectID: string) => {
 
     const item = await Item.create({
-      name: `slashstep.${generateUUIDv7()}.${generateUUIDv7()}`,
-      displayName: generateRandomString(16),
-      description: generateRandomString(128)
+      summary: generateRandomString(256),
+      projectID
     }, postgreSQLPool);
 
     return item;
 
   }
 
-  const createRandomMilestone = async () => {
+  const createRandomMilestone = async (projectID: string) => {
 
     const milestone = await Milestone.create({
       name: `slashstep.${generateUUIDv7()}.${generateUUIDv7()}`,
+      parentResourceType: MilestoneParentResourceType.Project,
       displayName: generateRandomString(16),
-      description: generateRandomString(128)
+      description: generateRandomString(128),
+      parentProjectID: projectID
     }, postgreSQLPool);
 
     return milestone;
@@ -301,9 +304,9 @@ describe("The AccessPolicy class", async () => {
     const role = await createRandomRole();
     const group = await createRandomGroup();
     const workspace = await createRandomWorkspace();
-    const project = await createRandomProject();
-    const item = await createRandomItem();
-    const milestone = await createRandomMilestone();
+    const project = await createRandomProject(workspace.id);
+    const item = await createRandomItem(project.id);
+    const milestone = await createRandomMilestone(project.id);
     const app = await createRandomApp();
 
     const scopePropertyGroups = [
