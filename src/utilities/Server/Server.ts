@@ -27,6 +27,7 @@ import accessPoliciesRouter from "#routes/access-policies/index.js";
 import Group from "#resources/Group/Group.js";
 import Role from "#resources/Role/Role.js";
 import Milestone from "#resources/Milestone/Milestone.js";
+import { Server as HTTPServer, createServer as createHTTPServer } from "http";
 
 export type ServerProperties = {
   environment: string;
@@ -39,7 +40,6 @@ export default class Server {
   pool: Pool;
   port: number;
   environment: string;
-  consoleCode?: string;
 
   constructor(properties: ServerProperties) {
 
@@ -283,10 +283,33 @@ export default class Server {
 
   }
 
-  async start(): Promise<void> {
+  setupRoutes() {
 
-    // Set up routes
-    console.log("Setting up routes...");
+    this.app.use("/access-policies", accessPoliciesRouter);
+    this.app.use("/instance", instanceRouter);
+    this.app.use("/items", itemsRouter);
+    this.app.use("/projects", projectsRouter);
+    this.app.use("/workspaces", workspacesRouter);
+    this.app.use("/user", userRouter);
+    this.app.use("/users", usersRouter);
+
+    this.app.get("/", (_, response) => {
+      
+      response.json({ success: true });
+
+    });
+
+    this.app.use((_, response) => {
+
+      response.status(404).json({
+        message: "Not found"
+      });
+
+    });
+
+  }
+  
+  setupMiddleware() {
 
     this.app.use((_, response, next) => {
 
@@ -314,46 +337,46 @@ export default class Server {
       credentials: true
     }));
     this.app.disable("x-powered-by");
-    this.app.use("/access-policies", accessPoliciesRouter);
-    this.app.use("/instance", instanceRouter);
-    this.app.use("/items", itemsRouter);
-    this.app.use("/projects", projectsRouter);
-    this.app.use("/workspaces", workspacesRouter);
-    this.app.use("/user", userRouter);
-    this.app.use("/users", usersRouter);
 
-    this.app.get("/", (_, response) => {
-      
-      response.json({ success: true });
+  }
+
+  async listen(): Promise<HTTPServer> {
+
+    return await new Promise((resolve, reject) => {
+
+      if (this.environment === "development") {
+
+        const httpsServer = createHTTPSServer({
+          key: readFileSync("./certificates/localhost+2-key.pem"),
+          cert: readFileSync("./certificates/localhost+2.pem")
+        }, this.app);
+        
+        httpsServer.listen(this.port, () => resolve(httpsServer));
+
+      } else {
+
+        const httpServer = createHTTPServer(this.app);
+        httpServer.listen(this.port, () => resolve(httpServer));
+
+      }
 
     });
 
-    this.app.use((_, response) => {
+  }
 
-      response.status(404).json({
-        message: "Not found"
-      });
+  async start(): Promise<void> {
 
-    });
+    console.log("Setting up middleware...");
+    this.setupMiddleware();
+    
+    console.log("Setting up routes...");
+    this.setupRoutes();
 
+    console.log("Listening for requests...");
+    await this.listen();
+    
     const ipv4Address = Server.getIPv4Address();
-
-    if (this.environment === "development") {
-
-      createHTTPSServer({
-        key: readFileSync("./ssl/server.key"),
-        cert: readFileSync("./ssl/server.cert")
-      }, this.app).listen(this.port, () =>
-        console.log(`\x1b[32mSlashstep Server is now online at port ${this.port}. It is also available on your local network at ${ipv4Address}:${this.port}.\x1b[0m`),
-      );
-
-    } else {
-
-      this.app.listen(this.port, () =>
-        console.log(`\x1b[32mSlashstep Server is now online at port ${this.port}. It is also available on your local network at ${ipv4Address}:${this.port}.\x1b[0m`),
-      );
-
-    }
+    console.log(`\x1b[32mSlashstep Server is now online at port ${this.port}. It is also available on your local network at ${ipv4Address}:${this.port}.\x1b[0m`)
 
   }
 

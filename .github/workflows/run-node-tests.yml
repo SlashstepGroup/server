@@ -18,6 +18,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5.0.0
 
+      - name: Install mkcert
+        run: |
+          MKCERT_VERSION="v1.4.4"
+          wget -O mkcert https://github.com/FiloSottile/mkcert/releases/download/${MKCERT_VERSION}/mkcert-${MKCERT_VERSION}-linux-amd64
+          chmod +x mkcert
+          sudo mv mkcert /usr/local/bin/mkcert
+
+      - name: Install mkcert CA
+        run: |
+          mkcert -install
+
+      - name: Generate SSL certificates
+        run: |
+          cd certificates
+          mkcert localhost 127.0.0.1 ::1
+
       - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6.0.0
         with:

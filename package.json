@@ -9,7 +9,13 @@
     "dev": "tsc --project tsconfig.build.json && copyfiles -u 1 src/**/*.sql dist && node --env-file=.env --trace-deprecation ./dist/app.js",
     "start": "node ./dist/app.js",
     "setup": "node ./dist/app.js --setup",
-    "test": "node --import tsx --test --test-timeout=120000"
+    "test": "cross-os test"
+  },
+  "cross-os": {
+    "test": {
+      "win32": "powershell cross-env NODE_EXTRA_CA_CERTS=\"$(mkcert -CAROOT)/rootCA.pem\" node --import tsx --test --test-timeout=120000",
+      "linux": "cross-env NODE_EXTRA_CA_CERTS=\"$(mkcert -CAROOT)/rootCA.pem\" node --import tsx --test --test-timeout=120000"
+    }
   },
   "imports": {
     "#utilities/*": "./dist/utilities/*",
@@ -34,6 +40,8 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/pg": "^8.15.5",
     "copyfiles": "^2.4.1",
+    "cross-env": "^10.1.0",
+    "cross-os": "^1.5.0",
     "pg-mem": "^3.0.5",
     "testcontainers": "^11.7.2",
     "tslib": "^2.8.1",
