@@ -1,0 +1,1 @@
+select * from hydrated_roles where name = $1;

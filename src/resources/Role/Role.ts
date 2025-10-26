@@ -1,9 +1,14 @@
 import Group from "#resources/Group/Group.js";
 import Project from "#resources/Project/Project.js";
 import Workspace from "#resources/Workspace/Workspace.js";
-import { Pool } from "pg";
+import { DatabaseError, Pool } from "pg";
 import { readFileSync } from "fs";
 import { resolve } from "path"
+import Principal, { PrincipalResourceClassMap } from "src/interfaces/Principal.js";
+import { AccessPolicyPermissionLevel, AccessPolicyPrincipalType } from "#resources/AccessPolicy/AccessPolicy.js";
+import PermissionDeniedError from "#errors/PermissionDeniedError.js";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import ResourceConflictError from "#errors/ResourceConflictError.js";
 
 export enum RoleParentResourceType {
   Instance = "Instance",
@@ -15,6 +20,7 @@ export enum RoleParentResourceType {
 export type BaseRoleProperties = {
   id: string;
   name: string;
+  isPreDefined: boolean;
   displayName: string;
   description?: string;
   parentResourceType: RoleParentResourceType;
@@ -23,7 +29,7 @@ export type BaseRoleProperties = {
   parentGroupID?: string;
 }
 
-export type InitialWritableRoleProperties = Omit<BaseRoleProperties, "id">;
+export type InitialWritableRoleProperties = Omit<BaseRoleProperties, "id" | "isPreDefined"> & {isPreDefined?: boolean};
 
 export type EditableRoleProperties = Omit<InitialWritableRoleProperties, "parentResourceType" | "parentWorkspaceID" | "parentProjectID" | "parentGroupID">;
 
@@ -42,9 +48,10 @@ export type RoleTableQueryResult = {
   parent_workspace_id: string;
   parent_project_id: string;
   parent_group_id: string;
+  is_predefined: boolean;
 }
 
-export default class Role {
+export default class Role implements Principal {
   
   /** The role's ID. */
   readonly id: RoleObjectProperties["id"];
@@ -126,26 +133,129 @@ export default class Role {
     // Insert the role into the database.
     const poolClient = await pool.connect();
 
-    const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-role-row.sql"), "utf8");
-    const values = [data.name, data.displayName, data.description, data.parentResourceType, data.parentWorkspaceID, data.parentProjectID, data.parentGroupID];
-    const result = await poolClient.query<RoleTableQueryResult>(query, values);
-    poolClient.release();
+    try {
 
-    // Convert the row to a role object.
-    const rowData = result.rows[0];
-    const role = new Role({
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-role-row.sql"), "utf8");
+      const values = [data.name, data.displayName, data.description, data.parentResourceType, data.parentWorkspaceID, data.parentProjectID, data.parentGroupID];
+      const result = await poolClient.query<RoleTableQueryResult>(query, values);
+
+      // Convert the row to a role object.
+      const rowData = result.rows[0];
+      const role = new Role({
+        id: rowData.id,
+        name: rowData.name,
+        displayName: rowData.display_name,
+        description: rowData.description,
+        isPreDefined: rowData.is_predefined,
+        parentResourceType: rowData.parent_resource_type,
+        parentWorkspaceID: rowData.parent_workspace_id,
+        parentProjectID: rowData.parent_project_id,
+        parentGroupID: rowData.parent_group_id
+      }, pool);
+
+      // Return the role.
+      return role;
+
+    } catch (error) {
+      
+      if (error instanceof DatabaseError && error.code === "23505") {
+
+        throw new ResourceConflictError("Role");
+        
+      }
+
+      throw error;
+      
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
+  static getPropertiesFromRow(rowData: RoleTableQueryResult): RoleObjectProperties {
+    
+    return {
       id: rowData.id,
       name: rowData.name,
       displayName: rowData.display_name,
       description: rowData.description,
+      isPreDefined: rowData.is_predefined,
       parentResourceType: rowData.parent_resource_type,
       parentWorkspaceID: rowData.parent_workspace_id,
       parentProjectID: rowData.parent_project_id,
       parentGroupID: rowData.parent_group_id
-    }, pool);
+    };
+    
+  }
 
-    // Return the role.
-    return role;
+  /**
+   * Gets a role by name.
+   * @param name The role name.
+   * @param pool The pool to use to send queries to the database.
+   * @returns The role.
+   */
+  static async getByName(name: string, pool: Pool): Promise<Role> {
+
+    const poolClient = await pool.connect();
+
+    try {
+
+      const result = await poolClient.query<RoleTableQueryResult>(readFileSync(resolve(import.meta.dirname, "queries", "get-role-by-name.sql"), "utf8"), [name]);
+      const rowData = result.rows[0];
+
+      if (!rowData) {
+
+        throw new ResourceNotFoundError("Role");
+
+      }
+
+      return new Role(this.getPropertiesFromRow(rowData), pool);
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
+  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User) {
+
+    const { Action, AccessPolicy } = resourceClasses;
+    const action = await Action.getByID(actionID, this.#pool);
+
+    try {
+
+      const accessPolicy = await AccessPolicy.getByDeepestScope(action.id, this.#pool, {
+        principalType: AccessPolicyPrincipalType.Role,
+        principalRoleID: this.id
+      });
+      return accessPolicy.permissionLevel >= minimumPermissionLevel;
+
+    } catch (error) {
+
+      if (error instanceof ResourceNotFoundError) {
+
+        return false;
+
+      }
+
+      throw error;
+
+    }
+
+  }
+
+  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
+
+    const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, minimumPermissionLevel);
+    if (!canPrincipalAccess) {
+
+      throw new PermissionDeniedError();
+
+    }
 
   }
 

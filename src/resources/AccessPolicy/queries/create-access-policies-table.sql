@@ -4,6 +4,7 @@ begin
     create type permission_level as enum (
       'None',
       'User',
+      'Editor',
       'Admin'
     );
   end if;

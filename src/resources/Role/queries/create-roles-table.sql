@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS roles (
   parent_group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
   parent_workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
   parent_project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+  is_predefined boolean not null default false,
 
   /* Constraints */
   CONSTRAINT one_parent_type CHECK (

@@ -3,14 +3,62 @@
 
 ## Access
 ### Actions
-#### slashstep.accessPolicies.get
+#### `slashstep.accessPolicies.get`
 The principal can view any access policies on a particular scope.
 
-#### slashstep.accessPolicies.list
+#### `slashstep.accessPolicies.list`
 The principal can list any access policies on a particular scope.
 
-#### slashstep.accessPolicies.update
+#### `slashstep.accessPolicies.update`
 The principal can manage access policies on a particular scope. The principal can only manage access policies that they have at least [editor access](#editor-access) to.
+
+#### `slashstep.accessPolicies.delete`
+The principal can delete any access policies on a particular scope. The principal can only manage access policies that they have at least [editor access](#editor-access) to.
+
+#### `slashstep.accessPolicies.create`
+The principal can create any access policies on a particular scope. The principal can only manage access policies that they have at least [editor access](#editor-access) to.
+
+### Pre-defined roles
+#### Access policy admins
+Principals with full control over access policies.
+
+| Permission name | Permission level |
+| :- | :- |
+| [`slashstep.accessPolicies.get`](#slashstepaccesspoliciesget) | Admin |
+| [`slashstep.accessPolicies.list`](#slashstepaccesspolicieslist) | Admin |
+| [`slashstep.accessPolicies.update`](#slashstepaccesspoliciesupdate) | Admin |
+| [`slashstep.accessPolicies.delete`](#slashstepaccesspoliciesdelete) | Admin |
+| [`slashstep.accessPolicies.create`](#slashstepaccesspoliciescreate) | Admin |
+
+#### Access policy editors
+Principals with editor access over access policies.
+
+| Permission name | Permission level |
+| :- | :- |
+| [`slashstep.accessPolicies.get`](#slashstepaccesspoliciesget) | Editor |
+| [`slashstep.accessPolicies.list`](#slashstepaccesspolicieslist) | Editor |
+| [`slashstep.accessPolicies.update`](#slashstepaccesspoliciesupdate) | Editor |
+| [`slashstep.accessPolicies.delete`](#slashstepaccesspoliciesdelete) | Editor |
+| [`slashstep.accessPolicies.create`](#slashstepaccesspoliciescreate) | Editor |
+
+#### Access policy users
+Principals with user access over access policies.
+
+| Permission name | Permission level |
+| :- | :- |
+| [`slashstep.accessPolicies.get`](#slashstepaccesspoliciesget) | User |
+| [`slashstep.accessPolicies.list`](#slashstepaccesspolicieslist) | User |
+| [`slashstep.accessPolicies.update`](#slashstepaccesspoliciesupdate) | User |
+| [`slashstep.accessPolicies.delete`](#slashstepaccesspoliciesdelete) | User |
+| [`slashstep.accessPolicies.create`](#slashstepaccesspoliciescreate) | User |
+
+#### Read-only access policy users
+Principals with read-only user access over access policies.
+
+| Permission name | Permission level |
+| :- | :- |
+| [`slashstep.accessPolicies.get`](#slashstepaccesspoliciesget) | User |
+| [`slashstep.accessPolicies.list`](#slashstepaccesspolicieslist) | User |
 
 ### Possible parent resources
 * Action

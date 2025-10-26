@@ -1,18 +1,20 @@
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
-import { Pool } from "pg";
+import { DatabaseError, Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
-import Action, { BaseActionProperties, InitialWritableActionProperties } from "#resources/Action/Action.js";
+import Action, { InitialWritableActionProperties } from "#resources/Action/Action.js";
 import App from "#resources/App/App.js";
 import Group from "#resources/Group/Group.js";
 import Item from "#resources/Item/Item.js";
 import Milestone, { MilestoneParentResourceType } from "#resources/Milestone/Milestone.js";
 import Project from "#resources/Project/Project.js";
-import Role, { RoleParentResourceType } from "#resources/Role/Role.js";
+import Role, { InitialWritableRoleProperties, RoleParentResourceType } from "#resources/Role/Role.js";
 import User from "#resources/User/User.js";
 import Workspace from "#resources/Workspace/Workspace.js";
+import ResourceConflictError from "#errors/ResourceConflictError.js";
+import BadRequestError from "#errors/BadRequestError.js";
 
 export type AccessPolicyIncludedResourceClassMap = {
   principalUser?: typeof User;
@@ -155,7 +157,9 @@ export type AccessPolicyTableQueryResult = {
   inheritance_level: AccessPolicyInheritanceLevel;
 }
 
-export type AccessPolicyListQueryResult = {
+export type AccessPolicyQueryResult = {
+  principal_role_is_predefined: boolean;
+  principal_role_description?: string;
   id: string;
   principal_type: AccessPolicyPrincipalType;
   principal_user_id?: string;
@@ -206,6 +210,8 @@ export type AccessPolicyListQueryResult = {
   scoped_project_workspace_id?: string;
   scoped_role_id?: string;
   scoped_role_name?: string;
+  scoped_role_is_predefined?: boolean;
+  scoped_role_description?: string;
   scoped_role_display_name?: string;
   scoped_role_parent_resource_type?: RoleParentResourceType;
   scoped_role_parent_workspace_id?: string;
@@ -224,6 +230,17 @@ export type AccessPolicyListQueryResult = {
   action_description?: string;
   permission_level: AccessPolicyPermissionLevel;
   inheritance_level: AccessPolicyInheritanceLevel;
+}
+
+export type AccessPolicyPrincipalData = {
+  principalType: AccessPolicyPrincipalType.User;
+  principalUserID: string;
+} | {
+  principalType: AccessPolicyPrincipalType.Group;
+  principalGroupID: string;
+} | {
+  principalType: AccessPolicyPrincipalType.Role;
+  principalRoleID: string;
 }
 
 /**
@@ -420,7 +437,7 @@ export default class AccessPolicy {
         data.inheritanceLevel, 
         data.actionID
       ];
-      const result = await poolClient.query<AccessPolicyListQueryResult>(query, values);
+      const result = await poolClient.query<AccessPolicyQueryResult>(query, values);
 
       // Convert the row to an AccessPolicy object.
       const rowData = result.rows[0];
@@ -453,6 +470,121 @@ export default class AccessPolicy {
       poolClient.release();
 
     }
+
+  }
+
+  
+  static async initializePreDefinedRoleAccessPolicies(actionClass: typeof Action, pool: Pool): Promise<AccessPolicy[]> {
+
+    const permissions: {
+      [preDefinedRoleName: string]: {
+        actionName: string;
+        permissionLevel: AccessPolicyPermissionLevel;
+      }[];
+    } = {
+      "access-policy-admins": [
+        {
+          actionName: "slashstep.accessPolicies.get",
+          permissionLevel: AccessPolicyPermissionLevel.Admin,
+        },
+        {
+          actionName: "slashstep.accessPolicies.list",
+          permissionLevel: AccessPolicyPermissionLevel.Admin,
+        },
+        {
+          actionName: "slashstep.accessPolicies.update",
+          permissionLevel: AccessPolicyPermissionLevel.Admin,
+        },
+        {
+          actionName: "slashstep.accessPolicies.delete",
+          permissionLevel: AccessPolicyPermissionLevel.Admin
+        },
+        {
+          actionName: "slashstep.accessPolicies.create",
+          permissionLevel: AccessPolicyPermissionLevel.Admin
+        },
+      ],
+      "access-policy-editors": [
+        {
+          actionName: "slashstep.accessPolicies.get",
+          permissionLevel: AccessPolicyPermissionLevel.Editor,
+        },
+        {
+          actionName: "slashstep.accessPolicies.list",
+          permissionLevel: AccessPolicyPermissionLevel.Editor,
+        },
+        {
+          actionName: "slashstep.accessPolicies.update",
+          permissionLevel: AccessPolicyPermissionLevel.Editor,
+        },
+        {
+          actionName: "slashstep.accessPolicies.delete",
+          permissionLevel: AccessPolicyPermissionLevel.Editor
+        },
+        {
+          actionName: "slashstep.accessPolicies.create",
+          permissionLevel: AccessPolicyPermissionLevel.Editor
+        },
+      ],
+      "access-policy-users": [
+        {
+          actionName: "slashstep.accessPolicies.get",
+          permissionLevel: AccessPolicyPermissionLevel.User,
+        },
+        {
+          actionName: "slashstep.accessPolicies.list",
+          permissionLevel: AccessPolicyPermissionLevel.User,
+        },
+        {
+          actionName: "slashstep.accessPolicies.update",
+          permissionLevel: AccessPolicyPermissionLevel.User,
+        },
+        {
+          actionName: "slashstep.accessPolicies.delete",
+          permissionLevel: AccessPolicyPermissionLevel.User
+        },
+        {
+          actionName: "slashstep.accessPolicies.create",
+          permissionLevel: AccessPolicyPermissionLevel.User
+        }
+      ],
+      "read-only-access-policy-users": [
+        {
+          actionName: "slashstep.accessPolicies.get",
+          permissionLevel: AccessPolicyPermissionLevel.User,
+        },
+        {
+          actionName: "slashstep.accessPolicies.list",
+          permissionLevel: AccessPolicyPermissionLevel.User,
+        },
+      ]
+    };
+
+    const accessPolicies = [];
+
+    for (const preDefinedRoleName of Object.keys(permissions)) {
+
+      const preDefinedRole = await Role.getByName(preDefinedRoleName, pool);
+
+      for (const permission of permissions[preDefinedRoleName]) {
+
+        const action = await actionClass.getByName(permission.actionName, pool);
+        const accessPolicy = await AccessPolicy.create({
+          principalType: AccessPolicyPrincipalType.Role,
+          principalRoleID: preDefinedRole.id,
+          actionID: action.id,
+          permissionLevel: permission.permissionLevel,
+          inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
+          scopedResourceType: AccessPolicyScopedResourceType.Instance
+        }, pool);
+
+        accessPolicies.push(accessPolicy);
+
+      }
+
+    }
+
+    return accessPolicies;
 
   }
 
@@ -489,12 +621,87 @@ export default class AccessPolicy {
     const actions = [];
     for (const actionProperties of actionPropertiesList) {
 
-      const action = await actionClass.create(actionProperties, pool);
-      actions.push(action);
+      try {
+
+        const action = await actionClass.create(actionProperties, pool);
+        actions.push(action);
+
+      } catch (error) {
+
+        if (error instanceof ResourceConflictError) {
+
+          const action = await actionClass.getByName(actionProperties.name, pool);
+          actions.push(action);
+
+        } else {
+
+          throw error;
+
+        }
+
+      }
 
     }
 
     return actions;
+
+  }
+
+  static async initializePreDefinedRoles(roleClass: typeof Role, pool: Pool): Promise<Role[]> {
+
+    const roleDataList: Omit<InitialWritableRoleProperties, "parentResourceType">[] = [
+      {
+        name: "access-policy-admins",
+        displayName: "Access policy admins",
+        description: "Principals with full control over access policies."
+      },
+      {
+        name: "access-policy-editors",
+        displayName: "Access policy editors",
+        description: "Principals with editor access over access policies."
+      },
+      {
+        name: "access-policy-users",
+        displayName: "Access policy users",
+        description: "Principals with user access over access policies."
+      },
+      {
+        name: "read-only-access-policy-users",
+        displayName: "Read-only access policy users",
+        description: "Principals with read-only user access over access policies."
+      }
+    ];
+    const roles = [];
+
+    for (const roleData of roleDataList) {
+
+      try {
+
+        const role = await roleClass.create({
+          ...roleData,
+          isPreDefined: true,
+          parentResourceType: RoleParentResourceType.Instance
+        }, pool);
+        roles.push(role);
+
+      } catch (error) {
+
+        if (error instanceof ResourceConflictError) {
+
+          const role = await roleClass.getByName(roleData.name, pool);
+          roles.push(role);
+
+        } else {
+
+          throw error;
+
+        }
+        
+      }
+
+    }
+
+    return roles;
 
   }
 
@@ -534,7 +741,7 @@ export default class AccessPolicy {
 
   }
 
-  private static mapIncludedResources(rowData: AccessPolicyListQueryResult, includedResources: AccessPolicyIncludedResourceClassMap, pool: Pool): AccessPolicyIncludedResourceMap {
+  private static mapIncludedResources(rowData: AccessPolicyQueryResult, includedResources: AccessPolicyIncludedResourceClassMap, pool: Pool): AccessPolicyIncludedResourceMap {
 
     const mappedResources: AccessPolicyIncludedResourceMap = {};
 
@@ -569,6 +776,8 @@ export default class AccessPolicy {
         id: rowData.principal_role_id,
         name: rowData.principal_role_name,
         displayName: rowData.principal_role_display_name,
+        isPreDefined: rowData.principal_role_is_predefined,
+        description: rowData.principal_role_description,
         parentResourceType: rowData.principal_role_parent_resource_type,
         parentWorkspaceID: rowData.principal_role_parent_workspace_id,
         parentProjectID: rowData.principal_role_parent_project_id,
@@ -670,12 +879,14 @@ export default class AccessPolicy {
     }
 
     Role = includedResources.scopedRole;
-    if (Role && rowData.scoped_role_id && rowData.scoped_role_name && rowData.scoped_role_display_name && rowData.scoped_role_parent_resource_type) {
+    if (Role && rowData.scoped_role_id && rowData.scoped_role_name && rowData.scoped_role_display_name && rowData.scoped_role_parent_resource_type && rowData.scoped_role_is_predefined !== undefined) {
 
       mappedResources.scopedRole = new Role({
         id: rowData.scoped_role_id,
         name: rowData.scoped_role_name,
         displayName: rowData.scoped_role_display_name,
+        isPreDefined: rowData.scoped_role_is_predefined,
+        description: rowData.scoped_role_description,
         parentResourceType: rowData.scoped_role_parent_resource_type,
         parentWorkspaceID: rowData.scoped_role_parent_workspace_id,
         parentProjectID: rowData.scoped_role_parent_project_id,
@@ -731,7 +942,7 @@ export default class AccessPolicy {
 
     try {
 
-      result = await poolClient.query<AccessPolicyListQueryResult>(finalQuery, values);
+      result = await poolClient.query<AccessPolicyQueryResult>(finalQuery, values);
 
     } finally {
 
@@ -792,21 +1003,29 @@ export default class AccessPolicy {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({
-      tableName: "hydrated_access_policies",
-      filterQuery,
-      shouldIgnoreOffset: true,
-      shouldIgnoreLimit: true,
-      allowedQueryFields: this.allowedQueryFields
-    });
-    const result = await poolClient.query(`select count(*) from hydrated_access_policies${whereClause ? ` where ${whereClause}` : ""}`, values);
-    poolClient.release();
 
-    // Convert the list of rows to AccessPolicy objects.
-    const count = parseInt(result.rows[0].count, 10);
+    try {
 
-    // Return the list.
-    return count;
+      const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({
+        tableName: "hydrated_access_policies",
+        filterQuery,
+        shouldIgnoreOffset: true,
+        shouldIgnoreLimit: true,
+        allowedQueryFields: this.allowedQueryFields
+      });
+      const result = await poolClient.query(`select count(*) from hydrated_access_policies${whereClause ? ` where ${whereClause}` : ""}`, values);
+      
+      // Convert the list of rows to AccessPolicy objects.
+      const count = parseInt(result.rows[0].count, 10);
+
+      // Return the list.
+      return count;
+
+    } finally {
+
+      poolClient.release();
+
+    }
 
   }
 
@@ -833,6 +1052,31 @@ export default class AccessPolicy {
 
   }
 
+  static getPropertiesFromRow(rowData: AccessPolicyQueryResult): BaseAccessPolicyProperties {
+      
+    return {
+      id: rowData.id,
+      principalType: rowData.principal_type,
+      principalUserID: rowData.principal_user_id,
+      principalGroupID: rowData.principal_group_id,
+      principalRoleID: rowData.principal_role_id,
+      scopedResourceType: rowData.scoped_resource_type,
+      scopedWorkspaceID: rowData.scoped_workspace_id,
+      scopedProjectID: rowData.scoped_project_id,
+      scopedItemID: rowData.scoped_item_id,
+      scopedActionID: rowData.scoped_action_id,
+      scopedRoleID: rowData.scoped_role_id,
+      scopedGroupID: rowData.scoped_group_id,
+      scopedUserID: rowData.scoped_user_id,
+      scopedAppID: rowData.scoped_app_id,
+      scopedMilestoneID: rowData.scoped_milestone_id,
+      actionID: rowData.action_id,
+      permissionLevel: rowData.permission_level,
+      inheritanceLevel: rowData.inheritance_level
+    };
+    
+  }
+
   static async getByID(id: string, pool: Pool): Promise<AccessPolicy> {
 
     // Get the access policy data from the database.
@@ -853,9 +1097,19 @@ export default class AccessPolicy {
       }
 
       // Return the access policy.
-      const accessPolicy = new AccessPolicy(data, pool);
+      const accessPolicy = new AccessPolicy(this.getPropertiesFromRow(data), pool);
       return accessPolicy;
 
+    } catch (error) {
+      
+      if (error instanceof DatabaseError && error.code === "22P02") {
+
+        throw new BadRequestError("The access policy ID must be a UUID.");
+
+      }
+
+      throw error;
+      
     } finally {
 
       poolClient.release();
@@ -870,7 +1124,7 @@ export default class AccessPolicy {
    * @param client The client used to make requests.
    * @returns The requested access policy.
    */
-  static async getByDeepestScope(actionID: string, pool: Pool, principalUserID: string | null = null, scope: Scope = {}): Promise<AccessPolicy> {
+  static async getByDeepestScope(actionID: string, pool: Pool, principalData: AccessPolicyPrincipalData, scope: Scope = {}): Promise<AccessPolicy> {
 
     // Get the user's access policies.
     const scopeArray = [];
@@ -892,9 +1146,29 @@ export default class AccessPolicy {
 
     }
 
+    let principalClause = "";
+    switch (principalData.principalType) {
+
+      case AccessPolicyPrincipalType.User:
+        principalClause = `principalUserID = '${principalData.principalUserID}'`;
+        break;
+
+      case AccessPolicyPrincipalType.Group:
+        principalClause = `principalGroupID = '${principalData.principalGroupID}'`;
+        break;
+
+      case AccessPolicyPrincipalType.Role:
+        principalClause = `principalRoleID = '${principalData.principalRoleID}'`;
+        break;
+
+      default:
+        throw new Error("Unexpected principal type.");
+
+    }
+
     scopeArray.push("scopedResourceType = 'Instance'");
 
-    const accessPolicies = await AccessPolicy.list(`actionID = '${actionID}' and principalUserID ${principalUserID ? `= '${principalUserID}'` : "is null"} and (${scopeArray.join(" or ")})`, pool);
+    const accessPolicies = await AccessPolicy.list(`actionID = '${actionID}' and ${principalClause} and (${scopeArray.join(" or ")})`, pool);
 
     const instanceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "Instance");
     const workspaceAccessPolicy = accessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "Workspace");
@@ -913,11 +1187,11 @@ export default class AccessPolicy {
 
   }
 
-  static async verifyUserPermissions(actionID: string, pool: Pool, userID: string | null = null, requiredPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User, scope: Scope = {}) {
+  static async verifyPermissions(actionID: string, pool: Pool, principalData: AccessPolicyPrincipalData, requiredPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User, scope: Scope = {}) {
 
     try {
 
-      const deepestAccessPolicy = await AccessPolicy.getByDeepestScope(actionID, pool, userID, scope);
+      const deepestAccessPolicy = await AccessPolicy.getByDeepestScope(actionID, pool, principalData, scope);
 
       if (deepestAccessPolicy.permissionLevel < requiredPermissionLevel) {
 
@@ -946,8 +1220,16 @@ export default class AccessPolicy {
 
     const query = readFileSync(resolve(import.meta.dirname, "queries", "delete-access-policy.sql"), "utf8");
     const poolClient = await this.#pool.connect();
-    await poolClient.query(query, [this.id]);
-    poolClient.release();
+    
+    try {
+
+      await poolClient.query(query, [this.id]);
+
+    } finally {
+
+      poolClient.release();
+
+    }
 
   }
 

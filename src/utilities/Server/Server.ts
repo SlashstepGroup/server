@@ -32,6 +32,11 @@ import { Server as HTTPServer, createServer as createHTTPServer } from "http";
 export type ServerProperties = {
   environment: string;
   port: number;
+  postgreSQLHost: string;
+  postgreSQLPort: number;
+  postgreSQLDatabaseName: string;
+  postgreSQLUsername: string;
+  postgreSQLPassword: string;
 }
 
 export default class Server {
@@ -43,15 +48,12 @@ export default class Server {
 
   constructor(properties: ServerProperties) {
 
-    const { POSTGRESQL_USERNAME, POSTGRESQL_PASSWORD, POSTGRESQL_HOST, POSTGRESQL_PORT: rawPostgresqlPort, POSTGRESQL_DATABASE_NAME } = process.env;
-    const POSTGRESQL_PORT = rawPostgresqlPort ? parseInt(rawPostgresqlPort, 10) : undefined;
-
     this.pool = new Pool({
-      user: POSTGRESQL_USERNAME,
-      password: POSTGRESQL_PASSWORD,
-      host: POSTGRESQL_HOST,
-      port: POSTGRESQL_PORT,
-      database: POSTGRESQL_DATABASE_NAME,
+      user: properties.postgreSQLUsername,
+      password: properties.postgreSQLPassword,
+      host: properties.postgreSQLHost,
+      port: properties.postgreSQLPort,
+      database: properties.postgreSQLDatabaseName,
       connectionTimeoutMillis: 1000
     });
 
@@ -62,27 +64,45 @@ export default class Server {
 
   }
 
-  static async initializeResourceTables(pool: Pool): Promise<void> {
+  async initializeResourceTables(): Promise<void> {
 
-    const poolClient = await pool.connect();
-    const createProjectsTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-app-schema.sql"), "utf8");
-    const createUUIDv7FunctionsQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-uuidv7-functions.sql"), "utf8");
-    await poolClient.query(createProjectsTableQuery);
-    await poolClient.query(createUUIDv7FunctionsQuery);
-    poolClient.release();
+    const poolClient = await this.pool.connect();
 
-    await Group.initializeTable(pool);
-    await Workspace.initializeTable(pool);
-    await Project.initializeTable(pool);
-    await Role.initializeTable(pool);
-    await Milestone.initializeTable(pool);
-    await Item.initializeTable(pool);
-    await User.initializeTable(pool);
-    await App.initializeTable(pool);
-    await Action.initializeTable(pool);
-    await AccessPolicy.initializeTable(pool);
-    await ActionLog.initializeTable(pool);
-    await Session.initializeTable(pool);
+    try {
+
+      const createProjectsTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-app-schema.sql"), "utf8");
+      const createUUIDv7FunctionsQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-uuidv7-functions.sql"), "utf8");
+      await poolClient.query(createProjectsTableQuery);
+      await poolClient.query(createUUIDv7FunctionsQuery);
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+    await Group.initializeTable(this.pool);
+    await Workspace.initializeTable(this.pool);
+    await Project.initializeTable(this.pool);
+    await Role.initializeTable(this.pool);
+    await Milestone.initializeTable(this.pool);
+    await Item.initializeTable(this.pool);
+    await User.initializeTable(this.pool);
+    await App.initializeTable(this.pool);
+    await Action.initializeTable(this.pool);
+    await AccessPolicy.initializeTable(this.pool);
+    await ActionLog.initializeTable(this.pool);
+    await Session.initializeTable(this.pool);
+
+  }
+
+  async initializePreDefinedResources(): Promise<void> {
+
+    await AccessPolicy.initializeActions(Action, this.pool);
+    await AccessPolicy.initializePreDefinedRoles(Role, this.pool);
+    await AccessPolicy.initializePreDefinedRoleAccessPolicies(Action, this.pool);
+
+    await User.initializePreDefinedRoles(Role, this.pool);
 
   }
 
@@ -145,7 +165,7 @@ export default class Server {
           case "1":
             
             console.log("\n\x1b[34mInitializing database tables, views, and initial rows...\x1b[0m");
-            await Server.initializeResourceTables(this.pool);
+            await this.initializeResourceTables();
             console.log("\x1b[32mDone!\x1b[0m");
 
             break;

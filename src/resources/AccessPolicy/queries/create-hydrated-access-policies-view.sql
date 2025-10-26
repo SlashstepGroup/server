@@ -19,6 +19,7 @@ create or replace view hydrated_access_policies as
     /* Role */
     principal_roles.name as principal_role_name,
     principal_roles.display_name as principal_role_display_name,
+    principal_roles.is_predefined as principal_role_is_predefined,
     principal_roles.parent_resource_type as principal_role_parent_resource_type,
     principal_roles.parent_workspace_id as principal_role_parent_workspace_id,
     principal_roles.parent_project_id as principal_role_parent_project_id,
@@ -65,6 +66,8 @@ create or replace view hydrated_access_policies as
     /* Role */
     scoped_roles.name as scoped_role_name,
     scoped_roles.display_name as scoped_role_display_name,
+    scoped_roles.description as scoped_role_description,
+    scoped_roles.is_predefined as scoped_role_is_predefined,
     scoped_roles.parent_resource_type as scoped_role_parent_resource_type,
     scoped_roles.parent_workspace_id as scoped_role_parent_workspace_id,
     scoped_roles.parent_project_id as scoped_role_parent_project_id,

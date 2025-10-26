@@ -1,10 +1,13 @@
-import AccessPolicy, { AccessPolicyPermissionLevel, Scope } from "#resources/AccessPolicy/AccessPolicy.js";
+import AccessPolicy, { AccessPolicyPermissionLevel, AccessPolicyPrincipalType, Scope } from "#resources/AccessPolicy/AccessPolicy.js";
 import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import Session from "#resources/Session/Session.js";
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
+import Role, { InitialWritableRoleProperties, RoleParentResourceType } from "#resources/Role/Role.js";
+import ResourceConflictError from "#errors/ResourceConflictError.js";
+import Principal, { PrincipalResourceClassMap } from "src/interfaces/Principal.js";
 
 export type UserProperties = {
   id: string;
@@ -13,7 +16,7 @@ export type UserProperties = {
   hashedPassword: string;
 };
 
-export default class User {
+export default class User implements Principal {
   
   /** The user's ID. */
   readonly id: UserProperties["id"];
@@ -160,9 +163,84 @@ export default class User {
 
   }
 
-  async verifyPermissions(actionID: string, scope: Scope) {
+  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User) {
+  
+    const { Action, AccessPolicy } = resourceClasses;
+    const action = await Action.getByID(actionID, this.#pool);
 
-    
+    try {
+
+      const accessPolicy = await AccessPolicy.getByDeepestScope(action.id, this.#pool, {
+        principalType: AccessPolicyPrincipalType.User,
+        principalUserID: this.id
+      });
+      return accessPolicy.permissionLevel >= minimumPermissionLevel;
+
+    } catch (error) {
+
+      if (error instanceof ResourceNotFoundError) {
+
+        return false;
+
+      }
+
+      throw error;
+
+    }
+
+  }
+
+  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
+
+    const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, minimumPermissionLevel);
+    if (!canPrincipalAccess) {
+
+      throw new PermissionDeniedError();
+
+    }
+
+  }
+  
+  static async initializePreDefinedRoles(roleClass: typeof Role, pool: Pool): Promise<Role[]> {
+
+    const roleDataList: Omit<InitialWritableRoleProperties, "parentResourceType">[] = [
+      {
+        name: "unauthenticated-users",
+        displayName: "Unauthenticated users",
+        description: "Principals who are not logged in."
+      }
+    ];
+    const roles = [];
+
+    for (const roleData of roleDataList) {
+
+      try {
+
+        const role = await roleClass.create({
+          ...roleData,
+          isPreDefined: true,
+          parentResourceType: RoleParentResourceType.Instance
+        }, pool);
+        roles.push(role);
+
+      } catch (error) {
+
+        if (error instanceof ResourceConflictError) {
+
+          const role = await roleClass.getByName(roleData.name, pool);
+          roles.push(role);
+
+        } else {
+
+          throw error;
+
+        }
+        
+      }
+
+    }
+
+    return roles;
 
   }
 

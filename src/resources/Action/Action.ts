@@ -1,8 +1,9 @@
-import { Pool } from "pg";
+import { DatabaseError, Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
+import ResourceConflictError from "#errors/ResourceConflictError.js";
 
 export type BaseActionProperties = {
   id: string;
@@ -67,16 +68,34 @@ export default class Action {
 
     // Insert the access policy into the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "Action", "queries", "insert-action-row.sql"), "utf8");
-    const values = [data.name, data.displayName, data.description, data.appID];
-    const result = await poolClient.query(query, values);
-    poolClient.release();
 
-    // Convert the row to an Action object.
-    const accessPolicy = new Action(result.rows[0], pool);
+    try {
 
-    // Return the access policy.
-    return accessPolicy;
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-action-row.sql"), "utf8");
+      const values = [data.name, data.displayName, data.description, data.appID];
+      const result = await poolClient.query(query, values);
+
+      // Convert the row to an Action object.
+      const accessPolicy = new Action(result.rows[0], pool);
+
+      // Return the access policy.
+      return accessPolicy;
+
+    } catch (error) {
+      
+      if (error instanceof DatabaseError && error.code === "23505") {
+
+        throw new ResourceConflictError("Action");
+
+      }
+
+      throw error;
+      
+    } finally {
+
+      poolClient.release();
+
+    }
 
   }
 

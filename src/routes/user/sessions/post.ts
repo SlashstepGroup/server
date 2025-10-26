@@ -4,7 +4,7 @@ import { DatabaseError, Pool } from "pg";
 import User from "#resources/User/User.js";
 import ActionLog from "#resources/ActionLog/ActionLog.js";
 import Action from "#resources/Action/Action.js";
-import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
+import AccessPolicy, { AccessPolicyPermissionLevel, AccessPolicyPrincipalType } from "#resources/AccessPolicy/AccessPolicy.js";
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import { verify as verifyPassword } from "argon2";
@@ -93,7 +93,10 @@ createUserSessionRouter.post("/", async (request, response: Response<unknown, { 
     try {
 
       // Get the deepest access policy for the user.
-      const deepestAccessPolicy = await AccessPolicy.getByDeepestScope(action.id, server.pool, user.id);
+      const deepestAccessPolicy = await AccessPolicy.getByDeepestScope(action.id, server.pool, {
+        principalType: AccessPolicyPrincipalType.User,
+        principalUserID: user.id
+      });
 
       if (deepestAccessPolicy.permissionLevel !== AccessPolicyPermissionLevel.User && deepestAccessPolicy.permissionLevel !== AccessPolicyPermissionLevel.Admin) {
 
@@ -129,12 +132,10 @@ createUserSessionRouter.post("/", async (request, response: Response<unknown, { 
         creationIP: request.ip
       }, server.pool);
 
-      const token = jsonwebtoken.sign({}, readFileSync(APP_JWT_PRIVATE_KEY_PATH), {
-        algorithm: "RS256",
-        expiresIn: "1h",
-        subject: user.id,
-        jwtid: session.id
-      });
+      const token = Session.generateJSONWebToken({
+        userID: user.id,
+        sessionID: session.id
+      }, `${readFileSync(APP_JWT_PRIVATE_KEY_PATH)}`);
 
       response.cookie("sessionToken", token, {
         sameSite: "strict",

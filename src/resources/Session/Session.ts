@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import jsonwebtoken from "jsonwebtoken";
 
 export type SessionProperties = {
   id: string;
@@ -12,6 +13,11 @@ export type SessionProperties = {
   token?: string;
   user?: User;
 };
+
+export type InitialSessionTokenProperties = {
+  userID: string;
+  sessionID: string;
+}
 
 /**
  * A Session represents a user's session in the Slashstep application.
@@ -49,27 +55,48 @@ export default class Session {
 
   }
 
+  static generateJSONWebToken(properties: InitialSessionTokenProperties, privateKey: string) {
+
+    const token = jsonwebtoken.sign({}, privateKey, {
+      algorithm: "RS256",
+      expiresIn: "1h",
+      subject: properties.userID,
+      jwtid: properties.sessionID
+    });
+
+    return token;
+
+  }
+
   static async create(data: Omit<SessionProperties, "id" | "user">, pool: Pool): Promise<Session> {
     
     // Insert the session data into the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "Session", "queries", "insert-session-row.sql"), "utf8");
-    const values = [data.userID, data.expirationDate, data.creationIP];
-    const result = await poolClient.query(query, values);
-    poolClient.release();
 
-    // Convert the row to a session object.
-    const row = result.rows[0];
-    const session = new Session({
-      id: row.id,
-      userID: row.user_id,
-      expirationDate: row.expiration_date,
-      creationIP: row.creation_ip,
-      token: data.token
-    }, pool);
+    try {
 
-    // Return the session.
-    return session;
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-session-row.sql"), "utf8");
+      const values = [data.userID, data.expirationDate, data.creationIP];
+      const result = await poolClient.query(query, values);
+
+      // Convert the row to a session object.
+      const row = result.rows[0];
+      const session = new Session({
+        id: row.id,
+        userID: row.user_id,
+        expirationDate: row.expiration_date,
+        creationIP: row.creation_ip,
+        token: data.token
+      }, pool);
+
+      // Return the session.
+      return session;
+
+    } finally {
+      
+      poolClient.release();
+
+    }
 
   }
 
