@@ -163,6 +163,7 @@ describe("Route: GET /access-policies/:id", async () => {
     await new Promise((resolve) => httpServer.close(resolve));
     await slashstepServer.pool.end();
     await postgreSQLContainer.stop();
+    await openbaoContainer.stop();
 
   })
 
