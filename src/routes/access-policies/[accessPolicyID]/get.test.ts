@@ -33,7 +33,7 @@ describe("Route: GET /access-policies/:id", async () => {
     let rootToken: string | null = null;
 
     openbaoContainer = await (
-      new GenericContainer("openbao")
+      new GenericContainer("openbao/openbao:latest:sha256-48174d0c98dbb955731c5d54a7e7083987fd25a7fb5d793181db8576ada8ed64.sig")
       .withLogConsumer((stream) => {
 
         stream.on("data", (data) => {
