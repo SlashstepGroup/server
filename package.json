@@ -13,8 +13,8 @@
   },
   "cross-os": {
     "test": {
-      "win32": "powershell cross-env NODE_EXTRA_CA_CERTS=\"$(mkcert -CAROOT)/rootCA.pem\" node --env-file=.env --import tsx --test --test-timeout=120000",
-      "linux": "cross-env NODE_EXTRA_CA_CERTS=\"$(mkcert -CAROOT)/rootCA.pem\" node --env-file=.env --import tsx --test --test-timeout=120000"
+      "win32": "powershell cross-env NODE_EXTRA_CA_CERTS=\"$(mkcert -CAROOT)/rootCA.pem\" node --import tsx --test --test-timeout=120000",
+      "linux": "cross-env NODE_EXTRA_CA_CERTS=\"$(mkcert -CAROOT)/rootCA.pem\" node --import tsx --test --test-timeout=120000"
     }
   },
   "imports": {
