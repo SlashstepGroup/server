@@ -27,58 +27,31 @@ if (isNaN(port)) {
 const { POSTGRESQL_HOST, POSTGRESQL_PORT: rawPostgresqlPort, POSTGRESQL_DATABASE_NAME } = process.env;
 const POSTGRESQL_PORT = rawPostgresqlPort ? parseInt(rawPostgresqlPort, 10) : undefined;
 
-if (!POSTGRESQL_HOST) {
-
-  throw new Error("POSTGRESQL_HOST must be defined in the environment.");
-
-}
-
-if (!POSTGRESQL_PORT) {
-
-  throw new Error("POSTGRESQL_PORT must be defined in the environment.");
-
-}
-
-if (!POSTGRESQL_DATABASE_NAME) {
-
-  throw new Error("POSTGRESQL_DATABASE_NAME must be defined in the environment.");
-
-}
+assertIsDefined("POSTGRESQL_HOST", POSTGRESQL_HOST);
+assertIsDefined("POSTGRESQL_PORT", POSTGRESQL_PORT);
+assertIsDefined("POSTGRESQL_DATABASE_NAME", POSTGRESQL_DATABASE_NAME);
 
 // Get the PostgreSQL credentials.
-const { VAULT_ENDPOINT } = process.env;
-if (!VAULT_ENDPOINT) {
-
-  throw new Error("VAULT_ENDPOINT must be defined in the environment.");
-
-}
+const { VAULT_ENDPOINT, VAULT_ROLE_ID } = process.env;
+assertIsDefined("VAULT_ENDPOINT", VAULT_ENDPOINT);
+assertIsDefined("VAULT_ROLE_ID", VAULT_ROLE_ID);
 
 const vault = new VaultClient({
   endpoint: VAULT_ENDPOINT
 });
 
-const initResult = await vault.init({
-  secret_shares: 1, 
-  secret_threshold: 1
+// TODO: Get secret_id
+const result = await vault.write({
+  path: "auth/approle/role",
+  data: {
+    role_id: VAULT_ROLE_ID
+  }
 });
 
-if (!initResult.data) {
 
-  throw new Error("Failed to initialize Vault.");
+// Get the PostgreSQL credentials.
 
-}
 
-const { keys, root_token } = initResult.data;
-vault.token = root_token;
-
-const unsealed = await vault.unseal({ key: keys[0] });
-if (!unsealed.data) {
-
-  throw new Error("Failed to unseal Vault.");
-
-}
-
-// TODO: Fix this
 const server = new Server({
   environment: APP_ENVIRONMENT,
   port,

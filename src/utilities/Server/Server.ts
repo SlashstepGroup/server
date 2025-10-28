@@ -28,6 +28,7 @@ import Group from "#resources/Group/Group.js";
 import Role from "#resources/Role/Role.js";
 import Milestone from "#resources/Milestone/Milestone.js";
 import { Server as HTTPServer, createServer as createHTTPServer } from "http";
+import { Client as VaultClient } from "@litehex/node-vault";
 
 export type ServerProperties = {
   environment: string;
@@ -45,6 +46,7 @@ export default class Server {
   pool: Pool;
   port: number;
   environment: string;
+  vaultClient: VaultClient | null = null;
 
   constructor(properties: ServerProperties) {
 
@@ -61,6 +63,49 @@ export default class Server {
     this.app = app;
     this.environment = properties.environment;
     this.port = properties.port;
+
+  }
+
+  private async getJWTKey(keyType: "Public" | "Private"): Promise<string> {
+
+    if (!this.vaultClient) {
+
+      throw new Error("Vault client not found.");
+
+    }
+
+    const result = await this.vaultClient.kv2.read({
+      mountPath: "slashstep-server",
+      path: `jwt-${keyType.toLowerCase()}-key`
+    });
+
+    if (result.error) {
+
+      throw result.error;
+
+    }
+
+    const publicKey = result.data.data.data?.value;
+
+    if (!publicKey) {
+
+      throw new Error(`${keyType} key not found.`);
+
+    }
+
+    return publicKey;
+
+  }
+
+  async getJWTPublicKey(): Promise<string> {
+
+    return await this.getJWTKey("Public");
+
+  }
+
+  async getJWTPrivateKey(): Promise<string> {
+
+    return await this.getJWTKey("Private");
 
   }
 

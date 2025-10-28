@@ -13,9 +13,14 @@ import User from "#resources/User/User.js";
 import { randomBytes } from "node:crypto";
 import Session from "#resources/Session/Session.js";
 import { readFileSync } from "node:fs";
+import { GenericContainer, StartedTestContainer } from "testcontainers";
+import { Client as VaultClient } from "@litehex/node-vault";
+import { generateKeyPairSync } from "crypto";
+import { Readable } from "node:stream";
 
-describe("Route: GET /access-policies/:id", () => {
+describe("Route: GET /access-policies/:id", async () => {
 
+  let openbaoContainer: StartedTestContainer;
   let postgreSQLContainer: StartedPostgreSqlContainer;
   let httpServer: HTTPServer;
   let slashstepServer: Server;
@@ -23,6 +28,94 @@ describe("Route: GET /access-policies/:id", () => {
   const generateRandomString = (length: number) => randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
 
   before(async () => {
+
+    // Start a OpenBao development server. 
+    let rootToken: string | null = null;
+
+    openbaoContainer = await (
+      new GenericContainer("openbao")
+      .withLogConsumer((stream) => {
+
+        stream.on("data", (data) => {
+
+          if (data.toString().includes("Root Token: ")) {
+            
+            rootToken = data.toString().split("Root Token: ")[1].trim();
+
+          }
+
+        })
+
+      })
+      .withEnvironment({
+        VAULT_ADDR: "http://127.0.0.1:8200",
+      })
+      .withWaitStrategy(Wait.forHttp("/v1/sys/health", 8200).forStatusCode(200))
+      .withExposedPorts(8200)
+    ).start();
+
+    if (!rootToken) {
+
+      throw new Error("Root token not found.");
+
+    }
+
+    // Save a key pair for the JWT signing.
+    const keyPair = generateKeyPairSync("rsa", {
+      modulusLength: 4096,
+      publicKeyEncoding: {
+        type: "spki",
+        format: "pem"
+      },
+      privateKeyEncoding: {
+        type: "pkcs8",
+        format: "pem"
+      }
+    });
+
+    const vaultClient = new VaultClient({
+      endpoint: `http://${openbaoContainer.getHost()}:${openbaoContainer.getMappedPort(8200)}`,
+      token: rootToken
+    });
+
+    let result = await vaultClient.mount({
+      mountPath: "slashstep-server",
+      type: "kv-v2"
+    });
+
+    if (result.error) {
+
+      throw result.error;
+
+    }
+
+    result = await vaultClient.kv2.write({
+      mountPath: "slashstep-server",
+      path: "jwt-private-key",
+      data: {
+        value: keyPair.privateKey
+      }
+    });
+
+    if (result.error) {
+
+      throw result.error;
+
+    }
+
+    result = await vaultClient.kv2.write({
+      mountPath: "slashstep-server",
+      path: "jwt-public-key",
+      data: {
+        value: keyPair.publicKey
+      }
+    });
+
+    if (result.error) {
+
+      throw result.error;
+
+    }
 
     postgreSQLContainer = await (new PostgreSqlContainer("postgres:18").withWaitStrategy(Wait.forHealthCheck()).withUsername("postgres")).start();
 
@@ -37,6 +130,7 @@ describe("Route: GET /access-policies/:id", () => {
     });
     slashstepServer.setupMiddleware();
     slashstepServer.app.use("/access-policies/:accessPolicyID", getAccessPolicyRouter);
+    slashstepServer.vaultClient = vaultClient;
     httpServer = await slashstepServer.listen();
 
   });
@@ -165,18 +259,13 @@ describe("Route: GET /access-policies/:id", () => {
       expirationDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
       creationIP: "127.0.0.1"
     }, slashstepServer.pool);
-
-    const { APP_JWT_PRIVATE_KEY_PATH } = process.env;
-    if (!APP_JWT_PRIVATE_KEY_PATH) {
-
-      throw new Error("APP_JWT_PRIVATE_KEY_PATH must be defined.");
-
-    }
+    
+    const jwtPrivateKey = await slashstepServer.getJWTPrivateKey();
 
     const sessionToken = Session.generateJSONWebToken({
       userID: session.userID,
       sessionID: session.id
-    }, `${readFileSync(APP_JWT_PRIVATE_KEY_PATH)}`);
+    }, jwtPrivateKey);
 
     const response = await fetch(`https://localhost:3000/access-policies/${accessPolicy.id}`, {
       headers: {

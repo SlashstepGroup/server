@@ -23,14 +23,9 @@ async function authenticateUser(request: Request, response: Response<unknown, { 
         const sessionID = payload.jti;
         const session = await Session.get(sessionID, server.pool);
 
-        const { APP_JWT_PUBLIC_KEY_PATH } = process.env;
-        if (!APP_JWT_PUBLIC_KEY_PATH) {
+        const jwtPublicKey = await server.getJWTPublicKey();
 
-          throw new Error("Authentication requires a public key path to be set.");
-        
-        }
-
-        jsonwebtoken.verify(token, readFileSync(APP_JWT_PUBLIC_KEY_PATH), {
+        jsonwebtoken.verify(token, jwtPublicKey, {
           algorithms: ["RS256"]
         });
 

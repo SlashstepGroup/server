@@ -26,9 +26,12 @@ import Project from "#resources/Project/Project.js";
 import Role, { RoleParentResourceType } from "#resources/Role/Role.js";
 import Workspace from "#resources/Workspace/Workspace.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import { GenericContainer, StartedTestContainer } from "testcontainers";
 
+// TODO: Unskip this test.
 describe("Class: AccessPolicy", async () => {
 
+  let openbaoContainer: StartedTestContainer;
   let postgreSQLContainer: StartedPostgreSqlContainer;
   let slashstepServer: Server;
 

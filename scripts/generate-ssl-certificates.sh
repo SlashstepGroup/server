@@ -8,5 +8,6 @@ sudo mv mkcert /usr/local/bin/mkcert
 mkcert -install
 
 # Generate SSL certificates
-cd certificates
-mkcert localhost 127.0.0.1 ::1
+SCRIPT_DIRECTORY="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+CERTIFICATES_DIRECTORY="${SCRIPT_DIRECTORY}/../certificates"
+mkcert -cert-file "${CERTIFICATES_DIRECTORY}/localhost+2.pem" -key-file "${CERTIFICATES_DIRECTORY}/localhost+2-key.pem" localhost 127.0.0.1 ::1
