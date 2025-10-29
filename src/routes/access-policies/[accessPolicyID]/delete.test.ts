@@ -60,7 +60,7 @@ describe("Route: DELETE /access-policies/:id", async () => {
       scopedResourceType: AccessPolicyScopedResourceType.Instance
     }, slashstepServer.pool);
 
-    const response = await fetch(`https://localhost:3000/access-policies/${accessPolicy.id}`, {
+    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${accessPolicy.id}`, {
       method: "DELETE"
     });
     strictEqual(response.status, 204);
@@ -81,12 +81,12 @@ describe("Route: DELETE /access-policies/:id", async () => {
       scopedResourceType: AccessPolicyScopedResourceType.Instance
     }, slashstepServer.pool);
 
-    const numberResponse = await fetch(`https://localhost:3000/access-policies/1`, {
+    const numberResponse = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/1`, {
       method: "DELETE"
     });
     strictEqual(numberResponse.status, 400);
 
-    const stringResponse = await fetch(`https://localhost:3000/access-policies/not-a-uuid`, {
+    const stringResponse = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/not-a-uuid`, {
       method: "DELETE"
     });
     strictEqual(stringResponse.status, 400);
@@ -106,7 +106,7 @@ describe("Route: DELETE /access-policies/:id", async () => {
       scopedResourceType: AccessPolicyScopedResourceType.Instance
     }, slashstepServer.pool);
 
-    const response = await fetch(`https://localhost:3000/access-policies/${accessPolicy.id}`, {
+    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${accessPolicy.id}`, {
       method: "DELETE"
     });
     strictEqual(response.status, 401);
@@ -146,7 +146,7 @@ describe("Route: DELETE /access-policies/:id", async () => {
       sessionID: session.id
     }, jwtPrivateKey);
 
-    const response = await fetch(`https://localhost:3000/access-policies/${accessPolicy.id}`, {
+    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${accessPolicy.id}`, {
       method: "DELETE",
       headers: {
         cookie: `sessionToken=${sessionToken}`
@@ -171,7 +171,7 @@ describe("Route: DELETE /access-policies/:id", async () => {
       scopedResourceType: AccessPolicyScopedResourceType.Instance
     }, slashstepServer.pool);
 
-    const response = await fetch(`https://localhost:3000/access-policies/${generateUUIDv7()}`, {
+    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${generateUUIDv7()}`, {
       method: "DELETE"
     });
     strictEqual(response.status, 404);

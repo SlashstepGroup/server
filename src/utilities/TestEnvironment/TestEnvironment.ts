@@ -2,7 +2,7 @@ import { default as SlashstepServer } from "#utilities/Server/Server.js";
 import { randomBytes } from "node:crypto";
 import { GenericContainer, StartedTestContainer, Wait } from "testcontainers";
 import { Client as VaultClient } from "@litehex/node-vault";
-import { Socket } from "node:net";
+import { AddressInfo, Socket } from "node:net";
 import { Server as HTTPServer } from "node:http";
 import { generateKeyPairSync } from "crypto";
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
@@ -113,7 +113,7 @@ export default class TestEnvironment {
       postgreSQLHost: this.postgreSQLContainer.getHost(),
       postgreSQLPort: this.postgreSQLContainer.getPort(),
       postgreSQLDatabaseName: this.postgreSQLContainer.getDatabase(),
-      port: 3000
+      port: 0 // Node will assign a random open port.
     });
 
     if (this.openBaoClient) {
@@ -127,6 +127,32 @@ export default class TestEnvironment {
     this.slashstepServer = slashstepServer;
 
     return slashstepServer;
+
+  }
+
+  getHTTPServerAddress(): AddressInfo {
+
+    if (!this.httpServer) {
+
+      throw new Error("HTTP server not found.");
+
+    }
+
+    const address = this.httpServer.address();
+
+    if (!address) {
+
+      throw new Error("HTTP server address not found.");
+
+    }
+
+    if (typeof(address) === "string") {
+
+      throw new Error("HTTP server address is not an address info object.");
+
+    }
+
+    return address;
 
   }
 
