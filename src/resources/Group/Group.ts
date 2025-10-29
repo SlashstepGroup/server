@@ -113,4 +113,33 @@ export default class Group {
 
   }
 
+  static async getByID(id: string, pool: Pool): Promise<Group> {
+
+    // Get the group data from the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(import.meta.dirname, "queries", "get-group-row-by-id.sql"), "utf8");
+    const result = await poolClient.query(query, [id]);
+    poolClient.release();
+
+    // Convert the group data into a Group object.
+    const rowData = result.rows[0];
+
+    if (!rowData) {
+
+      throw new Error("Group not found.");
+
+    }
+
+    const group = new Group({
+      id: rowData.id,
+      name: rowData.name,
+      displayName: rowData.display_name,
+      description: rowData.description,
+      parentGroupID: rowData.parent_group_id
+    }, pool);
+
+    return group;
+
+  }
+
 }

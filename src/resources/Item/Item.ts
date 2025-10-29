@@ -214,7 +214,7 @@ export default class Item {
    *
    * @param id The ID of the item to retrieve.
    */
-  static async get(id: string, pool: Pool, includedResources?: ItemIncludedResourcesConstructorMap): Promise<Item> {
+  static async getByID(id: string, pool: Pool, includedResources?: ItemIncludedResourcesConstructorMap): Promise<Item> {
 
     // Get the item data from the database.
     const poolClient = await pool.connect();

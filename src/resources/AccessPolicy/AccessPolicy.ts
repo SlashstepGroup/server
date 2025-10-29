@@ -15,6 +15,7 @@ import User from "#resources/User/User.js";
 import Workspace from "#resources/Workspace/Workspace.js";
 import ResourceConflictError from "#errors/ResourceConflictError.js";
 import BadRequestError from "#errors/BadRequestError.js";
+import Resource from "src/interfaces/Resource.js";
 
 export type AccessPolicyIncludedResourceClassMap = {
   principalUser?: typeof User;
@@ -243,10 +244,22 @@ export type AccessPolicyPrincipalData = {
   principalRoleID: string;
 }
 
+export type ScopeResourceClassMap = {
+  Action?: typeof Action;
+  App?: typeof App;
+  Group?: typeof Group;
+  Item?: typeof Item;
+  Milestone?: typeof Milestone;
+  Project?: typeof Project;
+  Role?: typeof Role;
+  User?: typeof User;
+  Workspace?: typeof Workspace;
+}
+
 /**
  * An AccessPolicy defines the permissions a principal has on a resource.
  */
-export default class AccessPolicy {
+export default class AccessPolicy implements Resource<Scope> {
 
   static readonly name = "AccessPolicy";
 
@@ -1208,6 +1221,191 @@ export default class AccessPolicy {
       }
 
       throw error;
+
+    }
+
+  }
+
+  async getAccessPolicyScopeData(resourceClasses: Omit<ScopeResourceClassMap, "Workspace" | "User"> = {}): Promise<Scope> {
+
+    const { Action, App, Group, Item, Milestone, Project, Role } = resourceClasses;
+
+    switch (this.scopedResourceType) {
+
+      case AccessPolicyScopedResourceType.Action:
+
+        if (!Action) {
+
+          throw new Error("Action class required.");
+
+        }
+
+        if (!this.scopedActionID) {
+
+          throw new Error("Access policy is missing scopedActionID.");
+
+        }
+
+        const action = await Action.getByID(this.scopedActionID, this.#pool);
+
+        return {
+          actionID: this.scopedActionID,
+          appID: action.appID
+        };
+
+      case AccessPolicyScopedResourceType.App:
+
+        if (!App) {
+
+          throw new Error("App class required.");
+
+        }
+
+        if (!this.scopedAppID) {
+
+          throw new Error("Access policy is missing scopedAppID.");
+
+        }
+
+        const app = await App.getByID(this.scopedAppID, this.#pool);
+
+        return {
+          appID: this.scopedAppID
+        };
+
+      case AccessPolicyScopedResourceType.Group:
+
+        if (!Group) {
+
+          throw new Error("Group class required.");
+
+        }
+
+        if (!this.scopedGroupID) {
+
+          throw new Error("Access policy is missing scopedGroupID.");
+
+        }
+
+        const group = await Group.getByID(this.scopedGroupID, this.#pool);
+
+        return {
+          groupID: this.scopedGroupID
+        };
+
+      case AccessPolicyScopedResourceType.Instance:
+        return {};
+
+      case AccessPolicyScopedResourceType.Item:
+
+        if (!Item) {
+
+          throw new Error("Item class required.");
+
+        }
+
+        if (!this.scopedItemID) {
+
+          throw new Error("Access policy is missing scopedItemID.");
+
+        }
+
+        const item = await Item.getByID(this.scopedItemID, this.#pool);
+
+        return {
+          itemID: this.scopedItemID,
+          projectID: item.projectID,
+          workspaceID: item.projectID
+        };
+
+      case AccessPolicyScopedResourceType.Milestone:
+
+        if (!Milestone) {
+
+          throw new Error("Milestone class required.");
+
+        }
+
+        if (!this.scopedMilestoneID) {
+
+          throw new Error("Access policy is missing scopedMilestoneID.");
+
+        }
+
+        const milestone = await Milestone.getByID(this.scopedMilestoneID, this.#pool);
+
+        return {
+          milestoneID: this.scopedMilestoneID,
+          projectID: milestone.parentProjectID,
+          workspaceID: milestone.parentWorkspaceID
+        };
+
+      case AccessPolicyScopedResourceType.Project:
+
+        if (!Project) {
+
+          throw new Error("Project class required.");
+
+        }
+
+        if (!this.scopedProjectID) {
+
+          throw new Error("Access policy is missing scopedProjectID.");
+
+        }
+
+        const project = await Project.getByID(this.scopedProjectID, this.#pool);
+
+        return {
+          projectID: this.scopedProjectID,
+          workspaceID: project.workspaceID
+        };
+
+      case AccessPolicyScopedResourceType.Role:
+
+        if (!Role) {
+
+          throw new Error("Role class required.");
+
+        }
+
+        if (!this.scopedRoleID) {
+
+          throw new Error("Access policy is missing scopedRoleID.");
+
+        }
+
+        const role = await Role.getByID(this.scopedRoleID, this.#pool);
+
+        return {
+          roleID: this.scopedRoleID
+        };
+
+      case AccessPolicyScopedResourceType.User:
+
+        if (!User) {
+
+          throw new Error("User class required.");
+
+        }
+
+        if (!this.scopedUserID) {
+
+          throw new Error("Access policy is missing scopedUserID.");
+
+        }
+
+        return {
+          userID: this.scopedUserID
+        };
+
+      case AccessPolicyScopedResourceType.Workspace:
+        return {
+          workspaceID: this.scopedWorkspaceID
+        };
+
+      default:
+        throw new Error(`Unexpected scoped resource type: ${this.scopedResourceType}`);
 
     }
 

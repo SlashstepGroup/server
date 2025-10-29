@@ -5,10 +5,12 @@ import { DatabaseError, Pool } from "pg";
 import { readFileSync } from "fs";
 import { resolve } from "path"
 import Principal, { PrincipalResourceClassMap } from "src/interfaces/Principal.js";
-import { AccessPolicyPermissionLevel, AccessPolicyPrincipalType } from "#resources/AccessPolicy/AccessPolicy.js";
+import AccessPolicy, { AccessPolicyPermissionLevel, AccessPolicyPrincipalType, Scope } from "#resources/AccessPolicy/AccessPolicy.js";
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import ResourceConflictError from "#errors/ResourceConflictError.js";
+import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import Action from "#resources/Action/Action.js";
 
 export enum RoleParentResourceType {
   Instance = "Instance",
@@ -190,6 +192,52 @@ export default class Role implements Principal {
     
   }
 
+  static async verifyPermissionsForUnauthenticatedUsers(resourceClasses: {"Action": typeof Action, "AccessPolicy": typeof AccessPolicy}, actionID: string, pool: Pool, scope: Scope = {}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
+
+    try {
+    
+      const { Action, AccessPolicy } = resourceClasses;
+      const unauthenticatedUsersRole = await Role.getPreDefinedRoleByName("unauthenticated-users", pool);
+      await unauthenticatedUsersRole.verifyPermissions({Action, AccessPolicy}, actionID, scope, minimumPermissionLevel);
+
+    } catch (error) {
+
+      if (error instanceof PermissionDeniedError) {
+
+        throw new UnauthenticatedError();
+
+      }
+
+      throw error;
+
+    }
+
+  }
+
+  static async getByID(id: string, pool: Pool): Promise<Role> {
+
+    // Get the role data from the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(import.meta.dirname, "queries", "get-role-row-by-id.sql"), "utf8");
+    const result = await poolClient.query(query, [id]);
+    poolClient.release();
+
+    // Convert the role data into a Role object.
+    const row = result.rows[0];
+
+    if (!row) {
+
+      throw new ResourceNotFoundError("Role");
+
+    }
+
+    const role = new Role(this.getPropertiesFromRow(row), pool);
+
+    // Return the role.
+    return role;
+
+  }
+
   /**
    * Gets a role by name.
    * @param name The role name.
@@ -221,7 +269,27 @@ export default class Role implements Principal {
 
   }
 
-  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User) {
+  static async getPreDefinedRoleByName(name: string, pool: Pool): Promise<Role> {
+
+    try {
+
+      return await Role.getByName(name, pool);
+
+    } catch (error) {
+
+      if (error instanceof ResourceNotFoundError) {
+
+        throw new Error(`The ${name} action does not exist. You may need to set up the default actions.`);
+
+      }
+
+      throw error;
+
+    }
+
+  }
+
+  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: Scope = {}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User) {
 
     const { Action, AccessPolicy } = resourceClasses;
     const action = await Action.getByID(actionID, this.#pool);
@@ -231,7 +299,7 @@ export default class Role implements Principal {
       const accessPolicy = await AccessPolicy.getByDeepestScope(action.id, this.#pool, {
         principalType: AccessPolicyPrincipalType.Role,
         principalRoleID: this.id
-      });
+      }, scope);
       return accessPolicy.permissionLevel >= minimumPermissionLevel;
 
     } catch (error) {
@@ -248,9 +316,9 @@ export default class Role implements Principal {
 
   }
 
-  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
+  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: Scope = {}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
 
-    const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, minimumPermissionLevel);
+    const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, scope, minimumPermissionLevel);
     if (!canPrincipalAccess) {
 
       throw new PermissionDeniedError();

@@ -79,7 +79,7 @@ export default class App {
    *
    * @param id The ID of the user to retrieve.
    */
-  static async get(id: string, pool: Pool): Promise<App> {
+  static async getByID(id: string, pool: Pool): Promise<App> {
 
     // Get the app data from the database.
     const poolClient = await pool.connect();

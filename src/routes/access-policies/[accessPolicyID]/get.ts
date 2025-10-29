@@ -19,56 +19,24 @@ getAccessPolicyRouter.get("/", async (request: Request<{ accessPolicyID: string 
 
   try {
 
-    let getAccessPolicyAction: Action;
+    const getAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.get", response.locals.server.pool);
 
-    try {
-
-      getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.get", response.locals.server.pool);
-
-    } catch (error) {
-
-      if (error instanceof ResourceNotFoundError) {
-
-        throw new Error("The slashstep.accessPolicies.get action does not exist. You may need to set up the default actions.");
-
-      }
-
-      throw error;
-
-    }
+    const { accessPolicyID } = request.params;
+    const accessPolicy = await AccessPolicy.getByID(accessPolicyID, response.locals.server.pool);
+    const accessPolicyScopeData = await accessPolicy.getAccessPolicyScopeData();
 
     const { authenticatedUser } = response.locals;
     if (authenticatedUser) {
 
-      await authenticatedUser.verifyPermissions({Action, AccessPolicy}, getAccessPolicyAction.id);
+      await authenticatedUser.verifyPermissions({Action, AccessPolicy}, getAccessPolicyAction.id, accessPolicyScopeData);
 
     } else {
 
-      try {
-
-        const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", response.locals.server.pool);
-        await unauthenticatedUsersRole.verifyPermissions({Action, AccessPolicy}, getAccessPolicyAction.id);
-
-      } catch (error) {
-
-        if (error instanceof ResourceNotFoundError) {
-
-          throw new Error(`The pre-defined "unauthenticated-users" role does not exist. You may need to set up the default roles.`);
-
-        } else if (error instanceof PermissionDeniedError) {
-
-          throw new UnauthenticatedError();
-
-        }
-
-        throw error;
-
-      }
+      await Role.verifyPermissionsForUnauthenticatedUsers({Action, AccessPolicy}, getAccessPolicyAction.id, response.locals.server.pool, accessPolicyScopeData);
 
     }
 
     const { include } = request.query;
-    const { accessPolicyID } = request.params;
 
     const includedResources: ItemIncludedResourcesConstructorMap = {};
 
@@ -115,7 +83,6 @@ getAccessPolicyRouter.get("/", async (request: Request<{ accessPolicyID: string 
 
     // }
 
-    const accessPolicy = await AccessPolicy.getByID(accessPolicyID, response.locals.server.pool);
     response.json(accessPolicy);
 
   } catch (error) {

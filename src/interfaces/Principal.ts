@@ -1,4 +1,4 @@
-import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
+import AccessPolicy, { AccessPolicyPermissionLevel, Scope } from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js"
 
 export type PrincipalResourceClassMap = {
@@ -15,7 +15,7 @@ export default interface Principal {
    * @param minimumPermissionLevel The minimum permission level required to perform the action.
    * @returns A boolean indicating whether the principal can perform the action.
    */
-  checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, minimumPermissionLevel: AccessPolicyPermissionLevel): Promise<boolean>;
+  checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: Scope, minimumPermissionLevel: AccessPolicyPermissionLevel): Promise<boolean>;
 
   /**
    * Verifies that the principal can perform the specified action.
@@ -23,6 +23,6 @@ export default interface Principal {
    * @param actionID The action ID.
    * @param minimumPermissionLevel The minimum permission level required to perform the action.
    */
-  verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, minimumPermissionLevel: AccessPolicyPermissionLevel): Promise<void>;
+  verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: Scope, minimumPermissionLevel: AccessPolicyPermissionLevel): Promise<void>;
 
 }

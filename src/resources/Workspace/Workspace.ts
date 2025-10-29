@@ -87,7 +87,7 @@ export default class Workspace {
    *
    * @param id The ID of the workspace to retrieve.
    */
-  static async getFromID(id: string, pool: Pool): Promise<Workspace> {
+  static async getByID(id: string, pool: Pool): Promise<Workspace> {
 
     // Get the workspace data from the database.
     const poolClient = await pool.connect();

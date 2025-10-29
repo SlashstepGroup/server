@@ -127,4 +127,35 @@ export default class Milestone extends Collection {
 
   }
 
+  static async getByID(id: string, pool: Pool): Promise<Milestone> {
+
+    // Get the milestone data from the database.
+    const poolClient = await pool.connect();
+    const query = readFileSync(resolve(import.meta.dirname, "queries", "get-milestone-row-by-id.sql"), "utf8");
+    const result = await poolClient.query(query, [id]);
+    poolClient.release();
+
+    // Convert the milestone data into a Milestone object.
+    const rowData = result.rows[0];
+
+    if (!rowData) {
+
+      throw new Error("Milestone not found.");
+
+    }
+
+    const milestone = new Milestone({
+      id: rowData.id,
+      name: rowData.name,
+      displayName: rowData.display_name,
+      description: rowData.description,
+      parentResourceType: rowData.parent_resource_type,
+      parentProjectID: rowData.parent_project_id,
+      parentWorkspaceID: rowData.parent_workspace_id
+    }, pool);
+
+    return milestone;
+
+  }
+
 }

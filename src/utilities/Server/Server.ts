@@ -416,7 +416,11 @@ export default class Server {
           cert: readFileSync("./certificates/localhost+2.pem")
         }, this.app);
         
-        httpsServer.listen(this.port, () => resolve(httpsServer));
+        httpsServer.listen(this.port, () => {
+
+          resolve(httpsServer);
+
+        });
 
       } else {
 

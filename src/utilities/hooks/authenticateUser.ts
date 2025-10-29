@@ -33,7 +33,7 @@ async function authenticateUser(request: Request, response: Response<unknown, { 
 
           // Save account data.
           const userID = payload.sub;
-          const user = await User.getFromID(userID, server.pool);
+          const user = await User.getByID(userID, server.pool);
           const userWithSession = new User({
             ...user,
             hashedPassword: user.getHashedPassword()

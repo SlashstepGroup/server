@@ -77,7 +77,7 @@ export default class User implements Principal {
    *
    * @param id The ID of the user to retrieve.
    */
-  static async getFromID(id: string, pool: Pool): Promise<User> {
+  static async getByID(id: string, pool: Pool): Promise<User> {
 
     // Get the user data from the database.
     const poolClient = await pool.connect();
@@ -111,7 +111,7 @@ export default class User implements Principal {
    * @param username The username of the user to retrieve.
    * @param client The client used to make requests.
    */
-  static async getFromUsername(username: string, pool: Pool): Promise<User> {
+  static async getByUsername(username: string, pool: Pool): Promise<User> {
 
     // Get the user data from the database.
     const poolClient = await pool.connect();
@@ -163,7 +163,7 @@ export default class User implements Principal {
 
   }
 
-  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User) {
+  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: Scope = {}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User) {
   
     const { Action, AccessPolicy } = resourceClasses;
     const action = await Action.getByID(actionID, this.#pool);
@@ -173,7 +173,7 @@ export default class User implements Principal {
       const accessPolicy = await AccessPolicy.getByDeepestScope(action.id, this.#pool, {
         principalType: AccessPolicyPrincipalType.User,
         principalUserID: this.id
-      });
+      }, scope);
       return accessPolicy.permissionLevel >= minimumPermissionLevel;
 
     } catch (error) {
@@ -190,9 +190,9 @@ export default class User implements Principal {
 
   }
 
-  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
+  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: Scope = {}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
 
-    const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, minimumPermissionLevel);
+    const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, scope, minimumPermissionLevel);
     if (!canPrincipalAccess) {
 
       throw new PermissionDeniedError();

@@ -176,6 +176,26 @@ export default class Action {
 
   }
 
+  static async getPreDefinedActionByName(name: string, pool: Pool): Promise<Action> {
+    
+    try {
+
+      return await Action.getByName(name, pool);
+
+    } catch (error) {
+
+      if (error instanceof ResourceNotFoundError) {
+
+        throw new Error(`The ${name} action does not exist. You may need to set up the pre-defined actions.`);
+
+      }
+
+      throw error;
+
+    }
+
+  }
+
   /** 
    * Requests the server to return a list of actions.
    * 
