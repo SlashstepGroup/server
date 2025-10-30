@@ -16,7 +16,7 @@ import { ResourceClassMap, ResponseLocals } from "#utilities/types.js";
 import { Response, Router } from "express";
 
 const listAccessPoliciesRouter = Router({mergeParams: true})
-listAccessPoliciesRouter.get("/", async (request, response: Response<unknown, ResponseLocals>) => {
+listAccessPoliciesRouter.use(async (request, response: Response<unknown, ResponseLocals>) => {
 
   try {
   

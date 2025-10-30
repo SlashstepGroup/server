@@ -1,7 +1,7 @@
 import { default as SlashstepServer } from "#utilities/Server/Server.js";
 import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import { strictEqual } from "node:assert";
-import deleteAccessPolicyRouter from "./delete.js";
+import deleteAccessPolicyRouter from "./index.js";
 import { v7 as generateUUIDv7 } from "uuid";
 import AccessPolicy, { AccessPolicyInheritanceLevel, AccessPolicyPermissionLevel, AccessPolicyPrincipalType, AccessPolicyScopedResourceType } from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js";
@@ -22,7 +22,7 @@ describe("Route: DELETE /access-policies/:id", async () => {
     await testEnvironment.createJWTKeyPair();
     await testEnvironment.startPostgreSQLContainer();
     slashstepServer = await testEnvironment.initializeSlashstepServer();
-    slashstepServer.app.use("/access-policies/:accessPolicyID", deleteAccessPolicyRouter);
+    slashstepServer.app.delete("/access-policies/:accessPolicyID", deleteAccessPolicyRouter);
     await testEnvironment.initializeHTTPServer();
 
   });

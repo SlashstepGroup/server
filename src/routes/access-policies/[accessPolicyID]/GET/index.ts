@@ -1,4 +1,4 @@
-import Item, { ItemIncludedResourcesConstructorMap } from "#resources/Item/Item.js";
+import { ItemIncludedResourcesConstructorMap } from "#resources/Item/Item.js";
 import { Request, Response, Router } from "express";
 import HTTPError from "#errors/HTTPError.js";
 import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
@@ -6,16 +6,13 @@ import authenticateUser from "#utilities/hooks/authenticateUser.js";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Role from "#resources/Role/Role.js";
 import Action from "#resources/Action/Action.js";
-import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
-import PermissionDeniedError from "#errors/PermissionDeniedError.js";
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 import Server from "#utilities/Server/Server.js";
 import User from "#resources/User/User.js";
 
 const getAccessPolicyRouter = Router({mergeParams: true});
 getAccessPolicyRouter.use(allowUnauthenticatedRequests);
 getAccessPolicyRouter.use(authenticateUser);
-getAccessPolicyRouter.get("/", async (request: Request<{ accessPolicyID: string }>, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
+getAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
 
   try {
 

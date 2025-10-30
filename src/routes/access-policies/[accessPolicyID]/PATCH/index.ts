@@ -1,4 +1,3 @@
-import Item, { ItemIncludedResourcesConstructorMap } from "#resources/Item/Item.js";
 import { Request, Response, Router } from "express";
 import HTTPError from "#errors/HTTPError.js";
 import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
@@ -6,16 +5,13 @@ import authenticateUser from "#utilities/hooks/authenticateUser.js";
 import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
 import Role from "#resources/Role/Role.js";
 import Action from "#resources/Action/Action.js";
-import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
-import PermissionDeniedError from "#errors/PermissionDeniedError.js";
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 import Server from "#utilities/Server/Server.js";
 import User from "#resources/User/User.js";
 
 const updateAccessPolicyRouter = Router({mergeParams: true});
 updateAccessPolicyRouter.use(allowUnauthenticatedRequests);
 updateAccessPolicyRouter.use(authenticateUser);
-updateAccessPolicyRouter.patch("/", async (request: Request<{ accessPolicyID: string }, unknown, {inheritanceLevel: unknown, permissionLevel: unknown} | undefined>, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
+updateAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }, unknown, {inheritanceLevel: unknown, permissionLevel: unknown} | undefined>, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
 
   try {
 

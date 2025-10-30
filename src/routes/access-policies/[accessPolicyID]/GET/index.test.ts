@@ -1,7 +1,7 @@
-import { default as SlashstepServer } from "#utilities/Server/Server.js";
 import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import { strictEqual } from "node:assert";
-import updateAccessPolicyRouter from "./patch.js";
+import { default as SlashstepServer } from "#utilities/Server/Server.js";
+import getAccessPolicyRouter from "./index.js";
 import { v7 as generateUUIDv7 } from "uuid";
 import AccessPolicy, { AccessPolicyInheritanceLevel, AccessPolicyPermissionLevel, AccessPolicyPrincipalType, AccessPolicyScopedResourceType } from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js";
@@ -10,7 +10,7 @@ import User from "#resources/User/User.js";
 import Session from "#resources/Session/Session.js";
 import TestEnvironment from "#utilities/TestEnvironment/TestEnvironment.js";
 
-describe("Route: PATCH /access-policies/:id", async () => {
+describe("Route: GET /access-policies/:id", async () => {
 
   const testEnvironment = new TestEnvironment();
   let slashstepServer: SlashstepServer;
@@ -22,15 +22,15 @@ describe("Route: PATCH /access-policies/:id", async () => {
     await testEnvironment.createJWTKeyPair();
     await testEnvironment.startPostgreSQLContainer();
     slashstepServer = await testEnvironment.initializeSlashstepServer();
-    slashstepServer.app.use("/access-policies/:accessPolicyID", updateAccessPolicyRouter);
+    slashstepServer.app.get("/access-policies/:accessPolicyID", getAccessPolicyRouter);
     await testEnvironment.initializeHTTPServer();
 
   });
 
   beforeEach(async () => {
 
-    await slashstepServer.initializeResourceTables();
-    await slashstepServer.initializePreDefinedResources();
+    await testEnvironment.slashstepServer?.initializeResourceTables();
+    await testEnvironment.slashstepServer?.initializePreDefinedResources();
 
   });
 
@@ -46,31 +46,21 @@ describe("Route: PATCH /access-policies/:id", async () => {
 
   })
 
-  it("can return a 200 status code and return the updated access policy if successful", async () => {
+  it("can return a 200 status code and the requested access policy", async () => {
 
     // Grant unauthenticated users access to the action.
     const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.update", slashstepServer.pool);
+    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.get", slashstepServer.pool);
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
       principalRoleID: unauthenticatedUsersRole.id,
       actionID: getAccessPolicyAction.id,
-      permissionLevel: AccessPolicyPermissionLevel.Editor,
+      permissionLevel: AccessPolicyPermissionLevel.User,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
       scopedResourceType: AccessPolicyScopedResourceType.Instance
     }, slashstepServer.pool);
 
-    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${accessPolicy.id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        permissionLevel: "User",
-        inheritanceLevel: "Disabled"
-      })
-    });
-
+    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${accessPolicy.id}`);
     strictEqual(response.status, 200);
 
     const jsonResponse = await response.json();
@@ -90,8 +80,8 @@ describe("Route: PATCH /access-policies/:id", async () => {
     strictEqual(jsonResponse.scopedAppID, accessPolicy.scopedAppID);
     strictEqual(jsonResponse.scopedMilestoneID, accessPolicy.scopedMilestoneID);
     strictEqual(jsonResponse.actionID, accessPolicy.actionID);
-    strictEqual(jsonResponse.permissionLevel, "User");
-    strictEqual(jsonResponse.inheritanceLevel, "Disabled");
+    strictEqual(jsonResponse.permissionLevel, accessPolicy.permissionLevel);
+    strictEqual(jsonResponse.inheritanceLevel, accessPolicy.inheritanceLevel);
 
   });
 
@@ -99,53 +89,46 @@ describe("Route: PATCH /access-policies/:id", async () => {
 
     // Grant unauthenticated users access to the action.
     const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const deleteAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.update", slashstepServer.pool);
+    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.get", slashstepServer.pool);
     await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
       principalRoleID: unauthenticatedUsersRole.id,
-      actionID: deleteAccessPolicyAction.id,
+      actionID: getAccessPolicyAction.id,
       permissionLevel: AccessPolicyPermissionLevel.User,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
       scopedResourceType: AccessPolicyScopedResourceType.Instance
     }, slashstepServer.pool);
 
-    const numberResponse = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/1`, {
-      method: "PATCH"
-    });
+    const numberResponse = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/1`);
     strictEqual(numberResponse.status, 400);
 
-    const stringResponse = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/not-a-uuid`, {
-      method: "PATCH"
-    });
+    const stringResponse = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/not-a-uuid`);
     strictEqual(stringResponse.status, 400);
 
   });
 
   it("can return a 401 status code if the user needs authentication", async () => {
-    
+
     const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.get", slashstepServer.pool);
+    const deleteAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.delete", slashstepServer.pool);
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
       principalRoleID: unauthenticatedUsersRole.id,
-      actionID: getAccessPolicyAction.id,
+      actionID: deleteAccessPolicyAction.id,
       permissionLevel: AccessPolicyPermissionLevel.None,
       inheritanceLevel: AccessPolicyInheritanceLevel.Disabled,
       scopedResourceType: AccessPolicyScopedResourceType.Instance
     }, slashstepServer.pool);
-
-    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${accessPolicy.id}`, {
-      method: "PATCH"
-    });
+    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${accessPolicy.id}`);
     strictEqual(response.status, 401);
 
   });
 
-  it("can return a 403 status code if the user doesn't have permission to update the requested access policy", async () => {
+  it("can return a 403 status code if the user doesn't have permission to view the requested access policy", async () => {
 
     // Grant unauthenticated users access to the action.
     const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.update", slashstepServer.pool);
+    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.get", slashstepServer.pool);
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
       principalRoleID: unauthenticatedUsersRole.id,
@@ -175,7 +158,6 @@ describe("Route: PATCH /access-policies/:id", async () => {
     }, jwtPrivateKey);
 
     const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${accessPolicy.id}`, {
-      method: "PATCH",
       headers: {
         cookie: `sessionToken=${sessionToken}`
       },
@@ -189,7 +171,7 @@ describe("Route: PATCH /access-policies/:id", async () => {
 
     // Grant unauthenticated users access to the action.
     const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.update", slashstepServer.pool);
+    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.get", slashstepServer.pool);
     await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
       principalRoleID: unauthenticatedUsersRole.id,
@@ -199,9 +181,7 @@ describe("Route: PATCH /access-policies/:id", async () => {
       scopedResourceType: AccessPolicyScopedResourceType.Instance
     }, slashstepServer.pool);
 
-    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${generateUUIDv7()}`, {
-      method: "PATCH"
-    });
+    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${generateUUIDv7()}`);
     strictEqual(response.status, 404);
 
   });

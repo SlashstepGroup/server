@@ -1,4 +1,3 @@
-import Item, { ItemIncludedResourcesConstructorMap } from "#resources/Item/Item.js";
 import { Request, Response, Router } from "express";
 import HTTPError from "#errors/HTTPError.js";
 import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
@@ -12,7 +11,7 @@ import User from "#resources/User/User.js";
 const deleteAccessPolicyRouter = Router({mergeParams: true});
 deleteAccessPolicyRouter.use(allowUnauthenticatedRequests);
 deleteAccessPolicyRouter.use(authenticateUser);
-deleteAccessPolicyRouter.delete("/", async (request: Request<{ accessPolicyID: string }>, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
+deleteAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
 
   try {
     
