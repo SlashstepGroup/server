@@ -486,6 +486,38 @@ export default class AccessPolicy implements Resource<Scope> {
 
   }
 
+  static validatePropertyValue(propertyName: "inheritanceLevel", propertyValue: unknown): AccessPolicyInheritanceLevel;
+  static validatePropertyValue(propertyName: "permissionLevel", propertyValue: unknown): AccessPolicyPermissionLevel;
+  static validatePropertyValue(propertyName: string, propertyValue: unknown): unknown {
+
+    if (propertyValue === undefined)
+      return propertyValue;
+
+    if (typeof(propertyValue) !== "string")
+      throw new BadRequestError(`The ${propertyName} must be a string.`);
+
+    switch (propertyName) {
+
+      case "inheritanceLevel":
+
+        if (!(propertyValue in AccessPolicyInheritanceLevel))
+          throw new BadRequestError(`The ${propertyName} must be one of the following values: ${Object.values(AccessPolicyInheritanceLevel).join(", ")}.`);
+        
+        return propertyValue;
+
+      case "permissionLevel":
+
+        if (!(propertyValue in AccessPolicyPermissionLevel))
+          throw new BadRequestError(`The ${propertyName} must be one of the following values: ${Object.values(AccessPolicyPermissionLevel).join(", ")}.`);
+        
+        return propertyValue;
+
+      default:
+        throw new BadRequestError(`The ${propertyName} is not a valid property.`);
+
+    }
+
+  }
   
   static async initializePreDefinedRoleAccessPolicies(actionClass: typeof Action, pool: Pool): Promise<AccessPolicy[]> {
 
@@ -1422,6 +1454,54 @@ export default class AccessPolicy implements Resource<Scope> {
     try {
 
       await poolClient.query(query, [this.id]);
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
+  /**
+   * Updates the access policy.
+   */
+  async update(data: Partial<EditableAccessPolicyProperties>): Promise<AccessPolicy> {
+
+    const poolClient = await this.#pool.connect();
+
+    try {
+
+      await poolClient.query("begin;");
+      let query = "update access_policies set ";
+      const values = [];
+
+      const addValue = <T>(columnName: string, value: T) => {
+
+        if (value === undefined) {
+
+          return;
+
+        }
+
+        query += `${values.length > 0 ? ", " : ""}${columnName} = $${values.length + 1}`;
+        values.push(value);
+
+      }
+      addValue("permission_level", data.permissionLevel);
+      addValue("inheritance_level", data.inheritanceLevel);
+
+      query += ` where id = $${values.length + 1} returning *;`;
+      values.push(this.id);
+      
+      const result = await poolClient.query(query, values);
+      await poolClient.query("commit;");
+
+      // Convert the row to an access policy object.
+      const row = result.rows[0];
+      const accessPolicy = new AccessPolicy(AccessPolicy.getPropertiesFromRow(row), this.#pool);
+
+      return accessPolicy;
 
     } finally {
 

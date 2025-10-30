@@ -55,7 +55,7 @@ describe("Route: DELETE /access-policies/:id", async () => {
       principalType: AccessPolicyPrincipalType.Role,
       principalRoleID: unauthenticatedUsersRole.id,
       actionID: getAccessPolicyAction.id,
-      permissionLevel: AccessPolicyPermissionLevel.User,
+      permissionLevel: AccessPolicyPermissionLevel.Editor,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
       scopedResourceType: AccessPolicyScopedResourceType.Instance
     }, slashstepServer.pool);
@@ -96,7 +96,7 @@ describe("Route: DELETE /access-policies/:id", async () => {
   it("can return a 401 status code if the user needs authentication", async () => {
     
     const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.get", slashstepServer.pool);
+    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.delete", slashstepServer.pool);
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
       principalRoleID: unauthenticatedUsersRole.id,

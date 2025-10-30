@@ -300,7 +300,22 @@ export default class Role implements Principal {
         principalType: AccessPolicyPrincipalType.Role,
         principalRoleID: this.id
       }, scope);
-      return accessPolicy.permissionLevel >= minimumPermissionLevel;
+
+      return accessPolicy.permissionLevel === AccessPolicyPermissionLevel.Admin || (
+        (
+          accessPolicy.permissionLevel === AccessPolicyPermissionLevel.Editor && (
+            minimumPermissionLevel === AccessPolicyPermissionLevel.Editor || minimumPermissionLevel === AccessPolicyPermissionLevel.User || minimumPermissionLevel === AccessPolicyPermissionLevel.None
+          )
+        ) ||
+        (
+          accessPolicy.permissionLevel === AccessPolicyPermissionLevel.User && (
+            minimumPermissionLevel === AccessPolicyPermissionLevel.User || minimumPermissionLevel === AccessPolicyPermissionLevel.None
+          )
+        ) ||
+        (
+          accessPolicy.permissionLevel === AccessPolicyPermissionLevel.None && minimumPermissionLevel === AccessPolicyPermissionLevel.None
+        )
+      );
 
     } catch (error) {
 
