@@ -1,7 +1,7 @@
 import { Router } from "express";
-import deleteAccessPolicyRouter from "./DELETE/index.js";
-import getAccessPolicyRouter from "./GET/index.js";
-import updateAccessPolicyRouter from "./PATCH/index.js";
+import deleteAccessPolicyRouter from "./DELETE.js";
+import getAccessPolicyRouter from "./GET.js";
+import updateAccessPolicyRouter from "./PATCH.js";
 
 const accessPolicyRouter = Router({mergeParams: true});
 accessPolicyRouter.delete("/", deleteAccessPolicyRouter);

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import listAccessPoliciesRouter from "./GET/index.js";
+import listAccessPoliciesRouter from "./GET.js";
 import accessPolicyRouter from "./[accessPolicyID]/index.js";
 
 const accessPoliciesRouter = Router({mergeParams: true});

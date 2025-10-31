@@ -197,21 +197,25 @@ export default class TestEnvironment {
 
     }
 
+    
+    const client = await this.slashstepServer.pool.connect();
     try {
     
-      const client = await this.slashstepServer.pool.connect();
       await client.query("drop schema if exists app cascade;");
-      client.release();
 
     } catch (error) {
 
       throw error;
 
+    } finally {
+
+      client.release();
+
     }
     
   }
 
-  async startPostgreSQLContainer(): Promise<StartedTestContainer> {
+  async startPostgreSQLContainer(): Promise<StartedPostgreSqlContainer> {
 
     if (this.postgreSQLContainer) {
 
