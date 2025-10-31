@@ -974,13 +974,13 @@ export default class AccessPolicy implements Resource<Scope> {
   static async list(filterQuery: string, pool: Pool, includedResources: AccessPolicyIncludedResourceClassMap = {}): Promise<AccessPolicy[]> {
 
     // Get the list from the database.
-    const { whereClause, values, limit } = SlashstepQLFilterSanitizer.sanitize({ 
+    const { whereClause, values, limit, offset } = SlashstepQLFilterSanitizer.sanitize({ 
       tableName: "hydrated_access_policies", 
       filterQuery, 
       defaultLimit: 1000, 
       allowedQueryFields: this.allowedQueryFields
     });
-    const finalQuery = `select * from hydrated_access_policies${whereClause ? ` where ${whereClause}` : ""}${limit !== undefined ? ` limit ${limit}` : ""}`;
+    const finalQuery = `select * from hydrated_access_policies${whereClause ? ` where ${whereClause}` : ""}${limit !== undefined ? ` limit ${limit}` : ""}${offset !== undefined ? ` offset ${offset}` : ""}`;
     
     let result;
     const poolClient = await pool.connect();
