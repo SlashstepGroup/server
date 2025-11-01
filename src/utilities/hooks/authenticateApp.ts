@@ -1,49 +1,44 @@
 import { NextFunction, Request, Response } from "express";
-import User from "#resources/User/User.js";
 import jsonwebtoken from "jsonwebtoken";
-import Session from "#resources/Session/Session.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import { ResponseLocals } from "#utilities/types.js";
+import App from "#resources/App/App.js";
+import AppCredential from "#resources/AppCredential/AppCredential.js";
 
-async function authenticateUser(request: Request, response: Response<unknown, ResponseLocals>, next: NextFunction) {
+async function authenticateApp(request: Request, response: Response<unknown, ResponseLocals>, next: NextFunction) {
 
   try {
   
     const { server } = response.locals;
-    const { sessionToken: cookieToken } = request.cookies ?? {};
-    const token = cookieToken;
+    const { authorization } = request.headers;
+    const token = authorization?.match(/^App (\S+)$/)?.[1];
 
-    if (cookieToken) {
+    if (token) {
 
       const payload = jsonwebtoken.decode(token);
       if (payload && typeof(payload) === "object" && payload.sub && payload.jti) {
 
-        const sessionID = payload.jti;
-        const session = await Session.get(sessionID, server.pool);
+        // Make sure the app token ID is still valid.
+        const credentialID = payload.jti;
+        await AppCredential.getByID(credentialID, server.pool);
 
+        // Verify the app token.
         const jwtPublicKey = await server.getJWTPublicKey();
 
         jsonwebtoken.verify(token, jwtPublicKey, {
           algorithms: ["RS256"]
         });
 
-        if (session) {
-
-          const userID = payload.sub;
-          const user = await User.getByID(userID, server.pool);
-          const userWithSession = new User({
-            ...user,
-            hashedPassword: user.getHashedPassword()
-          }, server.pool, session);
-          response.locals.authenticatedUser = userWithSession;
-
-        }
+        // 
+        const appID = payload.sub;
+        const app = await App.getByID(appID, server.pool);
+        response.locals.authenticatedApp = app;
         
       }
 
     }
 
-    if (!response.locals.areUnauthenticatedRequestsAllowed && !response.locals.authenticatedUser) {
+    if (!response.locals.areUnauthenticatedRequestsAllowed && !response.locals.authenticatedApp) {
 
       response.status(401).json({
         message: "Provide a valid authentication token."
@@ -61,7 +56,7 @@ async function authenticateUser(request: Request, response: Response<unknown, Re
     if (error instanceof jsonwebtoken.JsonWebTokenError || error instanceof ResourceNotFoundError) {
 
       response.status(401).json({
-        message: "Provide a valid session token."
+        message: "Provide a valid authentication token."
       });
 
     } else {
@@ -78,4 +73,4 @@ async function authenticateUser(request: Request, response: Response<unknown, Re
 
 }
 
-export default authenticateUser;
+export default authenticateApp;

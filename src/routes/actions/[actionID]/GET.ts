@@ -7,10 +7,14 @@ import Role from "#resources/Role/Role.js";
 import Action from "#resources/Action/Action.js";
 import type { default as Server } from "#utilities/Server/Server.js";
 import User from "#resources/User/User.js";
+import authenticateApp from "#utilities/hooks/authenticateApp.js";
+import authenticateAppAuthorization from "#utilities/hooks/authenticateAppAuthorization.js";
 
 const getActionRouter = Router({mergeParams: true});
 getActionRouter.use(allowUnauthenticatedRequests);
 getActionRouter.use(authenticateUser);
+getActionRouter.use(authenticateApp);
+getActionRouter.use(authenticateAppAuthorization);
 getActionRouter.use(async (request: Request<{ actionID: string }>, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
 
   try {
@@ -19,18 +23,15 @@ getActionRouter.use(async (request: Request<{ actionID: string }>, response: Res
     const action = await Action.getByID(actionID, response.locals.server.pool);
     const actionScopeData = action.getScopeData();
     const getActionAction = await Action.getPreDefinedActionByName("slashstep.actions.get", response.locals.server.pool);
-    const getActionActionScopeData = getActionAction.getScopeData();
 
     const { authenticatedUser } = response.locals;
     if (authenticatedUser) {
 
-      await authenticatedUser.verifyPermissions({Action, AccessPolicy}, action.id, actionScopeData);
-      await authenticatedUser.verifyPermissions({Action, AccessPolicy}, getActionAction.id, getActionActionScopeData);
+      await authenticatedUser.verifyPermissions({Action, AccessPolicy}, getActionAction.id, actionScopeData);
 
     } else {
 
-      await Role.verifyPermissionsForUnauthenticatedUsers({Action, AccessPolicy}, action.id, response.locals.server.pool, actionScopeData);
-      await Role.verifyPermissionsForUnauthenticatedUsers({Action, AccessPolicy}, getActionAction.id, response.locals.server.pool, getActionActionScopeData);
+      await Role.verifyPermissionsForUnauthenticatedUsers({Action, AccessPolicy}, getActionAction.id, response.locals.server.pool, actionScopeData);
 
     }
 

@@ -25,6 +25,14 @@ create or replace view hydrated_access_policies as
     principal_roles.parent_project_id as principal_role_parent_project_id,
     principal_roles.parent_group_id as principal_role_parent_group_id,
 
+    /* App */
+    principal_apps.name as principal_app_name,
+    principal_apps.display_name as principal_app_display_name,
+    principal_apps.description as principal_app_description,
+    principal_apps.parent_resource_type as principal_app_parent_resource_type,
+    principal_apps.parent_user_id as principal_app_parent_user_id,
+    principal_apps.parent_workspace_id as principal_app_parent_workspace_id,
+
     /** Scopes */
     /* Action */
     scoped_actions.name as scoped_action_name,
@@ -35,6 +43,9 @@ create or replace view hydrated_access_policies as
     scoped_apps.name as scoped_app_name,
     scoped_apps.display_name as scoped_app_display_name,
     scoped_apps.description as scoped_app_description,
+    scoped_apps.parent_resource_type as scoped_app_parent_resource_type,
+    scoped_apps.parent_user_id as scoped_app_parent_user_id,
+    scoped_apps.parent_workspace_id as scoped_app_parent_workspace_id,
 
     /* Group */
     scoped_groups.name as scoped_group_name,
@@ -90,6 +101,8 @@ create or replace view hydrated_access_policies as
     groups as principal_groups on principal_groups.id = access_policies.principal_group_id
   left join
     roles as principal_roles on principal_roles.id = access_policies.principal_role_id
+  left join
+    apps as principal_apps on principal_apps.id = access_policies.principal_app_id
   left join 
     hydrated_actions as actions on actions.id = access_policies.action_id
   left join

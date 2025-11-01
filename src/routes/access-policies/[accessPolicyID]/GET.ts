@@ -8,10 +8,14 @@ import Role from "#resources/Role/Role.js";
 import Action from "#resources/Action/Action.js";
 import type { default as Server } from "#utilities/Server/Server.js";
 import User from "#resources/User/User.js";
+import authenticateApp from "#utilities/hooks/authenticateApp.js";
+import authenticateAppAuthorization from "#utilities/hooks/authenticateAppAuthorization.js";
 
 const getAccessPolicyRouter = Router({mergeParams: true});
 getAccessPolicyRouter.use(allowUnauthenticatedRequests);
 getAccessPolicyRouter.use(authenticateUser);
+getAccessPolicyRouter.use(authenticateApp);
+getAccessPolicyRouter.use(authenticateAppAuthorization);
 getAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
 
   try {

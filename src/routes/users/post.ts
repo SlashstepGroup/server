@@ -5,7 +5,7 @@ import User from "#resources/User/User.js";
 import ActionLog from "#resources/ActionLog/ActionLog.js";
 import Action from "#resources/Action/Action.js";
 import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
-import PermissionDeniedError from "#errors/PermissionDeniedError.js";
+import ForbiddenError from "#errors/ForbiddenError.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import { hash as hashPassword } from "argon2";
 import type { default as Server } from "#utilities/Server/Server.js";
@@ -77,7 +77,7 @@ createUserRouter.post("/", async (request, response: Response<unknown, { server:
 
       if (deepestAccessPolicy.permissionLevel < AccessPolicyPermissionLevel.User) {
 
-        throw new PermissionDeniedError();
+        throw new ForbiddenError();
 
       }
 
@@ -85,7 +85,7 @@ createUserRouter.post("/", async (request, response: Response<unknown, { server:
 
       if (error instanceof ResourceNotFoundError) {
 
-        throw new PermissionDeniedError();
+        throw new ForbiddenError();
 
       }
 

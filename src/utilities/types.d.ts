@@ -1,5 +1,6 @@
 import type { default as Action } from "#resources/Action/Action.js";
 import type { default as App } from "#resources/App/App.js";
+import type { default as AppAuthorization } from "#resources/AppAuthorization/AppAuthorization.js";
 import type { default as Group } from "#resources/Group/Group.js";
 import type { default as Item } from "#resources/Item/Item.js";
 import type { default as Milestone } from "#resources/Milestone/Milestone.js";
@@ -17,6 +18,8 @@ export type ResponseLocals = {
   server: Server;
   authenticatedUser?: User;
   areUnauthenticatedRequestsAllowed?: boolean;
+  authenticatedApp?: App;
+  authenticatedAppAuthorization?: AppAuthorization;
 }
 
 export type ResourceClassMap = Record<string, (

@@ -1,10 +1,10 @@
-import { AccessPolicyPermissionLevel, AccessPolicyPrincipalType, AccessPolicyScopeData } from "#resources/AccessPolicy/AccessPolicy.js";
+import AccessPolicy, { AccessPolicyPermissionLevel, AccessPolicyPrincipalData, AccessPolicyPrincipalType, AccessPolicyScopeData, AccessPolicyScopedResourceType } from "#resources/AccessPolicy/AccessPolicy.js";
 import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import type { default as Session } from "#resources/Session/Session.js";
-import PermissionDeniedError from "#errors/PermissionDeniedError.js";
+import ForbiddenError from "#errors/ForbiddenError.js";
 import type { default as Role, InitialWritableRoleProperties, RoleParentResourceType } from "#resources/Role/Role.js";
 import ResourceConflictError from "#errors/ResourceConflictError.js";
 import Principal, { PrincipalResourceClassMap } from "src/interfaces/Principal.js";
@@ -167,14 +167,14 @@ export default class User implements Principal {
 
   }
 
-  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: AccessPolicyScopeData = {}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User) {
+  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: AccessPolicyScopeData = {scopedResourceType: "Instance"}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User) {
   
     const { Action, AccessPolicy } = resourceClasses;
     const action = await Action.getByID(actionID, this.#pool);
 
     try {
 
-      const accessPolicy = await AccessPolicy.getByDeepestScope(action.id, this.#pool, {
+      const accessPolicy = await AccessPolicy.getAccessPolicyWithDeepestScope(action.id, this.#pool, {
         principalType: AccessPolicyPrincipalType.User,
         principalUserID: this.id
       }, scope);
@@ -194,12 +194,20 @@ export default class User implements Principal {
 
   }
 
-  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: AccessPolicyScopeData = {}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
+  getScopeData(): UserScopeData {
+
+    return {
+      userID: this.id
+    };
+
+  }
+
+  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: AccessPolicyScopeData = {scopedResourceType: "Instance"}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
 
     const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, scope, minimumPermissionLevel);
     if (!canPrincipalAccess) {
 
-      throw new PermissionDeniedError();
+      throw new ForbiddenError();
 
     }
 

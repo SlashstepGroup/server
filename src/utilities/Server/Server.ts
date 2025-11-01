@@ -29,6 +29,7 @@ import Role from "#resources/Role/Role.js";
 import Milestone from "#resources/Milestone/Milestone.js";
 import { Server as HTTPServer, createServer as createHTTPServer } from "http";
 import { Client as VaultClient } from "@litehex/node-vault";
+import AppCredential from "#resources/AppCredential/AppCredential.js";
 
 export type ServerProperties = {
   environment: string;
@@ -134,6 +135,7 @@ export default class Server {
     await Item.initializeTable(this.pool);
     await User.initializeTable(this.pool);
     await App.initializeTable(this.pool);
+    await AppCredential.initializeTable(this.pool);
     await Action.initializeTable(this.pool);
     await AccessPolicy.initializeTable(this.pool);
     await ActionLog.initializeTable(this.pool);

@@ -5,7 +5,7 @@ import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
 import ResourceConflictError from "#errors/ResourceConflictError.js";
 import type { default as Role } from "#resources/Role/Role.js";
-import type { default as AccessPolicy, AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
+import { AccessPolicyScopedResourceType, type default as AccessPolicy, type AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
 import Resource from "src/interfaces/Resource.js";
 import BadRequestError from "#errors/BadRequestError.js";
 
@@ -26,6 +26,7 @@ export type ActionQueryResult = {
 }
 
 export type ActionScopeData = {
+  scopedResourceType: AccessPolicyScopedResourceType.Action;
   actionID: string;
   appID?: string | null;
 }
@@ -167,7 +168,7 @@ export default class Action implements Resource<ActionScopeData> {
       }
 
       // Return the action.
-      const action = new Action(data, pool);
+      const action = new Action(Action.getPropertiesFromRow(data), pool);
       return action;
 
     } catch (error) {
@@ -544,6 +545,7 @@ export default class Action implements Resource<ActionScopeData> {
   getScopeData(): ActionScopeData {
 
     return {
+      scopedResourceType: AccessPolicyScopedResourceType.Action,
       actionID: this.id,
       appID: this.appID
     };

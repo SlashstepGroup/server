@@ -6,6 +6,13 @@ import { AddressInfo, Socket } from "node:net";
 import { Server as HTTPServer } from "node:http";
 import { generateKeyPairSync } from "crypto";
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import Action, { InitialWritableActionProperties } from "#resources/Action/Action.js";
+import AccessPolicy, { AccessPolicyInheritanceLevel, AccessPolicyPermissionLevel, AccessPolicyPrincipalType, AccessPolicyScopedResourceType } from "#resources/AccessPolicy/AccessPolicy.js";
+import Role from "#resources/Role/Role.js";
+import Session from "#resources/Session/Session.js";
+import User from "#resources/User/User.js";
+import App, { AppParentResourceType } from "#resources/App/App.js";
+import AppCredential from "#resources/AppCredential/AppCredential.js";
 
 export default class TestEnvironment {
 
@@ -75,6 +82,87 @@ export default class TestEnvironment {
 
   }
 
+  async createRandomAction(actionProperties: Partial<InitialWritableActionProperties> = {}): Promise<Action> {
+
+    if (!this.slashstepServer) {
+
+      throw new Error("Slashstep server not found.");
+
+    }
+
+    const action = await Action.create({
+      ...actionProperties,
+      name: actionProperties.name ?? `slashstep.${TestEnvironment.generateRandomString(16)}.${TestEnvironment.generateRandomString(16)}`,
+      displayName: actionProperties.displayName ?? TestEnvironment.generateRandomString(16),
+      description: actionProperties.description ?? TestEnvironment.generateRandomString(128)
+    }, this.slashstepServer.pool);
+
+    return action;
+
+  }
+
+  async createRandomApp(): Promise<App> {
+
+    if (!this.slashstepServer) {
+
+      throw new Error("Slashstep server not found.");
+
+    }
+
+    const app = await App.create({
+      name: `slashstep.${TestEnvironment.generateRandomString(16)}.${TestEnvironment.generateRandomString(16)}`,
+      displayName: TestEnvironment.generateRandomString(16),
+      description: TestEnvironment.generateRandomString(128),
+      parentResourceType: AppParentResourceType.Instance
+    }, this.slashstepServer.pool);
+
+    const getActionsAction = await Action.getByName("slashstep.actions.get", this.slashstepServer.pool);
+    const deleteActionsAction = await Action.getByName("slashstep.actions.delete", this.slashstepServer.pool);
+    const createActionsAction = await Action.getByName("slashstep.actions.create", this.slashstepServer.pool);
+    const updateActionsAction = await Action.getByName("slashstep.actions.update", this.slashstepServer.pool);
+    const listActionsAction = await Action.getByName("slashstep.actions.list", this.slashstepServer.pool);
+    const actions = [getActionsAction, deleteActionsAction, createActionsAction, updateActionsAction, listActionsAction];
+
+    for (const action of actions) {
+
+      await AccessPolicy.create({
+        principalType: "App",
+        principalAppID: app.id,
+        actionID: action.id,
+        permissionLevel: "User",
+        inheritanceLevel: "Required",
+        scopedResourceType: "App",
+        scopedAppID: app.id
+      }, this.slashstepServer.pool);
+
+    }
+
+    return app;
+
+  }
+
+  async createAccessPolicyForUnauthenticatedUsers(actionName: string, permissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<AccessPolicy> {
+
+    if (!this.slashstepServer) {
+
+      throw new Error("Slashstep server not found.");
+
+    }
+
+    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", this.slashstepServer.pool);
+    const action = await Action.getByName(actionName, this.slashstepServer.pool);
+
+    return AccessPolicy.create({
+      principalType: AccessPolicyPrincipalType.Role,
+      principalRoleID: unauthenticatedUsersRole.id,
+      actionID: action.id,
+      permissionLevel,
+      inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
+      scopedResourceType: AccessPolicyScopedResourceType.Instance
+    }, this.slashstepServer.pool);
+
+  } 
+
   async initializeOpenBaoClient(): Promise<VaultClient> {
 
     if (!this.openBaoRootToken) {
@@ -135,6 +223,95 @@ export default class TestEnvironment {
     this.slashstepServer = slashstepServer;
 
     return slashstepServer;
+
+  }
+
+  async createSlashstepUser() {
+
+    if (!this.slashstepServer) {
+
+      throw new Error("Slashstep server not found.");
+
+    }
+
+    const user = await User.create({
+      username: TestEnvironment.generateRandomString(4),
+      displayName: TestEnvironment.generateRandomString(16),
+      hashedPassword: TestEnvironment.generateRandomString(64)
+    }, this.slashstepServer.pool);
+
+    return user;
+
+  }
+
+  async createSlashstepSession(userID: string): Promise<Session> {
+
+    if (!this.slashstepServer) {
+
+      throw new Error("Slashstep server not found.");
+
+    }
+
+    const session = await Session.create({
+      userID,
+      expirationDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      creationIP: "127.0.0.1"
+    }, this.slashstepServer.pool);
+
+    return session;
+
+  }
+
+  async createSlashstepSessionToken(session: Session): Promise<string> {
+
+    if (!this.slashstepServer) {
+
+      throw new Error("Slashstep server not found.");
+
+    }
+
+    const jwtPrivateKey = await this.slashstepServer.getJWTPrivateKey();
+
+    const sessionToken = Session.generateJSONWebToken({
+      userID: session.userID,
+      sessionID: session.id
+    }, jwtPrivateKey);
+
+    return sessionToken;
+
+  }
+
+  async createSlashstepAppCredential(appID: string): Promise<AppCredential> {
+
+    if (!this.slashstepServer) {
+
+      throw new Error("Slashstep server not found.");
+
+    }
+
+    const appCredential = await AppCredential.create({
+      appID,
+      expirationDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      creationIP: "127.0.0.1"
+    }, this.slashstepServer.pool);
+
+    return appCredential;
+
+  }
+
+  async createSlashstepAppCredentialToken(appCredential: AppCredential): Promise<string> {
+
+    if (!this.slashstepServer) {
+
+      throw new Error("Slashstep server not found.");
+
+    }
+
+    const jwtPrivateKey = await this.slashstepServer.getJWTPrivateKey();
+
+    const token = appCredential.generateJSONWebToken(jwtPrivateKey);
+
+    return token;
 
   }
 

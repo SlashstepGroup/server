@@ -8,8 +8,7 @@
  */
 
 import { after, afterEach, before, beforeEach, describe, it } from "node:test"
-import { fail, strictEqual, notStrictEqual, throws, rejects } from "node:assert";
-import { Pool } from "pg";
+import { fail, strictEqual, notStrictEqual, rejects } from "node:assert";
 import AccessPolicy, { AccessPolicyInheritanceLevel, AccessPolicyPermissionLevel, AccessPolicyPrincipalType, AccessPolicyScopedResourceType } from "./AccessPolicy.js";
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { Wait } from "testcontainers";
@@ -18,20 +17,18 @@ import User from "#resources/User/User.js";
 import Action from "#resources/Action/Action.js";
 import { randomBytes } from "crypto";
 import Group from "#resources/Group/Group.js";
-import App from "#resources/App/App.js";
+import App, { AppParentResourceType } from "#resources/App/App.js";
 import Item from "#resources/Item/Item.js";
 import Milestone, { MilestoneParentResourceType } from "#resources/Milestone/Milestone.js";
 import Project from "#resources/Project/Project.js";
 import Role, { RoleParentResourceType } from "#resources/Role/Role.js";
 import Workspace from "#resources/Workspace/Workspace.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
-import { GenericContainer, StartedTestContainer } from "testcontainers";
 import { v7 as generateUUIDv7 } from "uuid";
 
 // TODO: Unskip this test.
 describe("Class: AccessPolicy", async () => {
 
-  let openbaoContainer: StartedTestContainer;
   let postgreSQLContainer: StartedPostgreSqlContainer;
   let slashstepServer: Server;
 
@@ -142,7 +139,8 @@ describe("Class: AccessPolicy", async () => {
     const app = await App.create({
       name: `slashstep.${generateUUIDv7()}.${generateUUIDv7()}`,
       displayName: generateRandomString(16),
-      description: generateRandomString(128)
+      description: generateRandomString(128),
+      parentResourceType: AppParentResourceType.Instance
     }, slashstepServer.pool);
 
     return app;
@@ -378,6 +376,10 @@ describe("Class: AccessPolicy", async () => {
       {
         principalType: AccessPolicyPrincipalType.Role,
         principalRoleID: role.id
+      },
+      {
+        principalType: AccessPolicyPrincipalType.App,
+        principalAppID: app.id
       }
     ]
 
@@ -402,6 +404,7 @@ describe("Class: AccessPolicy", async () => {
       principalGroup: Group,
       principalUser: User,
       principalRole: Role,
+      principalApp: App,
       scopedAction: Action,
       scopedApp: App,
       scopedGroup: Group,
@@ -429,6 +432,10 @@ describe("Class: AccessPolicy", async () => {
 
         case AccessPolicyPrincipalType.Role:
           strictEqual(accessPolicy.principalRole?.id, role.id);
+          break;
+
+        case AccessPolicyPrincipalType.App:
+          strictEqual(accessPolicy.principalApp?.id, app.id);
           break;
 
         default:
@@ -558,10 +565,6 @@ describe("Class: AccessPolicy", async () => {
     const workspace = await createRandomWorkspace();
     const project = await createRandomProject(workspace.id);
     const item = await createRandomItem(project.id);
-    await rejects(async () => await AccessPolicy.getByDeepestScope(action.id, slashstepServer.pool, {
-      principalType: AccessPolicyPrincipalType.User,
-      principalUserID: user.id
-    }, {itemID: item.id, projectID: project.id, workspaceID: workspace.id}), ResourceNotFoundError);
 
     const itemAccessPolicy = await AccessPolicy.create({
       principalUserID: user.id,
@@ -604,10 +607,10 @@ describe("Class: AccessPolicy", async () => {
 
     for (const accessPolicy of [itemAccessPolicy, projectAccessPolicy, workspaceAccessPolicy, instanceAccessPolicy]) {
 
-      const possibleItemAccessPolicy = await AccessPolicy.getByDeepestScope(action.id, slashstepServer.pool, {
+      const possibleItemAccessPolicy = await AccessPolicy.getAccessPolicyWithDeepestScope(action.id, slashstepServer.pool, {
         principalType: AccessPolicyPrincipalType.User,
         principalUserID: user.id
-      }, {itemID: item.id, projectID: project.id, workspaceID: workspace.id});
+      }, await item.getScopeData(Project));
       strictEqual(accessPolicy.id, possibleItemAccessPolicy.id);
       await accessPolicy.delete();
 

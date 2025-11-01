@@ -1,1 +1,1 @@
-insert into apps (name, display_name, description) values ($1, $2, $3) returning *;
+insert into apps (name, display_name, description, parent_resource_type, parent_user_id, parent_workspace_id) values ($1, $2, $3, $4, $5, $6) returning *;

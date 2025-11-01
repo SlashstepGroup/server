@@ -3,15 +3,10 @@ import SlashstepQLInvalidKeyError from "#errors/SlashstepQLInvalidKeyError.js";
 import SlashstepQLInvalidQueryError from "#errors/SlashstepQLInvalidQueryError.js";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js";
-import App from "#resources/App/App.js";
-import Group from "#resources/Group/Group.js";
-import Item from "#resources/Item/Item.js";
-import Milestone from "#resources/Milestone/Milestone.js";
-import Project from "#resources/Project/Project.js";
 import Role from "#resources/Role/Role.js";
-import User from "#resources/User/User.js";
-import Workspace from "#resources/Workspace/Workspace.js";
 import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
+import authenticateApp from "#utilities/hooks/authenticateApp.js";
+import authenticateAppAuthorization from "#utilities/hooks/authenticateAppAuthorization.js";
 import authenticateUser from "#utilities/hooks/authenticateUser.js";
 import HTTPInputValidator from "#utilities/HTTPInputValidator/HTTPInputValidator.js";
 import { ResourceClassMap, ResponseLocals } from "#utilities/types.js";
@@ -20,6 +15,8 @@ import { Response, Router } from "express";
 const listAccessPoliciesRouter = Router({mergeParams: true});
 listAccessPoliciesRouter.use(allowUnauthenticatedRequests);
 listAccessPoliciesRouter.use(authenticateUser);
+listAccessPoliciesRouter.use(authenticateApp);
+listAccessPoliciesRouter.use(authenticateAppAuthorization);
 listAccessPoliciesRouter.use(async (request, response: Response<unknown, ResponseLocals>) => {
 
   try {

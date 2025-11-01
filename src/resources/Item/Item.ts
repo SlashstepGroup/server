@@ -5,6 +5,7 @@ import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js
 import Project from "#resources/Project/Project.js";
 import Workspace from "#resources/Workspace/Workspace.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import { AccessPolicyScopedResourceType } from "#resources/AccessPolicy/AccessPolicy.js";
 
 export type ItemProperties = {
   id: string;
@@ -18,6 +19,13 @@ export type ItemProperties = {
 export type ItemIncludedResourcesConstructorMap = {
   Project?: typeof Project;
   Workspace?: typeof Workspace;
+}
+
+export type ItemScopeData = {
+  scopedResourceType: AccessPolicyScopedResourceType.Item;
+  itemID: string;
+  projectID: string;
+  workspaceID: string;
 }
 
 /**
@@ -218,7 +226,7 @@ export default class Item {
 
     // Get the item data from the database.
     const poolClient = await pool.connect();
-    const result = await poolClient.query(`set search_path to app; select * from hydrated_items where id = $1`, [id]);
+    const result = await poolClient.query(`select * from hydrated_items where id = $1`, [id]);
     poolClient.release();
 
     // Convert the data to an item object.
@@ -252,6 +260,19 @@ export default class Item {
     // Return the item.
     return item;
 
+  }
+
+  async getScopeData(projectClass: typeof Project): Promise<ItemScopeData> {
+
+    const project = await projectClass.getByID(this.projectID, this.#pool);
+
+    return {
+      scopedResourceType: AccessPolicyScopedResourceType.Item,
+      itemID: this.id,
+      projectID: this.projectID,
+      workspaceID: project.workspaceID
+    };
+    
   }
 
   // /**

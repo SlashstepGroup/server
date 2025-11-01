@@ -9,7 +9,7 @@ import User from "#resources/User/User.js";
 import Action from "#resources/Action/Action.js";
 import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
-import PermissionDeniedError from "#errors/PermissionDeniedError.js";
+import ForbiddenError from "#errors/ForbiddenError.js";
 import ActionLog from "#resources/ActionLog/ActionLog.js";
 import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
 import type { default as Server } from "#utilities/Server/Server.js";

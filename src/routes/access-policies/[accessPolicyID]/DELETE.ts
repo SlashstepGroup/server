@@ -7,10 +7,14 @@ import Role from "#resources/Role/Role.js";
 import Action from "#resources/Action/Action.js";
 import type { default as Server } from "#utilities/Server/Server.js";
 import User from "#resources/User/User.js";
+import authenticateApp from "#utilities/hooks/authenticateApp.js";
+import authenticateAppAuthorization from "#utilities/hooks/authenticateAppAuthorization.js";
 
 const deleteAccessPolicyRouter = Router({mergeParams: true});
 deleteAccessPolicyRouter.use(allowUnauthenticatedRequests);
 deleteAccessPolicyRouter.use(authenticateUser);
+deleteAccessPolicyRouter.use(authenticateApp);
+deleteAccessPolicyRouter.use(authenticateAppAuthorization);
 deleteAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
 
   try {
@@ -34,6 +38,8 @@ deleteAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>
       await Role.verifyPermissionsForUnauthenticatedUsers({Action, AccessPolicy}, accessPolicyAction.id, response.locals.server.pool, accessPolicyScopeData, AccessPolicyPermissionLevel.Editor);
 
     }
+
+    await accessPolicy.delete();
 
     response.sendStatus(204);
 

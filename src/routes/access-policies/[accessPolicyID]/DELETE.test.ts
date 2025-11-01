@@ -9,6 +9,8 @@ import Role from "#resources/Role/Role.js";
 import User from "#resources/User/User.js";
 import Session from "#resources/Session/Session.js";
 import TestEnvironment from "#utilities/TestEnvironment/TestEnvironment.js";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import { rejects } from "node:assert/strict";
 
 describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
 
@@ -64,6 +66,8 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
       method: "DELETE"
     });
     strictEqual(response.status, 204);
+
+    await rejects(async () => await AccessPolicy.getByID(accessPolicy.id, slashstepServer.pool), ResourceNotFoundError);
 
   });
 

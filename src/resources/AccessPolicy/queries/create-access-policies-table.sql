@@ -36,7 +36,8 @@ begin
     create type principal_type as enum (
       'User',
       'Group',
-      'Role'
+      'Role',
+      'App'
     );
   end if;
 end
@@ -50,6 +51,7 @@ create table if not exists access_policies (
   principal_user_id UUID references users(id) on delete cascade,
   principal_group_id UUID references groups(id) on delete cascade,
   principal_role_id UUID references roles(id) on delete cascade,
+  principal_app_id UUID references apps(id) on delete cascade,
 
   /* Scopes */
   scoped_resource_type scoped_resource_type not null,
@@ -70,9 +72,10 @@ create table if not exists access_policies (
   
   /* Constraints */
   constraint one_principal_type check (
-    (principal_type = 'User' and principal_user_id is not null and principal_group_id is null and principal_role_id is null)
-    or (principal_type = 'Group' and principal_user_id is null and principal_group_id is not null and principal_role_id is null)
-    or (principal_type = 'Role' and principal_user_id is null and principal_group_id is null and principal_role_id is not null)
+    (principal_type = 'User' and principal_user_id is not null and principal_group_id is null and principal_role_id is null and principal_app_id is null)
+    or (principal_type = 'Group' and principal_user_id is null and principal_group_id is not null and principal_role_id is null and principal_app_id is null)
+    or (principal_type = 'Role' and principal_user_id is null and principal_group_id is null and principal_role_id is not null and principal_app_id is null)
+    or (principal_type = 'App' and principal_user_id is null and principal_group_id is null and principal_role_id is null and principal_app_id is not null)
   ),
 
   constraint one_scoped_resource_type check (

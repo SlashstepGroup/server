@@ -5,7 +5,7 @@ import User from "#resources/User/User.js";
 import ActionLog from "#resources/ActionLog/ActionLog.js";
 import Action from "#resources/Action/Action.js";
 import AccessPolicy, { AccessPolicyPermissionLevel, AccessPolicyPrincipalType } from "#resources/AccessPolicy/AccessPolicy.js";
-import PermissionDeniedError from "#errors/PermissionDeniedError.js";
+import ForbiddenError from "#errors/ForbiddenError.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import { verify as verifyPassword } from "argon2";
 import type { default as Server } from "#utilities/Server/Server.js";
@@ -100,7 +100,7 @@ createUserSessionRouter.post("/", async (request, response: Response<unknown, { 
 
       if (deepestAccessPolicy.permissionLevel !== AccessPolicyPermissionLevel.User && deepestAccessPolicy.permissionLevel !== AccessPolicyPermissionLevel.Admin) {
 
-        throw new PermissionDeniedError("You're not allowed to sign into this account. Contact your administrator for more information.");
+        throw new ForbiddenError("You're not allowed to sign into this account. Contact your administrator for more information.");
 
       }
 
@@ -108,7 +108,7 @@ createUserSessionRouter.post("/", async (request, response: Response<unknown, { 
 
       if (error instanceof ResourceNotFoundError) {
 
-        throw new PermissionDeniedError("You're not allowed to sign into this account. Contact your administrator for more information.");
+        throw new ForbiddenError("You're not allowed to sign into this account. Contact your administrator for more information.");
 
       }
 
