@@ -20,10 +20,10 @@ COPY --from=build /home/node/app/package-lock.json ./package-lock.json
 RUN npm ci --omit=dev
 
 ## Expose the port
-ARG PORT="4001"
+ARG PORT="3001"
 ENV APP_PORT=${PORT}
 EXPOSE ${PORT}
 
 ## Run the application as the node user to protect system files
 USER node
-CMD [ "npm", "start" ]
+ENTRYPOINT [ "npm", "start" ]

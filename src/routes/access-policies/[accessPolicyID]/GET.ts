@@ -20,7 +20,7 @@ getAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, r
 
     const { accessPolicyID } = request.params;
     const accessPolicy = await AccessPolicy.getByID(accessPolicyID, response.locals.server.pool);
-    const accessPolicyScopeData = await accessPolicy.getAccessPolicyScopeData();
+    const accessPolicyScopeData = await accessPolicy.getScopeData();
 
     const { authenticatedUser } = response.locals;
     if (authenticatedUser) {

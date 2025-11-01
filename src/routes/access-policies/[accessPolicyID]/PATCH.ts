@@ -21,7 +21,7 @@ updateAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string },
     const accessPolicyAction = await Action.getByID(accessPolicy.actionID, response.locals.server.pool);
 
     // Make sure the user has permission to view the access policy.
-    const accessPolicyScopeData = await accessPolicy.getAccessPolicyScopeData();
+    const accessPolicyScopeData = await accessPolicy.getScopeData();
     const { authenticatedUser } = response.locals;
     const updateAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.update", response.locals.server.pool);
     if (authenticatedUser) {

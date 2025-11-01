@@ -48,10 +48,7 @@ const result = await vault.write({
   }
 });
 
-
 // Get the PostgreSQL credentials.
-
-
 const server = new Server({
   environment: APP_ENVIRONMENT,
   port,

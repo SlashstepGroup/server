@@ -21,7 +21,7 @@ deleteAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>
     const { accessPolicyID } = request.params;
     const accessPolicy = await AccessPolicy.getByID(accessPolicyID, server.pool);
     const accessPolicyAction = await Action.getByID(accessPolicy.actionID, response.locals.server.pool);
-    const accessPolicyScopeData = await accessPolicy.getAccessPolicyScopeData();
+    const accessPolicyScopeData = await accessPolicy.getScopeData();
 
     if (authenticatedUser) {
 

@@ -6,6 +6,8 @@ import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js
 import ResourceConflictError from "#errors/ResourceConflictError.js";
 import type { default as Role } from "#resources/Role/Role.js";
 import type { default as AccessPolicy, AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
+import Resource from "src/interfaces/Resource.js";
+import BadRequestError from "#errors/BadRequestError.js";
 
 export type BaseActionProperties = {
   id: string;
@@ -23,12 +25,17 @@ export type ActionQueryResult = {
   description: string;
 }
 
+export type ActionScopeData = {
+  actionID: string;
+  appID?: string | null;
+}
+
 export type InitialWritableActionProperties = Omit<BaseActionProperties, "id">;
 
 /**
  * An Action is a type of process that is performed by an actor.
  */
-export default class Action {
+export default class Action implements Resource<ActionScopeData> {
 
   static readonly name = "Action";
 
@@ -143,24 +150,41 @@ export default class Action {
    */
   static async getByID(id: string, pool: Pool): Promise<Action> {
 
-    // Get the action data from the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "Action", "queries", "get-action-row-by-id.sql"), "utf8");
-    const result = await poolClient.query(query, [id]);
-    poolClient.release();
 
-    // Make sure the action data exists.
-    const data = result.rows[0];
+    try {
 
-    if (!data) {
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "get-action-row-by-id.sql"), "utf8");
+      const result = await poolClient.query(query, [id]);
 
-      throw new ResourceNotFoundError("Action");
+      // Make sure the action data exists.
+      const data = result.rows[0];
+
+      if (!data) {
+
+        throw new ResourceNotFoundError("Action");
+
+      }
+
+      // Return the action.
+      const action = new Action(data, pool);
+      return action;
+
+    } catch (error) {
+      
+      if (error instanceof DatabaseError && error.code === "22P02") {
+
+        throw new BadRequestError("The action ID must be a UUID.");
+
+      }
+
+      throw error;
+
+    } finally {
+
+      poolClient.release();
 
     }
-
-    // Return the action.
-    const action = new Action(data, pool);
-    return action;
 
   }
 
@@ -514,6 +538,15 @@ export default class Action {
       poolClient.release();
 
     }
+
+  }
+
+  getScopeData(): ActionScopeData {
+
+    return {
+      actionID: this.id,
+      appID: this.appID
+    };
 
   }
 

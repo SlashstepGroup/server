@@ -1,4 +1,4 @@
-import AccessPolicy, { AccessPolicyPermissionLevel, AccessPolicyPrincipalType, Scope } from "#resources/AccessPolicy/AccessPolicy.js";
+import { AccessPolicyPermissionLevel, AccessPolicyPrincipalType, AccessPolicyScopeData } from "#resources/AccessPolicy/AccessPolicy.js";
 import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
@@ -15,6 +15,10 @@ export type UserProperties = {
   displayName: string;
   hashedPassword: string;
 };
+
+export type UserScopeData = {
+  userID: string;
+}
 
 export default class User implements Principal {
   
@@ -163,7 +167,7 @@ export default class User implements Principal {
 
   }
 
-  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: Scope = {}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User) {
+  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: AccessPolicyScopeData = {}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User) {
   
     const { Action, AccessPolicy } = resourceClasses;
     const action = await Action.getByID(actionID, this.#pool);
@@ -190,7 +194,7 @@ export default class User implements Principal {
 
   }
 
-  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: Scope = {}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
+  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scope: AccessPolicyScopeData = {}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
 
     const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, scope, minimumPermissionLevel);
     if (!canPrincipalAccess) {

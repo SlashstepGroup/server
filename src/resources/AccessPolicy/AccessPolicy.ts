@@ -4,7 +4,9 @@ import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
-import type { default as Action, InitialWritableActionProperties } from "#resources/Action/Action.js";
+import ResourceConflictError from "#errors/ResourceConflictError.js";
+import BadRequestError from "#errors/BadRequestError.js";
+import type { default as Action, InitialWritableActionProperties, ActionScopeData } from "#resources/Action/Action.js";
 import type { default as App } from "#resources/App/App.js";
 import type { default as Group } from "#resources/Group/Group.js";
 import type { default as Item } from "#resources/Item/Item.js";
@@ -13,9 +15,7 @@ import type { default as Project } from "#resources/Project/Project.js";
 import type { default as Role, InitialWritableRoleProperties, RoleParentResourceType } from "#resources/Role/Role.js";
 import type { default as User } from "#resources/User/User.js";
 import type { default as Workspace } from "#resources/Workspace/Workspace.js";
-import ResourceConflictError from "#errors/ResourceConflictError.js";
-import BadRequestError from "#errors/BadRequestError.js";
-import Resource from "src/interfaces/Resource.js";
+import type { default as Resource } from "src/interfaces/Resource.js";
 
 export type AccessPolicyIncludedResourceClassMap = {
   principalUser?: typeof User;
@@ -105,7 +105,7 @@ export type BaseAccessPolicyProperties = {
   inheritanceLevel: AccessPolicyInheritanceLevel | `${AccessPolicyInheritanceLevel}`;
 }
 
-export type Scope = {
+export type AccessPolicyScopeData = {
   actionID?: string | null;
   appID?: string | null;
   groupID?: string | null;
@@ -259,7 +259,7 @@ export type ScopeResourceClassMap = {
 /**
  * An AccessPolicy defines the permissions a principal has on a resource.
  */
-export default class AccessPolicy implements Resource<Scope> {
+export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
 
   static readonly name = "AccessPolicy";
 
@@ -1169,7 +1169,7 @@ export default class AccessPolicy implements Resource<Scope> {
    * @param client The client used to make requests.
    * @returns The requested access policy.
    */
-  static async getByDeepestScope(actionID: string, pool: Pool, principalData: AccessPolicyPrincipalData, scope: Scope = {}): Promise<AccessPolicy> {
+  static async getByDeepestScope(actionID: string, pool: Pool, principalData: AccessPolicyPrincipalData, scope: AccessPolicyScopeData = {}): Promise<AccessPolicy> {
 
     // Get the user's access policies.
     const scopeArray = [];
@@ -1232,7 +1232,7 @@ export default class AccessPolicy implements Resource<Scope> {
 
   }
 
-  static async verifyPermissions(actionID: string, pool: Pool, principalData: AccessPolicyPrincipalData, requiredPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User, scope: Scope = {}) {
+  static async verifyPermissions(actionID: string, pool: Pool, principalData: AccessPolicyPrincipalData, requiredPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User, scope: AccessPolicyScopeData = {}) {
 
     try {
 
@@ -1258,13 +1258,13 @@ export default class AccessPolicy implements Resource<Scope> {
 
   }
 
-  async getAccessPolicyScopeData(resourceClasses: Omit<ScopeResourceClassMap, "Workspace" | "User"> = {}): Promise<Scope> {
+  async getScopeData(resourceClasses: Omit<ScopeResourceClassMap, "Workspace" | "User"> = {}): Promise<AccessPolicyScopeData> {
 
     const { Action, App, Group, Item, Milestone, Project, Role } = resourceClasses;
 
     switch (this.scopedResourceType) {
 
-      case AccessPolicyScopedResourceType.Action:
+      case AccessPolicyScopedResourceType.Action: {
 
         if (!Action) {
 
@@ -1285,7 +1285,9 @@ export default class AccessPolicy implements Resource<Scope> {
           appID: action.appID
         };
 
-      case AccessPolicyScopedResourceType.App:
+      }
+
+      case AccessPolicyScopedResourceType.App: {
 
         if (!App) {
 
@@ -1305,7 +1307,9 @@ export default class AccessPolicy implements Resource<Scope> {
           appID: this.scopedAppID
         };
 
-      case AccessPolicyScopedResourceType.Group:
+      }
+
+      case AccessPolicyScopedResourceType.Group: {
 
         if (!Group) {
 
@@ -1325,10 +1329,12 @@ export default class AccessPolicy implements Resource<Scope> {
           groupID: this.scopedGroupID
         };
 
+      }
+
       case AccessPolicyScopedResourceType.Instance:
         return {};
 
-      case AccessPolicyScopedResourceType.Item:
+      case AccessPolicyScopedResourceType.Item: {
 
         if (!Item) {
 
@@ -1350,7 +1356,9 @@ export default class AccessPolicy implements Resource<Scope> {
           workspaceID: item.projectID
         };
 
-      case AccessPolicyScopedResourceType.Milestone:
+      }
+
+      case AccessPolicyScopedResourceType.Milestone: {
 
         if (!Milestone) {
 
@@ -1372,7 +1380,9 @@ export default class AccessPolicy implements Resource<Scope> {
           workspaceID: milestone.parentWorkspaceID
         };
 
-      case AccessPolicyScopedResourceType.Project:
+      }
+
+      case AccessPolicyScopedResourceType.Project: {
 
         if (!Project) {
 
@@ -1393,7 +1403,9 @@ export default class AccessPolicy implements Resource<Scope> {
           workspaceID: project.workspaceID
         };
 
-      case AccessPolicyScopedResourceType.Role:
+      }
+
+      case AccessPolicyScopedResourceType.Role: {
 
         if (!Role) {
 
@@ -1413,7 +1425,9 @@ export default class AccessPolicy implements Resource<Scope> {
           roleID: this.scopedRoleID
         };
 
-      case AccessPolicyScopedResourceType.User:
+      }
+
+      case AccessPolicyScopedResourceType.User: {
 
         if (!this.scopedUserID) {
 
@@ -1425,7 +1439,10 @@ export default class AccessPolicy implements Resource<Scope> {
           userID: this.scopedUserID
         };
 
+      }
+
       case AccessPolicyScopedResourceType.Workspace:
+
         return {
           workspaceID: this.scopedWorkspaceID
         };

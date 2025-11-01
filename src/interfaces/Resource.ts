@@ -5,6 +5,6 @@ export default interface Resource<ScopeData> {
   /**
    * 
    */
-  getAccessPolicyScopeData(): Promise<ScopeData>;
+  getScopeData(): ScopeData | Promise<ScopeData>;
 
 }

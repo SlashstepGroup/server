@@ -1,6 +1,6 @@
 import { default as SlashstepServer } from "#utilities/Server/Server.js";
 import { randomBytes } from "node:crypto";
-import { GenericContainer, StartedTestContainer, StartupCheckStrategy, StartupStatus, Wait } from "testcontainers";
+import { GenericContainer, StartedTestContainer, Wait } from "testcontainers";
 import { Client as VaultClient } from "@litehex/node-vault";
 import { AddressInfo, Socket } from "node:net";
 import { Server as HTTPServer } from "node:http";
@@ -55,20 +55,19 @@ export default class TestEnvironment {
       .withExposedPorts(8200)
     ).start();
 
-    await new Promise<void>(async (resolve, reject) => {
+    const timeout = setTimeout(() => {
+      
+      throw new Error("Timed out waiting for OpenBao to start.");
 
-      const timeout = setTimeout(() => reject("Timed out waiting for OpenBao to start."), 3000);
+    }, 3000);
 
-      while (!this.openBaoRootToken) {
+    while (!this.openBaoRootToken) {
 
-        await new Promise((resolveSleep) => setTimeout(resolveSleep, 100));
+      await new Promise((resolveSleep) => setTimeout(resolveSleep, 100));
 
-      }
+    }
 
-      clearTimeout(timeout);
-      resolve();
-
-    });
+    clearTimeout(timeout);
 
     this.openBaoContainer = container;
 
@@ -211,10 +210,6 @@ export default class TestEnvironment {
     try {
     
       await client.query("drop schema if exists app cascade;");
-
-    } catch (error) {
-
-      throw error;
 
     } finally {
 

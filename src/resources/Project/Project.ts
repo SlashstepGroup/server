@@ -1,7 +1,7 @@
 import Collection, { CollectionProperties } from "#resources/Collection/Collection.js";
 import { DatabaseError, Pool } from "pg";
 import { readFileSync } from "fs";
-import { dirname, resolve } from "path";
+import { resolve } from "path";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
 import HTTPError from "#errors/HTTPError.js";
 import Workspace from "#resources/Workspace/Workspace.js";

@@ -10,7 +10,7 @@ import User from "#resources/User/User.js";
 import Session from "#resources/Session/Session.js";
 import TestEnvironment from "#utilities/TestEnvironment/TestEnvironment.js";
 
-describe("Route: GET /access-policies/:id", async () => {
+describe("Route: GET /access-policies/:accessPolicyID", async () => {
 
   const testEnvironment = new TestEnvironment();
   let slashstepServer: SlashstepServer;
