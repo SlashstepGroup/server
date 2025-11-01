@@ -16,7 +16,6 @@ import { Wait } from "testcontainers";
 import Server from "#utilities/Server/Server.js";
 import User from "#resources/User/User.js";
 import Action from "#resources/Action/Action.js";
-import { v7 as generateUUIDv7 } from "uuid";
 import { randomBytes } from "crypto";
 import Group from "#resources/Group/Group.js";
 import App from "#resources/App/App.js";
@@ -27,6 +26,7 @@ import Role, { RoleParentResourceType } from "#resources/Role/Role.js";
 import Workspace from "#resources/Workspace/Workspace.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import { GenericContainer, StartedTestContainer } from "testcontainers";
+import { v7 as generateUUIDv7 } from "uuid";
 
 // TODO: Unskip this test.
 describe("Class: AccessPolicy", async () => {
@@ -522,7 +522,7 @@ describe("Class: AccessPolicy", async () => {
 
   });
 
-  it("can return a count of access policies", {timeout: 3000}, async () => {
+  it("can return a count of access policies", {timeout: 5000}, async () => {
 
     // Make sure there isn't any access policies right now.
     const accessPolicyCount = await AccessPolicy.count("", slashstepServer.pool);

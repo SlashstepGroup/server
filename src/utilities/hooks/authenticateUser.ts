@@ -1,9 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import User from "#resources/User/User.js";
 import jsonwebtoken from "jsonwebtoken";
-import { readFileSync } from "fs";
 import Session from "#resources/Session/Session.js";
-import Server from "#utilities/Server/Server.js";
+import type { default as Server } from "#utilities/Server/Server.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 
 async function authenticateUser(request: Request, response: Response<unknown, { server: Server, authenticatedUser?: User, areUnauthenticatedRequestsAllowed?: boolean }>, next: NextFunction) {

@@ -6,7 +6,7 @@ import authenticateUser from "#utilities/hooks/authenticateUser.js";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Role from "#resources/Role/Role.js";
 import Action from "#resources/Action/Action.js";
-import Server from "#utilities/Server/Server.js";
+import type { default as Server } from "#utilities/Server/Server.js";
 import User from "#resources/User/User.js";
 
 const getAccessPolicyRouter = Router({mergeParams: true});

@@ -4,12 +4,22 @@ import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
 import ResourceConflictError from "#errors/ResourceConflictError.js";
+import type { default as Role } from "#resources/Role/Role.js";
+import type { default as AccessPolicy, AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
 
 export type BaseActionProperties = {
   id: string;
   name: string;
-  appID?: string;
+  appID?: string | null;
   displayName: string;
+  description: string;
+}
+
+export type ActionQueryResult = {
+  id: string;
+  name: string;
+  app_id?: string | null;
+  display_name: string;
   description: string;
 }
 
@@ -54,7 +64,7 @@ export default class Action {
     this.name = data.name;
     this.displayName = data.displayName;
     this.description = data.description;
-    this.appID = data.appID;
+    this.appID = data.appID ?? null;
     this.#pool = pool;
 
   }
@@ -76,7 +86,9 @@ export default class Action {
       const result = await poolClient.query(query, values);
 
       // Convert the row to an Action object.
-      const accessPolicy = new Action(result.rows[0], pool);
+      const actionRow = result.rows[0];
+      const actionProperties = Action.getPropertiesFromRow(actionRow);
+      const accessPolicy = new Action(actionProperties, pool);
 
       // Return the access policy.
       return accessPolicy;
@@ -110,6 +122,18 @@ export default class Action {
     await poolClient.query(createHydratedActionsViewQuery);
     poolClient.release();
 
+  }
+
+  static getPropertiesFromRow(rowData: ActionQueryResult): BaseActionProperties {
+        
+    return {
+      id: rowData.id,
+      name: rowData.name,
+      displayName: rowData.display_name,
+      description: rowData.description,
+      appID: rowData.app_id
+    };
+    
   }
 
   /**
@@ -196,6 +220,237 @@ export default class Action {
 
   }
 
+  static async initializePreDefinedRoleAccessPolicies(classes: {"AccessPolicy": typeof AccessPolicy, "Role": typeof Role}, pool: Pool): Promise<AccessPolicy[]> {
+
+    const permissions: {
+      [preDefinedRoleName: string]: {
+        actionName: string;
+        permissionLevel: AccessPolicyPermissionLevel | `${AccessPolicyPermissionLevel}`
+      }[];
+    } = {
+      "action-admins": [
+        {
+          actionName: "slashstep.actions.get",
+          permissionLevel: "Admin",
+        },
+        {
+          actionName: "slashstep.actions.list",
+          permissionLevel: "Admin",
+        },
+        {
+          actionName: "slashstep.actions.update",
+          permissionLevel: "Admin",
+        },
+        {
+          actionName: "slashstep.actions.delete",
+          permissionLevel: "Admin"
+        },
+        {
+          actionName: "slashstep.actions.create",
+          permissionLevel: "Admin"
+        }
+      ],
+      "action-editors": [
+        {
+          actionName: "slashstep.actions.get",
+          permissionLevel: "Editor"
+        },
+        {
+          actionName: "slashstep.actions.list",
+          permissionLevel: "Editor"
+        },
+        {
+          actionName: "slashstep.actions.update",
+          permissionLevel: "Editor"
+        },
+        {
+          actionName: "slashstep.actions.delete",
+          permissionLevel: "Editor"
+        },
+        {
+          actionName: "slashstep.actions.create",
+          permissionLevel: "Editor"
+        }
+      ],
+      "action-users": [
+        {
+          actionName: "slashstep.actions.get",
+          permissionLevel: "User"
+        },
+        {
+          actionName: "slashstep.actions.list",
+          permissionLevel: "User"
+        },
+        {
+          actionName: "slashstep.actions.update",
+          permissionLevel: "User"
+        },
+        {
+          actionName: "slashstep.accessPolicies.delete",
+          permissionLevel: "User"
+        },
+        {
+          actionName: "slashstep.users.register",
+          permissionLevel: "User"
+        }
+      ],
+      "read-only-action-users": [
+        {
+          actionName: "slashstep.actions.get",
+          permissionLevel: "User"
+        },
+        {
+          actionName: "slashstep.actions.list",
+          permissionLevel: "User"
+        }
+      ]
+    };
+
+    const accessPolicies = [];
+
+    for (const preDefinedRoleName of Object.keys(permissions)) {
+
+      const preDefinedRole = await classes.Role.getByName(preDefinedRoleName, pool);
+
+      for (const permission of permissions[preDefinedRoleName]) {
+
+        const action = await Action.getByName(permission.actionName, pool);
+        const accessPolicy = await classes.AccessPolicy.create({
+          principalType: "Role",
+          principalRoleID: preDefinedRole.id,
+          actionID: action.id,
+          permissionLevel: permission.permissionLevel,
+          inheritanceLevel: "Enabled",
+          scopedResourceType: "Instance"
+        }, pool);
+
+        accessPolicies.push(accessPolicy);
+
+      }
+
+    }
+
+    return accessPolicies;
+
+  }
+
+  static async initializeActions(pool: Pool): Promise<Action[]> {
+
+    const actionPropertiesList: InitialWritableActionProperties[] = [
+      {
+        name: "slashstep.actions.get",
+        displayName: "Get action",
+        description: "View an action."
+      },
+      {
+        name: "slashstep.actions.list",
+        displayName: "List actions",
+        description: "List actions on a particular scope."
+      },
+      {
+        name: "slashstep.actions.create",
+        displayName: "Create actions",
+        description: "Create actions on a particular scope."
+      },
+      {
+        name: "slashstep.actions.update",
+        displayName: "Update actions",
+        description: "Update access policies on a particular scope."
+      },
+      {
+        name: "slashstep.actions.delete",
+        displayName: "Delete actions",
+        description: "Delete actions on a particular scope."
+      }
+    ];
+
+    const actions = [];
+    for (const actionProperties of actionPropertiesList) {
+
+      try {
+
+        const action = await Action.create(actionProperties, pool);
+        actions.push(action);
+
+      } catch (error) {
+
+        if (error instanceof ResourceConflictError) {
+
+          const action = await Action.getByName(actionProperties.name, pool);
+          actions.push(action);
+
+        } else {
+
+          throw error;
+
+        }
+
+      }
+
+    }
+
+    return actions;
+
+  }
+
+  static async initializePreDefinedRoles(roleClass: typeof Role, pool: Pool): Promise<Role[]> {
+  
+    const roleDataList: Omit<InitialWritableActionProperties, "parentResourceType">[] = [
+      {
+        name: "action-admins",
+        displayName: "Action admins",
+        description: "Principals with full control over actions."
+      },
+      {
+        name: "action-editors",
+        displayName: "Action editors",
+        description: "Principals with editor access over actions."
+      },
+      {
+        name: "action-users",
+        displayName: "Action users",
+        description: "Principals with user access over actions."
+      },
+      {
+        name: "read-only-action-users",
+        displayName: "Read-only action users",
+        description: "Principals with read-only user access over actions."
+      }
+    ];
+    const roles = [];
+
+    for (const roleData of roleDataList) {
+
+      try {
+
+        const role = await roleClass.create({
+          ...roleData,
+          isPreDefined: true,
+          parentResourceType: "Instance"
+        }, pool);
+        roles.push(role);
+
+      } catch (error) {
+
+        if (error instanceof ResourceConflictError) {
+
+          const role = await roleClass.getByName(roleData.name, pool);
+          roles.push(role);
+
+        } else {
+
+          throw error;
+
+        }
+        
+      }
+
+    }
+
+    return roles;
+
+  }
+
   /** 
    * Requests the server to return a list of actions.
    * 
@@ -205,16 +460,60 @@ export default class Action {
 
     // Get the list from the database.
     const poolClient = await pool.connect();
-    const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({tableName: "hydrated_actions", filterQuery, defaultLimit: 1000, allowedQueryFields: this.allowedQueryFields});
-    await poolClient.query(`set search_path to app`);
-    const result = await poolClient.query(`select * from hydrated_actions${whereClause ? ` where ${whereClause}` : ""}`, values);
-    poolClient.release();
+    try {
 
-    // Convert the list of rows to AccessPolicy objects.
-    const items = result.rows.map(row => new Action(row, pool));
+      const { whereClause, values, limit, offset } = SlashstepQLFilterSanitizer.sanitize({
+        tableName: "hydrated_actions", 
+        filterQuery, 
+        defaultLimit: 1000, 
+        allowedQueryFields: this.allowedQueryFields
+      });
+      const result = await poolClient.query(`select * from hydrated_actions${whereClause ? ` where ${whereClause}` : ""}${limit !== undefined ? ` limit ${limit}` : ""}${offset !== undefined ? ` offset ${offset}` : ""}`, values);
+      const actions = result.rows.map((row) => {
+        
+        const actionProperties = Action.getPropertiesFromRow(row);
+        const action = new Action(actionProperties, pool);
+        return action;
+      
+      });
 
-    // Return the list.
-    return items;
+      return actions;
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
+  static async count(filterQuery: string, pool: Pool): Promise<number> {
+
+    // Get the list from the database.
+    const poolClient = await pool.connect();
+
+    try {
+
+      const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({
+        tableName: "hydrated_actions",
+        filterQuery,
+        shouldIgnoreOffset: true,
+        shouldIgnoreLimit: true,
+        allowedQueryFields: this.allowedQueryFields
+      });
+      const result = await poolClient.query(`select count(*) from hydrated_actions${whereClause ? ` where ${whereClause}` : ""}`, values);
+      
+      // Convert the list of rows to AccessPolicy objects.
+      const count = parseInt(result.rows[0].count, 10);
+
+      // Return the list.
+      return count;
+
+    } finally {
+
+      poolClient.release();
+
+    }
 
   }
 

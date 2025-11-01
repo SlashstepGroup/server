@@ -8,7 +8,7 @@ import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPoli
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import { hash as hashPassword } from "argon2";
-import Server from "#utilities/Server/Server.js";
+import type { default as Server } from "#utilities/Server/Server.js";
 
 const createUserRouter = Router({mergeParams: true})
 createUserRouter.post("/", async (request, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {

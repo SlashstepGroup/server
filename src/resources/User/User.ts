@@ -3,9 +3,9 @@ import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
-import Session from "#resources/Session/Session.js";
+import type { default as Session } from "#resources/Session/Session.js";
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
-import Role, { InitialWritableRoleProperties, RoleParentResourceType } from "#resources/Role/Role.js";
+import type { default as Role, InitialWritableRoleProperties, RoleParentResourceType } from "#resources/Role/Role.js";
 import ResourceConflictError from "#errors/ResourceConflictError.js";
 import Principal, { PrincipalResourceClassMap } from "src/interfaces/Principal.js";
 
@@ -219,7 +219,7 @@ export default class User implements Principal {
         const role = await roleClass.create({
           ...roleData,
           isPreDefined: true,
-          parentResourceType: RoleParentResourceType.Instance
+          parentResourceType: "Instance"
         }, pool);
         roles.push(role);
 

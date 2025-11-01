@@ -8,7 +8,7 @@ import AccessPolicy, { AccessPolicyPermissionLevel, AccessPolicyPrincipalType } 
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import { verify as verifyPassword } from "argon2";
-import Server from "#utilities/Server/Server.js";
+import type { default as Server } from "#utilities/Server/Server.js";
 import Session from "#resources/Session/Session.js";
 import jsonwebtoken from "jsonwebtoken";
 import { readFileSync } from "fs";

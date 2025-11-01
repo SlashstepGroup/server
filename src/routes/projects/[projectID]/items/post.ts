@@ -12,7 +12,7 @@ import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
 import ActionLog from "#resources/ActionLog/ActionLog.js";
 import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
-import Server from "#utilities/Server/Server.js";
+import type { default as Server } from "#utilities/Server/Server.js";
 
 const createProjectItemRouter = Router({mergeParams: true});
 

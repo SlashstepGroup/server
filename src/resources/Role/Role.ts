@@ -25,7 +25,7 @@ export type BaseRoleProperties = {
   isPreDefined: boolean;
   displayName: string;
   description?: string;
-  parentResourceType: RoleParentResourceType;
+  parentResourceType: RoleParentResourceType | `${RoleParentResourceType}`;
   parentWorkspaceID?: string;
   parentProjectID?: string;
   parentGroupID?: string;
@@ -46,7 +46,7 @@ export type RoleTableQueryResult = {
   name: string;
   display_name: string;
   description: string;
-  parent_resource_type: RoleParentResourceType;
+  parent_resource_type: RoleParentResourceType | `${RoleParentResourceType}`;
   parent_workspace_id: string;
   parent_project_id: string;
   parent_group_id: string;

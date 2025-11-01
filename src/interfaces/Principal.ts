@@ -1,5 +1,5 @@
-import AccessPolicy, { AccessPolicyPermissionLevel, Scope } from "#resources/AccessPolicy/AccessPolicy.js";
-import Action from "#resources/Action/Action.js"
+import type { default as AccessPolicy, AccessPolicyPermissionLevel, Scope } from "#resources/AccessPolicy/AccessPolicy.js";
+import type { default as Action } from "#resources/Action/Action.js";
 
 export type PrincipalResourceClassMap = {
   Action: typeof Action;

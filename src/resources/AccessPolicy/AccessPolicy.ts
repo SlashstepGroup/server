@@ -4,15 +4,15 @@ import { readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import PermissionDeniedError from "#errors/PermissionDeniedError.js";
-import Action, { InitialWritableActionProperties } from "#resources/Action/Action.js";
-import App from "#resources/App/App.js";
-import Group from "#resources/Group/Group.js";
-import Item from "#resources/Item/Item.js";
-import Milestone, { MilestoneParentResourceType } from "#resources/Milestone/Milestone.js";
-import Project from "#resources/Project/Project.js";
-import Role, { InitialWritableRoleProperties, RoleParentResourceType } from "#resources/Role/Role.js";
-import User from "#resources/User/User.js";
-import Workspace from "#resources/Workspace/Workspace.js";
+import type { default as Action, InitialWritableActionProperties } from "#resources/Action/Action.js";
+import type { default as App } from "#resources/App/App.js";
+import type { default as Group } from "#resources/Group/Group.js";
+import type { default as Item } from "#resources/Item/Item.js";
+import type { default as Milestone, MilestoneParentResourceType } from "#resources/Milestone/Milestone.js";
+import type { default as Project } from "#resources/Project/Project.js";
+import type { default as Role, InitialWritableRoleProperties, RoleParentResourceType } from "#resources/Role/Role.js";
+import type { default as User } from "#resources/User/User.js";
+import type { default as Workspace } from "#resources/Workspace/Workspace.js";
 import ResourceConflictError from "#errors/ResourceConflictError.js";
 import BadRequestError from "#errors/BadRequestError.js";
 import Resource from "src/interfaces/Resource.js";
@@ -86,11 +86,11 @@ export enum AccessPolicyPrincipalType {
 
 export type BaseAccessPolicyProperties = {
   id: string;
-  principalType: AccessPolicyPrincipalType;
+  principalType: AccessPolicyPrincipalType | `${AccessPolicyPrincipalType}`;
   principalUserID?: string;
   principalGroupID?: string;
   principalRoleID?: string;
-  scopedResourceType: AccessPolicyScopedResourceType;
+  scopedResourceType: AccessPolicyScopedResourceType | `${AccessPolicyScopedResourceType}`;
   scopedActionID?: string;
   scopedAppID?: string;
   scopedGroupID?: string;
@@ -101,20 +101,20 @@ export type BaseAccessPolicyProperties = {
   scopedUserID?: string;
   scopedWorkspaceID?: string;
   actionID: string;
-  permissionLevel: AccessPolicyPermissionLevel;
-  inheritanceLevel: AccessPolicyInheritanceLevel;
+  permissionLevel: AccessPolicyPermissionLevel | `${AccessPolicyPermissionLevel}`;
+  inheritanceLevel: AccessPolicyInheritanceLevel | `${AccessPolicyInheritanceLevel}`;
 }
 
 export type Scope = {
-  actionID?: string;
-  appID?: string;
-  groupID?: string;
-  itemID?: string;
-  milestoneID?: string;
-  projectID?: string;
-  roleID?: string;
-  userID?: string;
-  workspaceID?: string;
+  actionID?: string | null;
+  appID?: string | null;
+  groupID?: string | null;
+  itemID?: string | null;
+  milestoneID?: string | null;
+  projectID?: string | null;
+  roleID?: string | null;
+  userID?: string | null;
+  workspaceID?: string | null;
 };
 
 export type ExtendedAccessPolicyProperties = BaseAccessPolicyProperties & {
@@ -519,7 +519,7 @@ export default class AccessPolicy implements Resource<Scope> {
 
   }
   
-  static async initializePreDefinedRoleAccessPolicies(actionClass: typeof Action, pool: Pool): Promise<AccessPolicy[]> {
+  static async initializePreDefinedRoleAccessPolicies(classes: {"Action": typeof Action, "Role": typeof Role}, pool: Pool): Promise<AccessPolicy[]> {
 
     const permissions: {
       [preDefinedRoleName: string]: {
@@ -609,18 +609,18 @@ export default class AccessPolicy implements Resource<Scope> {
 
     for (const preDefinedRoleName of Object.keys(permissions)) {
 
-      const preDefinedRole = await Role.getByName(preDefinedRoleName, pool);
+      const preDefinedRole = await classes.Role.getByName(preDefinedRoleName, pool);
 
       for (const permission of permissions[preDefinedRoleName]) {
 
-        const action = await actionClass.getByName(permission.actionName, pool);
+        const action = await classes.Action.getByName(permission.actionName, pool);
         const accessPolicy = await AccessPolicy.create({
-          principalType: AccessPolicyPrincipalType.Role,
+          principalType: "Role",
           principalRoleID: preDefinedRole.id,
           actionID: action.id,
           permissionLevel: permission.permissionLevel,
-          inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
-          scopedResourceType: AccessPolicyScopedResourceType.Instance
+          inheritanceLevel: "Enabled",
+          scopedResourceType: "Instance"
         }, pool);
 
         accessPolicies.push(accessPolicy);
@@ -725,7 +725,7 @@ export default class AccessPolicy implements Resource<Scope> {
         const role = await roleClass.create({
           ...roleData,
           isPreDefined: true,
-          parentResourceType: RoleParentResourceType.Instance
+          parentResourceType: "Instance"
         }, pool);
         roles.push(role);
 
@@ -1414,12 +1414,6 @@ export default class AccessPolicy implements Resource<Scope> {
         };
 
       case AccessPolicyScopedResourceType.User:
-
-        if (!User) {
-
-          throw new Error("User class required.");
-
-        }
 
         if (!this.scopedUserID) {
 

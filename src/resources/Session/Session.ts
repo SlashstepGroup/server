@@ -1,4 +1,4 @@
-import User from "#resources/User/User.js";
+import type { default as User } from "#resources/User/User.js";
 import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { dirname, resolve } from "path";

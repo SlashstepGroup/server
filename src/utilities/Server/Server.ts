@@ -3,7 +3,7 @@ import Project from "#resources/Project/Project.js";
 import Workspace from "#resources/Workspace/Workspace.js";
 import { DatabaseError, Pool } from "pg";
 import { readFileSync } from "fs";
-import { dirname, resolve } from "path";
+import { resolve } from "path";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js";
 import User from "#resources/User/User.js";
@@ -145,8 +145,10 @@ export default class Server {
 
     await AccessPolicy.initializeActions(Action, this.pool);
     await AccessPolicy.initializePreDefinedRoles(Role, this.pool);
-    await AccessPolicy.initializePreDefinedRoleAccessPolicies(Action, this.pool);
-
+    await AccessPolicy.initializePreDefinedRoleAccessPolicies({Action, Role}, this.pool);
+    await Action.initializeActions(this.pool);
+    await Action.initializePreDefinedRoles(Role, this.pool);
+    await Action.initializePreDefinedRoleAccessPolicies({AccessPolicy, Role}, this.pool);
     await User.initializePreDefinedRoles(Role, this.pool);
 
   }
