@@ -31,6 +31,8 @@ export type ActionScopeData = {
   appID?: string | null;
 }
 
+export type EditableActionProperties = Omit<BaseActionProperties, "id" | "appID">;
+
 export type InitialWritableActionProperties = Omit<BaseActionProperties, "id">;
 
 /**
@@ -39,6 +41,10 @@ export type InitialWritableActionProperties = Omit<BaseActionProperties, "id">;
 export default class Action implements Resource<ActionScopeData> {
 
   static readonly name = "Action";
+
+  static readonly maximumActionNameLength = 256;
+  static readonly maximumActionDisplayNameLength = 256;
+  static readonly maximumActionDescriptionLength = 1028;
 
   static readonly allowedQueryFields = {
     id: "id", 
@@ -74,6 +80,49 @@ export default class Action implements Resource<ActionScopeData> {
     this.description = data.description;
     this.appID = data.appID ?? null;
     this.#pool = pool;
+
+  }
+
+  static validatePropertyValue(propertyName: "name", propertyValue: unknown): BaseActionProperties["name"];
+  static validatePropertyValue(propertyName: "displayName", propertyValue: unknown): BaseActionProperties["displayName"]; 
+  static validatePropertyValue(propertyName: "description", propertyValue: unknown): BaseActionProperties["description"]; 
+  static validatePropertyValue(propertyName: string, propertyValue: unknown): unknown {
+
+    if (propertyValue === undefined)
+      return propertyValue;
+
+    if (typeof(propertyValue) !== "string")
+      throw new BadRequestError(`The ${propertyName} must be a string.`);
+
+    switch (propertyName) {
+
+      case "name":
+
+        if (propertyValue.length >= Action.maximumActionNameLength)
+          throw new BadRequestError(`The ${propertyName} must be at most ${Action.maximumActionNameLength} characters.`);
+
+        break;
+
+      case "displayName":
+
+        if (propertyValue.length >= Action.maximumActionDisplayNameLength)
+          throw new BadRequestError(`The ${propertyName} must be at most ${Action.maximumActionDisplayNameLength} characters.`);
+
+        break;
+
+      case "description":
+
+        if (propertyValue.length > Action.maximumActionDescriptionLength)
+          throw new BadRequestError(`The ${propertyName} must be at most ${Action.maximumActionDescriptionLength} characters.`);
+
+        break;
+
+      default:
+        throw new BadRequestError(`The ${propertyName} is not a valid property.`);
+
+    }
+
+    return propertyValue;
 
   }
 
@@ -559,10 +608,64 @@ export default class Action implements Resource<ActionScopeData> {
    */
   async delete(): Promise<void> {
 
-    const query = readFileSync(resolve(dirname(import.meta.dirname), "Action", "queries", "delete-action-row.sql"), "utf8");
     const poolClient = await this.#pool.connect();
-    await poolClient.query(query, [this.id]);
-    poolClient.release();
+
+    try {
+
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "delete-action-row.sql"), "utf8");
+      await poolClient.query(query, [this.id]);
+    
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
+  async update(data: Partial<EditableActionProperties>): Promise<Action> {
+  
+    const poolClient = await this.#pool.connect();
+
+    try {
+
+      await poolClient.query("begin;");
+      let query = "update actions set ";
+      const values = [];
+
+      const addValue = <T>(columnName: string, value: T) => {
+
+        if (value === undefined) {
+
+          return;
+
+        }
+
+        query += `${values.length > 0 ? ", " : ""}${columnName} = $${values.length + 1}`;
+        values.push(value);
+
+      }
+      addValue("name", data.name);
+      addValue("display_name", data.displayName);
+      addValue("description", data.description);
+
+      query += ` where id = $${values.length + 1} returning *;`;
+      values.push(this.id);
+      
+      const result = await poolClient.query(query, values);
+      await poolClient.query("commit;");
+
+      // Convert the row to an access policy object.
+      const row = result.rows[0];
+      const action = new Action(Action.getPropertiesFromRow(row), this.#pool);
+
+      return action;
+
+    } finally {
+
+      poolClient.release();
+
+    }
 
   }
 
