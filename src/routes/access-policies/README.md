@@ -10,7 +10,7 @@ Returns a list of access policies.
 | Header name | Description | Required? |
 | :- | :- | :- |
 | `Content-Type` | Must be `application/json`. | Yes |
-| `Authorization` | Must be a valid JWT token or blank. This may be required if unauthenticated users lack required permissions. | No |
+| `Authorization` | Must be a valid JWT token or blank. This may be required if unauthenticated users lack required permissions. | Maybe |
 
 ### Query parameters
 | Query | Description | Required? |
