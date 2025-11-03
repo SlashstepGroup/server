@@ -1,9 +1,13 @@
 import type { default as AccessPolicy, AccessPolicyPermissionLevel, AccessPolicyScopeData } from "#resources/AccessPolicy/AccessPolicy.js";
 import type { default as Action } from "#resources/Action/Action.js";
+import type { default as Role } from "#resources/Role/Role.js";
+import type { default as RoleMembership } from "#resources/RoleMembership/RoleMembership.js";
 
 export type PrincipalResourceClassMap = {
   Action: typeof Action;
   AccessPolicy: typeof AccessPolicy;
+  Role: typeof Role;
+  RoleMembership: typeof RoleMembership;
 }
 
 export default interface Principal {

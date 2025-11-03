@@ -192,28 +192,6 @@ export default class Role implements Principal {
     
   }
 
-  static async verifyPermissionsForUnauthenticatedUsers(resourceClasses: {"Action": typeof Action, "AccessPolicy": typeof AccessPolicy}, actionID: string, pool: Pool, scope: AccessPolicyScopeData = {scopedResourceType: "Instance"}, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
-
-    try {
-    
-      const { Action, AccessPolicy } = resourceClasses;
-      const unauthenticatedUsersRole = await Role.getPreDefinedRoleByName("unauthenticated-users", pool);
-      await unauthenticatedUsersRole.verifyPermissions({Action, AccessPolicy}, actionID, scope, minimumPermissionLevel);
-
-    } catch (error) {
-
-      if (error instanceof ForbiddenError) {
-
-        throw new UnauthenticatedError();
-
-      }
-
-      throw error;
-
-    }
-
-  }
-
   static async getByID(id: string, pool: Pool): Promise<Role> {
 
     // Get the role data from the database.
@@ -328,6 +306,15 @@ export default class Role implements Principal {
       throw error;
 
     }
+
+  }
+
+  getPrincipalData(): AccessPolicyPrincipalData {
+
+    return {
+      principalType: AccessPolicyPrincipalType.Role,
+      principalRoleID: this.id
+    };
 
   }
 

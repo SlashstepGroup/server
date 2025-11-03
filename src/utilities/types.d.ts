@@ -6,6 +6,7 @@ import type { default as Item } from "#resources/Item/Item.js";
 import type { default as Milestone } from "#resources/Milestone/Milestone.js";
 import type { default as Project } from "#resources/Project/Project.js";
 import type { default as Role } from "#resources/Role/Role.js";
+import Session from "#resources/Session/Session.js";
 import type { default as User } from "#resources/User/User.js";
 import type { default as Workspace } from "#resources/Workspace/Workspace.js";
 import type { default as Server } from "#utilities/Server/Server.js";
@@ -16,10 +17,10 @@ export type CollectionType = "Project" | "Milestone";
 
 export type ResponseLocals = {
   server: Server;
-  authenticatedUser?: User;
-  areUnauthenticatedRequestsAllowed?: boolean;
-  authenticatedApp?: App;
-  authenticatedAppAuthorization?: AppAuthorization;
+  user?: User;
+  app?: App;
+  session?: Session;
+  appAuthorization?: AppAuthorization;
 }
 
 export type ResourceClassMap = Record<string, (

@@ -32,19 +32,9 @@ async function authenticateApp(request: Request, response: Response<unknown, Res
         // 
         const appID = payload.sub;
         const app = await App.getByID(appID, server.pool);
-        response.locals.authenticatedApp = app;
+        response.locals.app = app;
         
       }
-
-    }
-
-    if (!response.locals.areUnauthenticatedRequestsAllowed && !response.locals.authenticatedApp) {
-
-      response.status(401).json({
-        message: "Provide a valid authentication token."
-      });
-
-      return;
 
     }
 

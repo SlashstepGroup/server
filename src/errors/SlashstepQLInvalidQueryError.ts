@@ -1,4 +1,6 @@
-export default class SlashstepQLInvalidQueryError extends Error {
+import BadRequestError from "./BadRequestError.js";
+
+export default class SlashstepQLInvalidQueryError extends BadRequestError {
 
   constructor() {
 

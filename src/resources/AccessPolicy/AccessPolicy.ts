@@ -178,6 +178,8 @@ export type AccessPolicyQueryResult = {
   principal_user_username?: string;
   principal_user_display_name?: string;
   principal_user_hashed_password?: string;
+  principal_user_is_anonymous?: boolean;
+  principal_user_ip_address?: string;
   principal_group_display_name?: string;
   principal_group_name?: string;
   principal_group_id?: string;
@@ -236,6 +238,8 @@ export type AccessPolicyQueryResult = {
   scoped_user_username?: string;
   scoped_user_display_name?: string;
   scoped_user_hashed_password?: string;
+  scoped_user_is_anonymous?: boolean;
+  scoped_user_ip_address?: string;
   scoped_workspace_id?: string;
   scoped_workspace_name?: string;
   scoped_workspace_display_name?: string;
@@ -248,16 +252,16 @@ export type AccessPolicyQueryResult = {
 }
 
 export type AccessPolicyPrincipalData = {
-  principalType: AccessPolicyPrincipalType.User;
+  principalType: AccessPolicyPrincipalType.User | `${AccessPolicyPrincipalType.User}`;
   principalUserID: string;
 } | {
-  principalType: AccessPolicyPrincipalType.Group;
+  principalType: AccessPolicyPrincipalType.Group | `${AccessPolicyPrincipalType.Group}`;
   principalGroupID: string;
 } | {
-  principalType: AccessPolicyPrincipalType.Role;
+  principalType: AccessPolicyPrincipalType.Role | `${AccessPolicyPrincipalType.Role}`;
   principalRoleID: string;
 } | {
-  principalType: AccessPolicyPrincipalType.App;
+  principalType: AccessPolicyPrincipalType.App | `${AccessPolicyPrincipalType.App}`;
   principalAppID: string;
 }
 
@@ -800,13 +804,15 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
 
     // Principals
     let User = includedResources.principalUser;
-    if (User && rowData.principal_user_id && rowData.principal_user_username && rowData.principal_user_display_name && rowData.principal_user_hashed_password) {
+    if (User && rowData.principal_user_id && rowData.principal_user_username && rowData.principal_user_display_name && rowData.principal_user_hashed_password && rowData.principal_user_is_anonymous !== undefined) {
 
       mappedResources.principalUser = new User({
         id: rowData.principal_user_id,
         username: rowData.principal_user_username,
         displayName: rowData.principal_user_display_name,
-        hashedPassword: rowData.principal_user_hashed_password
+        hashedPassword: rowData.principal_user_hashed_password,
+        isAnonymous: rowData.principal_user_is_anonymous,
+        ipAddress: rowData.principal_user_ip_address
       }, pool);
 
     }
@@ -967,13 +973,15 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
     }
 
     User = includedResources.scopedUser;
-    if (User && rowData.scoped_user_id && rowData.scoped_user_username && rowData.scoped_user_display_name && rowData.scoped_user_hashed_password) {
+    if (User && rowData.scoped_user_id && rowData.scoped_user_username && rowData.scoped_user_display_name && rowData.scoped_user_hashed_password && rowData.scoped_user_is_anonymous !== undefined) {
 
       mappedResources.scopedUser = new User({
         id: rowData.scoped_user_id,
         username: rowData.scoped_user_username,
         displayName: rowData.scoped_user_display_name,
-        hashedPassword: rowData.scoped_user_hashed_password
+        hashedPassword: rowData.scoped_user_hashed_password,
+        isAnonymous: rowData.scoped_user_is_anonymous,
+        ipAddress: rowData.scoped_user_ip_address
       }, pool);
 
     }

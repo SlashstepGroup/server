@@ -12,7 +12,9 @@ export default defineConfig(
       "no-case-declarations": "warn",
       "no-unused-private-class-members": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
-      "no-async-promise-executor": "warn"
+      "no-async-promise-executor": "warn",
+      "prefer-const": "warn",
+      "no-empty": "warn",
     }
   }
 );

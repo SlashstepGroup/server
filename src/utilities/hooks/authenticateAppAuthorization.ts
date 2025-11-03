@@ -8,6 +8,8 @@ import AppAuthorization from "#resources/AppAuthorization/AppAuthorization.js";
 import Action from "#resources/Action/Action.js";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import User from "#resources/User/User.js";
+import Role from "#resources/Role/Role.js";
+import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
 import BadRequestError from "#errors/BadRequestError.js";
 import HTTPError from "#errors/HTTPError.js";
 
@@ -40,7 +42,7 @@ async function authenticateAppAuthorization(request: Request, response: Response
         const appAuthorization = await AppAuthorization.getByID(appAuthorizationID, server.pool);
         const app = await App.getByID(appAuthorization.appID, server.pool);
         appAuthorization.app = app;
-        response.locals.authenticatedAppAuthorization = appAuthorization;
+        response.locals.appAuthorization = appAuthorization;
         
         if (impersonatedUserID) {
 
@@ -54,23 +56,13 @@ async function authenticateAppAuthorization(request: Request, response: Response
           const user = await User.getByID(impersonatedUserID, server.pool);
           const impersonationAction = await Action.getByName("slashstep.users.impersonate", server.pool);
           const userScopeData = user.getScopeData();
-          await app.verifyPermissions({Action, AccessPolicy}, impersonationAction.id, userScopeData);
-          response.locals.authenticatedUser = user;
+          await app.verifyPermissions({Role, RoleMembership, Action, AccessPolicy}, impersonationAction.id, userScopeData);
+          response.locals.user = user;
 
 
         }
         
       }
-
-    }
-
-    if (!response.locals.areUnauthenticatedRequestsAllowed && !response.locals.authenticatedAppAuthorization) {
-
-      response.status(401).json({
-        message: "Provide a valid authentication token."
-      });
-
-      return;
 
     }
 

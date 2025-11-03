@@ -1,41 +1,45 @@
 import { ItemIncludedResourcesConstructorMap } from "#resources/Item/Item.js";
 import { Request, Response, Router } from "express";
 import HTTPError from "#errors/HTTPError.js";
-import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
 import authenticateUser from "#utilities/hooks/authenticateUser.js";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Role from "#resources/Role/Role.js";
 import Action from "#resources/Action/Action.js";
-import type { default as Server } from "#utilities/Server/Server.js";
-import User from "#resources/User/User.js";
+import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
 import authenticateApp from "#utilities/hooks/authenticateApp.js";
 import authenticateAppAuthorization from "#utilities/hooks/authenticateAppAuthorization.js";
+import storeAnonymousUser from "#utilities/hooks/storeAnonymousUser.js";
+import { ResponseLocals } from "#utilities/types.js";
+import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import ActionLog from "#resources/ActionLog/ActionLog.js";
 
 const getAccessPolicyRouter = Router({mergeParams: true});
-getAccessPolicyRouter.use(allowUnauthenticatedRequests);
 getAccessPolicyRouter.use(authenticateUser);
 getAccessPolicyRouter.use(authenticateApp);
 getAccessPolicyRouter.use(authenticateAppAuthorization);
-getAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, response: Response<unknown, { server: Server, authenticatedUser?: User }>) => {
+getAccessPolicyRouter.use(storeAnonymousUser);
+getAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, response: Response<unknown, ResponseLocals>) => {
+
+  const { user, app, server } = response.locals;
+  let getAccessPolicyAction: Action | null = null;
+  let accessPolicy: AccessPolicy | null = null;
 
   try {
 
-    const getAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.get", response.locals.server.pool);
+    getAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.get", server.pool);
 
     const { accessPolicyID } = request.params;
-    const accessPolicy = await AccessPolicy.getByID(accessPolicyID, response.locals.server.pool);
+    accessPolicy = await AccessPolicy.getByID(accessPolicyID, server.pool);
     const accessPolicyScopeData = await accessPolicy.getScopeData();
 
-    const { authenticatedUser } = response.locals;
-    if (authenticatedUser) {
+    const principal = user ?? app;
+    if (!principal) {
 
-      await authenticatedUser.verifyPermissions({Action, AccessPolicy}, getAccessPolicyAction.id, accessPolicyScopeData);
-
-    } else {
-
-      await Role.verifyPermissionsForUnauthenticatedUsers({Action, AccessPolicy}, getAccessPolicyAction.id, response.locals.server.pool, accessPolicyScopeData);
+      throw new UnauthenticatedError();
 
     }
+
+    await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, getAccessPolicyAction.id, accessPolicyScopeData);
 
     const { include } = request.query;
 
@@ -84,11 +88,36 @@ getAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, r
 
     // }
 
+    await ActionLog.create({
+      actorType: app ? "App" : "User",
+      actorUserID: app ? null : user?.id,
+      actorAppID: app ? app.id : null,
+      actorIPAddress: request.ip,
+      actionID: getAccessPolicyAction.id,
+      targetResourceType: "AccessPolicy",
+      targetAccessPolicyID: accessPolicy.id
+    }, server.pool);
+
     response.json(accessPolicy);
 
   } catch (error) {
 
     if (error instanceof HTTPError) {
+
+      if (getAccessPolicyAction) {
+
+        await server.attemptToCreateActionLog({
+          actorType: app ? "App" : "User",
+          actorUserID: app ? null : user?.id,
+          actorAppID: app ? app.id : null,
+          actorIPAddress: request.ip,
+          actionID: getAccessPolicyAction.id,
+          targetResourceType: "AccessPolicy",
+          targetAccessPolicyID: accessPolicy?.id,
+          errorMessage: error.message
+        });
+
+      }
 
       response.status(error.getStatusCode()).json(error);
 

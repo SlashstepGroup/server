@@ -11,6 +11,8 @@ create or replace view hydrated_access_policies as
     principal_users.username as principal_user_username,
     principal_users.display_name as principal_user_display_name,
     principal_users.hashed_password as principal_user_hashed_password,
+    principal_users.is_anonymous as principal_user_is_anonymous,
+    principal_users.ip_address as principal_user_ip_address,
 
     /* Group */
     principal_groups.name as principal_group_name,
@@ -88,6 +90,8 @@ create or replace view hydrated_access_policies as
     scoped_users.username as scoped_user_username,
     scoped_users.display_name as scoped_user_display_name,
     scoped_users.hashed_password as scoped_user_hashed_password,
+    scoped_users.is_anonymous as scoped_user_is_anonymous,
+    scoped_users.ip_address as scoped_user_ip_address,
 
     /* Workspace */
     scoped_workspaces.name as scoped_workspace_name,

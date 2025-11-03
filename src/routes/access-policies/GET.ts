@@ -1,23 +1,29 @@
 import HTTPError from "#errors/HTTPError.js";
 import SlashstepQLInvalidKeyError from "#errors/SlashstepQLInvalidKeyError.js";
 import SlashstepQLInvalidQueryError from "#errors/SlashstepQLInvalidQueryError.js";
+import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js";
 import Role from "#resources/Role/Role.js";
-import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
 import authenticateApp from "#utilities/hooks/authenticateApp.js";
 import authenticateAppAuthorization from "#utilities/hooks/authenticateAppAuthorization.js";
 import authenticateUser from "#utilities/hooks/authenticateUser.js";
+import storeAnonymousUser from "#utilities/hooks/storeAnonymousUser.js";
 import HTTPInputValidator from "#utilities/HTTPInputValidator/HTTPInputValidator.js";
 import { ResourceClassMap, ResponseLocals } from "#utilities/types.js";
 import { Response, Router } from "express";
+import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
+import ActionLog from "#resources/ActionLog/ActionLog.js";
 
 const listAccessPoliciesRouter = Router({mergeParams: true});
-listAccessPoliciesRouter.use(allowUnauthenticatedRequests);
 listAccessPoliciesRouter.use(authenticateUser);
 listAccessPoliciesRouter.use(authenticateApp);
 listAccessPoliciesRouter.use(authenticateAppAuthorization);
+listAccessPoliciesRouter.use(storeAnonymousUser);
 listAccessPoliciesRouter.use(async (request, response: Response<unknown, ResponseLocals>) => {
+
+  const { user, app, server } = response.locals;
+  let listAccessPolicyAction: Action | null = null;
 
   try {
   
@@ -88,17 +94,15 @@ listAccessPoliciesRouter.use(async (request, response: Response<unknown, Respons
 
     // }
 
-    const listAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.list", response.locals.server.pool);
-    const { authenticatedUser } = response.locals;
-    if (authenticatedUser) {
-
-      await authenticatedUser.verifyPermissions({Action, AccessPolicy}, listAccessPolicyAction.id);
-
-    } else {
-
-      await Role.verifyPermissionsForUnauthenticatedUsers({Action, AccessPolicy}, listAccessPolicyAction.id, response.locals.server.pool);
+    listAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.list", response.locals.server.pool);
+    const principal = user ?? app;
+    if (!principal) {
+ 
+      throw new UnauthenticatedError();
 
     }
+
+    await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, listAccessPolicyAction.id);
 
     const { server } = response.locals;
     const items = await AccessPolicy.list(query ?? "", server.pool, includedResources);
@@ -109,13 +113,32 @@ listAccessPoliciesRouter.use(async (request, response: Response<unknown, Respons
       items
     });
 
+    await ActionLog.create({
+      actorType: app ? "App" : "User",
+      actorUserID: app ? null : user?.id,
+      actorAppID: app ? app.id : null,
+      actorIPAddress: request.ip,
+      actionID: listAccessPolicyAction.id,
+      targetResourceType: "Instance"
+    }, server.pool);
+
   } catch (error) {
 
-    if (error instanceof SlashstepQLInvalidKeyError || error instanceof SlashstepQLInvalidQueryError) {
+    if (error instanceof HTTPError) {
 
-      response.status(400).json(error);
+      if (listAccessPolicyAction) {
 
-    } else if (error instanceof HTTPError) {
+        await server.attemptToCreateActionLog({
+          actorType: app ? "App" : "User",
+          actorUserID: app ? null : user?.id,
+          actorAppID: app ? app.id : null,
+          actorIPAddress: request.ip,
+          actionID: listAccessPolicyAction.id,
+          targetResourceType: "Instance",
+          errorMessage: error.message
+        });
+
+      }
 
       response.status(error.getStatusCode()).json(error);
 

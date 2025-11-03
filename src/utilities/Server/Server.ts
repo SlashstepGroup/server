@@ -8,7 +8,7 @@ import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js";
 import User from "#resources/User/User.js";
 import App from "#resources/App/App.js";
-import ActionLog from "#resources/ActionLog/ActionLog.js";
+import ActionLog, { InitialActionLogProperties } from "#resources/ActionLog/ActionLog.js";
 import Session from "#resources/Session/Session.js";
 import os from "os";
 import { createServer as createHTTPSServer } from "https";
@@ -434,6 +434,20 @@ export default class Server {
       }
 
     });
+
+  }
+
+  async attemptToCreateActionLog(actionLogProperties: InitialActionLogProperties) {
+      
+    try {
+
+      await ActionLog.create(actionLogProperties, this.pool);
+
+    } catch (error) {
+
+      console.error(`Couldn't create action log.`, error);
+
+    }
 
   }
 

@@ -1,12 +1,13 @@
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import ForbiddenError from "#errors/ForbiddenError.js";
 import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import { PrincipalResourceClassMap } from "src/interfaces/Principal.js";
-import { default as AccessPolicy, AccessPolicyPermissionLevel, AccessPolicyPrincipalData, AccessPolicyPrincipalType, AccessPolicyScopeData, AccessPolicyScopedResourceType } from "#resources/AccessPolicy/AccessPolicy.js";
-import ForbiddenError from "#errors/ForbiddenError.js";
-import User from "#resources/User/User.js";
-import Workspace from "#resources/Workspace/Workspace.js";
+import type { default as AccessPolicy, AccessPolicyPermissionLevel, AccessPolicyPrincipalData, AccessPolicyScopeData } from "#resources/AccessPolicy/AccessPolicy.js";
+import type { default as User } from "#resources/User/User.js";
+import type { default as Workspace } from "#resources/Workspace/Workspace.js";
+import type { default as RoleMembership } from "#resources/RoleMembership/RoleMembership.js";
 
 export enum AppParentResourceType {
   Instance = "Instance",
@@ -30,7 +31,7 @@ export type ExtendedAppProperties = AppProperties & {
 }
 
 export type AppScopeData = {
-  scopedResourceType: AccessPolicyScopedResourceType.App;
+  scopedResourceType: "App";
   appID: string;
   userID?: string;
   workspaceID?: string;
@@ -182,7 +183,7 @@ export default class App {
   getScopeData(): AppScopeData {
 
     return {
-      scopedResourceType: AccessPolicyScopedResourceType.App,
+      scopedResourceType: "App",
       appID: this.id,
       userID: this.parentUserID,
       workspaceID: this.parentWorkspaceID
@@ -193,10 +194,10 @@ export default class App {
   static async getAccessPolicyWithDeepestScope(accessPolicyClass: typeof AccessPolicy, actionID: string, pool: Pool, principalData: AccessPolicyPrincipalData, scopeData: AppScopeData): Promise<AccessPolicy> {
   
     const scopedAccessPolicies = await accessPolicyClass.listScopedAccessPolicies(actionID, pool, principalData, scopeData);
-    const appAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.App);
-    const userAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.User);
-    const workspaceAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.Workspace);
-    const instanceAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.Instance);
+    const appAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "App");
+    const userAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "User");
+    const workspaceAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "Workspace");
+    const instanceAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === "Instance");
 
     const deepestAccessPolicy = appAccessPolicy ?? userAccessPolicy ?? workspaceAccessPolicy ?? instanceAccessPolicy;
 
@@ -210,34 +211,71 @@ export default class App {
 
   }
 
-  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scopeData: AccessPolicyScopeData, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User) {
-    
-    const { Action, AccessPolicy } = resourceClasses;
-    const action = await Action.getByID(actionID, this.#pool);
+  getPrincipalData(): AccessPolicyPrincipalData {
 
-    try {
-
-      const accessPolicy = await AccessPolicy.getAccessPolicyWithDeepestScope(action.id, this.#pool, {
-        principalType: AccessPolicyPrincipalType.App,
-        principalAppID: this.id
-      }, scopeData);
-      return accessPolicy.permissionLevel >= minimumPermissionLevel;
-
-    } catch (error) {
-
-      if (error instanceof ResourceNotFoundError) {
-
-        return false;
-
-      }
-
-      throw error;
-
-    }
+    return {
+      principalType: "App",
+      principalAppID: this.id
+    };
 
   }
 
-  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scopeData: AccessPolicyScopeData, minimumPermissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<void> {
+  async listRoleMemberships(roleMembershipClass: typeof RoleMembership, pool: Pool): Promise<RoleMembership[]> {
+
+    const roleMemberships = await roleMembershipClass.list(`principal_app_id = "${this.id}"`, pool);
+    return roleMemberships;
+
+  }
+
+  async checkPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scopeData: AccessPolicyScopeData = {scopedResourceType: "Instance"}, minimumPermissionLevel: AccessPolicyPermissionLevel | `${AccessPolicyPermissionLevel}` = "User") {
+    
+    const { Action, AccessPolicy, Role, RoleMembership } = resourceClasses;
+    const action = await Action.getByID(actionID, this.#pool);
+
+    const findAccessPolicyWithDeepestScope = async (principalData: AccessPolicyPrincipalData) => {
+
+      try {
+
+        return await AccessPolicy.getAccessPolicyWithDeepestScope(action.id, this.#pool, principalData, scopeData);
+
+      } catch (error) {
+
+        if (!(error instanceof ResourceNotFoundError)) {
+
+          throw error;
+
+        }
+
+      }
+
+    }
+
+    const individualLevelAccessPolicy = await findAccessPolicyWithDeepestScope(this.getPrincipalData());
+    if (individualLevelAccessPolicy) {
+
+      return individualLevelAccessPolicy.permissionLevel >= minimumPermissionLevel;
+
+    }
+
+    const roleMemberships = await this.listRoleMemberships(RoleMembership, this.#pool);
+    for (const roleMembership of roleMemberships) {
+
+      // Any role with a permission level that is greater than or equal to the minimum permission level is enough to grant access.
+      const role = await Role.getByID(roleMembership.roleID, this.#pool);
+      const roleLevelAccessPolicy = await findAccessPolicyWithDeepestScope(role.getPrincipalData());
+      if (roleLevelAccessPolicy && roleLevelAccessPolicy.permissionLevel >= minimumPermissionLevel) {
+
+        return true;
+
+      }
+
+    }
+
+    return false;
+
+  }
+
+  async verifyPermissions(resourceClasses: PrincipalResourceClassMap, actionID: string, scopeData: AccessPolicyScopeData = {scopedResourceType: "Instance"}, minimumPermissionLevel: AccessPolicyPermissionLevel | `${AccessPolicyPermissionLevel}` = "User"): Promise<void> {
 
     const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, scopeData, minimumPermissionLevel);
     if (!canPrincipalAccess) {

@@ -31,25 +31,12 @@ async function authenticateUser(request: Request, response: Response<unknown, Re
 
           const userID = payload.sub;
           const user = await User.getByID(userID, server.pool);
-          const userWithSession = new User({
-            ...user,
-            hashedPassword: user.getHashedPassword()
-          }, server.pool, session);
-          response.locals.authenticatedUser = userWithSession;
+          response.locals.user = user;
+          response.locals.session = session;
 
         }
         
       }
-
-    }
-
-    if (!response.locals.areUnauthenticatedRequestsAllowed && !response.locals.authenticatedUser) {
-
-      response.status(401).json({
-        message: "Provide a valid authentication token."
-      });
-
-      return;
 
     }
 
