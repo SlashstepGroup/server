@@ -114,6 +114,25 @@ export default class AppAuthorizationCredential {
 
   }
 
+  static async initializeTable(pool: Pool): Promise<void> {
+
+    const poolClient = await pool.connect();
+
+    try {
+
+      const createAppAuthorizationCredentialsTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-app-authorization-credentials-table.sql"), "utf8");
+      const createHydratedAppAuthorizationCredentialsViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-app-authorization-credentials-view.sql"), "utf8");
+      await poolClient.query(createAppAuthorizationCredentialsTableQuery);
+      await poolClient.query(createHydratedAppAuthorizationCredentialsViewQuery);
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
   async delete(): Promise<void> {
 
     const poolClient = await this.#pool.connect();

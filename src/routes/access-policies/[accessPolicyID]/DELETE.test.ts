@@ -1,5 +1,5 @@
 import { default as SlashstepServer } from "#utilities/Server/Server.js";
-import { after, afterEach, before, beforeEach, describe, it } from "node:test";
+import test, { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import { strictEqual } from "node:assert";
 import deleteAccessPolicyRouter from "./DELETE.js";
 import { v7 as generateUUIDv7 } from "uuid";
@@ -52,15 +52,17 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
 
     // Grant unauthenticated users access to the action.
     const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.delete", slashstepServer.pool);
+    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.accessPolicies.delete");
+
+    const randomAction = await testEnvironment.createRandomAction();
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
       principalRoleID: unauthenticatedUsersRole.id,
-      actionID: getAccessPolicyAction.id,
+      actionID: randomAction.id,
       permissionLevel: AccessPolicyPermissionLevel.Editor,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
       scopedResourceType: AccessPolicyScopedResourceType.Instance
-    }, slashstepServer.pool);
+    }, slashstepServer.pool)
 
     const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${accessPolicy.id}`, {
       method: "DELETE"
@@ -134,7 +136,8 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
     const user = await User.create({
       username: TestEnvironment.generateRandomString(4),
       displayName: TestEnvironment.generateRandomString(16),
-      hashedPassword: TestEnvironment.generateRandomString(64)
+      hashedPassword: TestEnvironment.generateRandomString(64),
+      isAnonymous: false
     }, slashstepServer.pool);
 
     const session = await Session.create({

@@ -1,36 +1,36 @@
-import { Request, Router } from "express";
-import HTTPError from "#errors/HTTPError.js";
-import Workspace from "#resources/Workspace/Workspace.js";
+// import { Request, Router } from "express";
+// import HTTPError from "#errors/HTTPError.js";
+// import Workspace from "#resources/Workspace/Workspace.js";
 
-const getWorkspaceRouter = Router({mergeParams: true})
-getWorkspaceRouter.get("/", async (request: Request<{ workspaceName: string }>, response) => {
+// const getWorkspaceRouter = Router({mergeParams: true})
+// getWorkspaceRouter.get("/", async (request: Request<{ workspaceName: string }>, response) => {
 
-  try {
+//   try {
 
-    const { workspaceName } = request.params;
-    const { pool } = response.locals;
-    const workspace = await Workspace.getFromName(workspaceName, pool);
+//     const { workspaceName } = request.params;
+//     const { pool } = response.locals;
+//     const workspace = await Workspace.getFromName(workspaceName, pool);
     
-    response.json(workspace);
+//     response.json(workspace);
 
-  } catch (error) {
+//   } catch (error) {
 
-    if (error instanceof HTTPError) {
+//     if (error instanceof HTTPError) {
 
-      response.status(error.getStatusCode()).json(error);
+//       response.status(error.getStatusCode()).json(error);
 
-    } else {
+//     } else {
 
-      console.error(error);
+//       console.error(error);
 
-      response.status(500).json({
-        message: "Something bad happened on our side. Please try again later."
-      });
+//       response.status(500).json({
+//         message: "Something bad happened on our side. Please try again later."
+//       });
 
-    }
+//     }
 
-  }
+//   }
 
-});
+// });
 
-export default getWorkspaceRouter;
+// export default getWorkspaceRouter;

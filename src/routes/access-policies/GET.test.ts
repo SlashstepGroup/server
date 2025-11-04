@@ -189,7 +189,8 @@ describe("Route: GET /access-policies", async () => {
     const user = await User.create({
       username: TestEnvironment.generateRandomString(4),
       displayName: TestEnvironment.generateRandomString(16),
-      hashedPassword: TestEnvironment.generateRandomString(64)
+      hashedPassword: TestEnvironment.generateRandomString(64),
+      isAnonymous: false
     }, slashstepServer.pool);
 
     const session = await Session.create({

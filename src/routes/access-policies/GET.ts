@@ -1,6 +1,4 @@
 import HTTPError from "#errors/HTTPError.js";
-import SlashstepQLInvalidKeyError from "#errors/SlashstepQLInvalidKeyError.js";
-import SlashstepQLInvalidQueryError from "#errors/SlashstepQLInvalidQueryError.js";
 import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js";
@@ -108,11 +106,6 @@ listAccessPoliciesRouter.use(async (request, response: Response<unknown, Respons
     const items = await AccessPolicy.list(query ?? "", server.pool, includedResources);
     const totalItemCount = await AccessPolicy.count(query ?? "", server.pool);
     
-    response.json({
-      totalItemCount,
-      items
-    });
-
     await ActionLog.create({
       actorType: app ? "App" : "User",
       actorUserID: app ? null : user?.id,
@@ -122,23 +115,14 @@ listAccessPoliciesRouter.use(async (request, response: Response<unknown, Respons
       targetResourceType: "Instance"
     }, server.pool);
 
+    response.json({
+      totalItemCount,
+      items
+    });
+
   } catch (error) {
 
     if (error instanceof HTTPError) {
-
-      if (listAccessPolicyAction) {
-
-        await server.attemptToCreateActionLog({
-          actorType: app ? "App" : "User",
-          actorUserID: app ? null : user?.id,
-          actorAppID: app ? app.id : null,
-          actorIPAddress: request.ip,
-          actionID: listAccessPolicyAction.id,
-          targetResourceType: "Instance",
-          errorMessage: error.message
-        });
-
-      }
 
       response.status(error.getStatusCode()).json(error);
 

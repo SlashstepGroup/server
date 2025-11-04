@@ -237,7 +237,8 @@ export default class TestEnvironment {
     const user = await User.create({
       username: TestEnvironment.generateRandomString(4),
       displayName: TestEnvironment.generateRandomString(16),
-      hashedPassword: TestEnvironment.generateRandomString(64)
+      hashedPassword: TestEnvironment.generateRandomString(64),
+      isAnonymous: false
     }, this.slashstepServer.pool);
 
     return user;

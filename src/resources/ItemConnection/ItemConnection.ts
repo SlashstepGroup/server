@@ -1,120 +1,155 @@
-// import Client from "../../utilities/Client.js";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import { Pool } from "pg";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
-// export type ItemConnectionProperties = {
-//   id: string;
-//   typeID: string;
-//   inwardItemID: string;
-//   outwardItemID: string;
-// }
+export type BaseItemConnectionProperties = {
+  id: string;
+  typeID: string;
+  inwardItemID: string;
+  outwardItemID: string;
+}
 
-// /**
-//  * An ItemConnection is a connection between two items.
-//  */
-// export default class ItemConnection {
+export type ItemConnectionQueryResult = {
+  id: string;
+  type_id: string;
+  inward_item_id: string;
+  outward_item_id: string;
+}
 
-//   /** The connection's ID. */
-//   readonly id: ItemConnectionProperties["id"];
+export type InitialItemConnectionProperties = Omit<BaseItemConnectionProperties, "id">;
 
-//   /** The connection's type ID. */
-//   readonly typeID: ItemConnectionProperties["typeID"];
+export default class ItemConnection {
 
-//   /** The inward item ID of this connection. */
-//   readonly inwardItemID: ItemConnectionProperties["inwardItemID"];
+  static readonly name = "ItemConnection";
 
-//   /** The outward item ID of this connection. */
-//   readonly outwardItemID: ItemConnectionProperties["outwardItemID"];
+  /** The item connection's ID. */
+  readonly id: BaseItemConnectionProperties["id"];
 
-//   /** The client used to make requests. */
-//   readonly #client: Client;
+  /** The item connection's type ID. */
+  readonly typeID: BaseItemConnectionProperties["typeID"];
 
-//   constructor(data: ItemConnectionProperties, client: Client) {
+  /** The inward item ID of this connection. */
+  readonly inwardItemID: BaseItemConnectionProperties["inwardItemID"];
 
-//     this.id = data.id;
-//     this.typeID = data.typeID;
-//     this.inwardItemID = data.inwardItemID;
-//     this.outwardItemID = data.outwardItemID;
-//     this.#client = client;
+  /** The outward item ID of this connection. */
+  readonly outwardItemID: BaseItemConnectionProperties["outwardItemID"];
 
-//   }
+  /** The pool used to send queries to the database. */
+  readonly #pool: Pool
 
-//   /**
-//    * Requests the server to create a new item connection.
-//    *
-//    * @param data The data for the new item connection, excluding the ID.
-//    */
-//   static async create(data: Omit<ItemConnectionProperties, "id">, client: Client): Promise<ItemConnection> {
+  constructor(data: BaseItemConnectionProperties, pool: Pool) {
 
-//     const actionProperties = await client.fetch("/item-connections", {
-//       method: "POST",
-//       body: JSON.stringify(data)
-//     });
+    this.id = data.id;
+    this.typeID = data.typeID
+    this.inwardItemID = data.inwardItemID
+    this.outwardItemID = data.outwardItemID
+    this.#pool = pool;
 
-//     const itemConnection = new ItemConnection(actionProperties, client);
+  }
 
-//     return itemConnection;
+  static async initializeTable(pool: Pool): Promise<void> {
 
-//   }
+    const poolClient = await pool.connect();
 
-//   /**
-//    * Requests the server to return a specific item connection by ID.
-//    * @param id The ID of the item connection to retrieve.
-//    * @param client The client used to make requests.
-//    * @returns The requested item connection.
-//    */
-//   static async get(id: string, client: Client): Promise<ItemConnection> {
+    try {
 
-//     const itemConnectionProperties = await client.fetch(`/item-connections/${id}`);
+      const createItemConnectionsTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-item-connections-table.sql"), "utf8");
+      const createHydratedItemConnectionsViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-item-connections-view.sql"), "utf8");
+      await poolClient.query(createItemConnectionsTableQuery);
+      await poolClient.query(createHydratedItemConnectionsViewQuery);
 
-//     return new ItemConnection(itemConnectionProperties, client);
+    } finally {
 
-//   }
+      poolClient.release();
 
-//   /**
-//    * Requests the server to return a list of item connections.
-//    *
-//    * @param filterQuery A SlashstepQL filter to apply to the list of item connections.
-//    */
-//   static async list(filterQuery: string,  client: Client): Promise<ItemConnection[]> {
+    }
 
-//     const itemConnectionPropertiesList = await client.fetch(`/item-connections?filter-query=${filterQuery}`);
+  }
 
-//     if (!(itemConnectionPropertiesList instanceof Array)) {
+  static async getByID(id: string, pool: Pool): Promise<ItemConnection> {
 
-//       throw new Error(`Expected an array of item connections, but received ${typeof itemConnectionPropertiesList}`);
+    const poolClient = await pool.connect();
+    
+    try {
 
-//     }
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "get-item-connection-row.sql"), "utf8");
+      const result = await poolClient.query(query, [id]);
+      const row = result.rows[0];
 
-//     const itemConnections = itemConnectionPropertiesList.map((itemConnectionProperties) => new ItemConnection(itemConnectionProperties, client));
+      if (!row) {
 
-//     return itemConnections;
+        throw new ResourceNotFoundError("ItemConnection");
 
-//   }
+      }
 
-//   /**
-//    * Requests the server to delete this item connection.
-//    */
-//   async delete(): Promise<void> {
+      const itemConnection = new ItemConnection(ItemConnection.getPropertiesFromRow(row), pool);
 
-//     await this.#client.fetch(`/item-connections/${this.id}`, {
-//       method: "DELETE"
-//     });
+      return itemConnection;
 
-//   }
+    } finally {
 
-//   /**
-//    * Requests the server to update this item connection.
-//    *
-//    * @param data The data to update the item connection with.
-//    */
-//   async update(data: Partial<ItemConnectionProperties>): Promise<ItemConnection> {
+      poolClient.release();
 
-//     const editedItemConnectionData = await this.#client.fetch(`/item-connections/${this.id}`, {
-//       method: "PATCH",
-//       body: JSON.stringify(data)
-//     });
+    }
 
-//     return new ItemConnection(editedItemConnectionData, this.#client);
+  }
 
-//   }
+  static async create(data: InitialItemConnectionProperties, pool: Pool): Promise<ItemConnection> {
 
-// }
+    const poolClient = await pool.connect();
+
+    try {
+
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-item-connection-row.sql"), "utf8");
+      const values = [
+        data.typeID,
+        data.inwardItemID,
+        data.outwardItemID
+      ];
+      const result = await poolClient.query<ItemConnectionQueryResult>(query, values);
+
+      const rowData = result.rows[0];
+      const itemConnection = new ItemConnection(ItemConnection.getPropertiesFromRow(rowData), pool);
+
+      return itemConnection;
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
+  static getPropertiesFromRow(rowData: ItemConnectionQueryResult): BaseItemConnectionProperties {
+        
+    return {
+      id: rowData.id,
+      typeID: rowData.type_id,
+      inwardItemID: rowData.inward_item_id,
+      outwardItemID: rowData.outward_item_id
+    };
+    
+  }
+
+  async delete(): Promise<void> {
+
+    const poolClient = await this.#pool.connect();
+
+    try {
+
+      await poolClient.query("begin;");
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "delete-item-connection-row.sql"), "utf8");
+      await poolClient.query(query, [this.id]);
+      await poolClient.query("commit;");
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
+}

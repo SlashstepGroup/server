@@ -1,7 +1,7 @@
-import { Router } from "express";
-import projectRouter from "./[projectID]/index.js";
+// import { Router } from "express";
+// import projectRouter from "./[projectID]/index.js";
 
-const projectsRouter = Router({mergeParams: true});
-projectsRouter.use("/:projectID", projectRouter);
+// const projectsRouter = Router({mergeParams: true});
+// projectsRouter.use("/:projectID", projectRouter);
 
-export default projectsRouter;
+// export default projectsRouter;

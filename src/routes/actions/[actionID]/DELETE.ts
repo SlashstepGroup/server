@@ -5,35 +5,50 @@ import Action from "#resources/Action/Action.js";
 import authenticateApp from "#utilities/hooks/authenticateApp.js";
 import type { ResponseLocals } from "#utilities/types.js";
 import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import Role from "#resources/Role/Role.js";
+import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
+import ActionLog from "#resources/ActionLog/ActionLog.js";
 
 const deleteActionRouter = Router({mergeParams: true});
 deleteActionRouter.use(authenticateApp);
 deleteActionRouter.use(async (request: Request<{ actionID: string }>, response: Response<unknown, ResponseLocals>) => {
 
+  const { app, server } = response.locals;
+  let deleteActionAction: Action | null = null;
+  let action: Action | null = null;
+
   try {
 
-    const { actionID } = request.params;
-    const action = await Action.getByID(actionID, response.locals.server.pool);
-    const actionScopeData = action.getScopeData();
-    const deleteActionAction = await Action.getPreDefinedActionByName("slashstep.actions.delete", response.locals.server.pool);
+    if (!app) {
 
-    const { authenticatedApp } = response.locals;
-    if (!authenticatedApp) {
-
-      throw new UnauthenticatedError("This endpoint can only be accessed by apps.");
+      throw new UnauthenticatedError();
 
     }
+    
+    const { actionID } = request.params;
+    action = await Action.getByID(actionID, response.locals.server.pool);
+    const actionScopeData = action.getScopeData();
+    deleteActionAction = await Action.getPreDefinedActionByName("slashstep.actions.delete", response.locals.server.pool);
 
-    await authenticatedApp.verifyPermissions({Action, AccessPolicy}, deleteActionAction.id, actionScopeData);
+    await app.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, deleteActionAction.id, actionScopeData);
 
     await action.delete();
+    
+    await ActionLog.create({
+      actorType: "App",
+      actorAppID: app.id,
+      actorIPAddress: request.ip,
+      actionID: deleteActionAction.id,
+      targetResourceType: "Action",
+      targetActionID: action.id
+    }, server.pool);
 
     response.sendStatus(204);
 
   } catch (error) {
 
     if (error instanceof HTTPError) {
-
+      
       response.status(error.getStatusCode()).json(error);
 
     } else {

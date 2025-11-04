@@ -222,7 +222,7 @@ export default class App {
 
   async listRoleMemberships(roleMembershipClass: typeof RoleMembership, pool: Pool): Promise<RoleMembership[]> {
 
-    const roleMemberships = await roleMembershipClass.list(`principal_app_id = "${this.id}"`, pool);
+    const roleMemberships = await roleMembershipClass.list(`principalAppID = "${this.id}"`, pool);
     return roleMemberships;
 
   }

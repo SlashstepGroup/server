@@ -104,21 +104,6 @@ getAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, r
 
     if (error instanceof HTTPError) {
 
-      if (getAccessPolicyAction) {
-
-        await server.attemptToCreateActionLog({
-          actorType: app ? "App" : "User",
-          actorUserID: app ? null : user?.id,
-          actorAppID: app ? app.id : null,
-          actorIPAddress: request.ip,
-          actionID: getAccessPolicyAction.id,
-          targetResourceType: "AccessPolicy",
-          targetAccessPolicyID: accessPolicy?.id,
-          errorMessage: error.message
-        });
-
-      }
-
       response.status(error.getStatusCode()).json(error);
 
     } else {

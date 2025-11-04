@@ -228,7 +228,7 @@ export default class Role implements Principal {
 
     try {
 
-      const result = await poolClient.query<RoleTableQueryResult>(readFileSync(resolve(import.meta.dirname, "queries", "get-role-by-name.sql"), "utf8"), [name]);
+      const result = await poolClient.query<RoleTableQueryResult>(readFileSync(resolve(import.meta.dirname, "queries", "get-role-row-by-name.sql"), "utf8"), [name]);
       const rowData = result.rows[0];
 
       if (!rowData) {

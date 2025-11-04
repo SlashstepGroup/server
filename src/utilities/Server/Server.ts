@@ -14,9 +14,9 @@ import os from "os";
 import { createServer as createHTTPSServer } from "https";
 import instanceRouter from "#routes/instance/index.js";
 import itemsRouter from "#routes/items/index.js";
-import workspacesRouter from "#routes/workspaces/index.js";
-import projectsRouter from "#routes/projects/index.js";
-import usersRouter from "#routes/users/index.js";
+// import workspacesRouter from "#routes/workspaces/index.js";
+// import projectsRouter from "#routes/projects/index.js";
+// import usersRouter from "#routes/users/index.js";
 import express, { Application, Request, Response, response } from "express";
 import cors from "cors";
 import { read } from "read";
@@ -30,6 +30,12 @@ import Milestone from "#resources/Milestone/Milestone.js";
 import { Server as HTTPServer, createServer as createHTTPServer } from "http";
 import { Client as VaultClient } from "@litehex/node-vault";
 import AppCredential from "#resources/AppCredential/AppCredential.js";
+import AppAuthorization from "#resources/AppAuthorization/AppAuthorization.js";
+import Field from "#resources/Field/Field.js";
+import AppAuthorizationCredential from "#resources/AppAuthorizationCredential/AppAuthorizationCredential.js";
+import ItemConnection from "#resources/ItemConnection/ItemConnection.js";
+import { ItemConnectionType } from "#resources/ItemConnectionType/ItemConnectionType.js";
+import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
 
 export type ServerProperties = {
   environment: string;
@@ -127,19 +133,25 @@ export default class Server {
 
     }
 
-    await Group.initializeTable(this.pool);
-    await Workspace.initializeTable(this.pool);
-    await Project.initializeTable(this.pool);
-    await Role.initializeTable(this.pool);
-    await Milestone.initializeTable(this.pool);
-    await Item.initializeTable(this.pool);
-    await User.initializeTable(this.pool);
-    await App.initializeTable(this.pool);
-    await AppCredential.initializeTable(this.pool);
-    await Action.initializeTable(this.pool);
-    await AccessPolicy.initializeTable(this.pool);
-    await ActionLog.initializeTable(this.pool);
-    await Session.initializeTable(this.pool);
+    await Group.initializeTable(this.pool); // Self-referential.
+    await Workspace.initializeTable(this.pool); // No references.
+    await User.initializeTable(this.pool); // No references.
+    await Project.initializeTable(this.pool); // References workspaces.
+    await Item.initializeTable(this.pool); // References projects.
+    await Field.initializeTable(this.pool); // References workspaces and projects.
+    await Role.initializeTable(this.pool); // References workspaces, projects, and groups.
+    await Milestone.initializeTable(this.pool); // References projects and workspaces.
+    await App.initializeTable(this.pool); // References users and workspaces.
+    await AppCredential.initializeTable(this.pool); // References apps.
+    await AppAuthorization.initializeTable(this.pool); // References apps, projects, users, and workspaces.
+    await AppAuthorizationCredential.initializeTable(this.pool); // References app authorizations.
+    await RoleMembership.initializeTable(this.pool); // References roles, users, groups, and apps.
+    await Action.initializeTable(this.pool); // References apps.
+    await ItemConnectionType.initializeTable(this.pool); // References workspaces and projects.
+    await ItemConnection.initializeTable(this.pool); // References items and item connections.
+    await Session.initializeTable(this.pool); // References users.
+    await AccessPolicy.initializeTable(this.pool); // References all of the above.
+    await ActionLog.initializeTable(this.pool); // References all of the above.
 
   }
 
@@ -272,7 +284,8 @@ export default class Server {
                   user = await User.create({
                     username: instanceAdminUsername,
                     displayName: instanceAdminUsername,
-                    hashedPassword: await hashPassword(instanceAdminPassword)
+                    hashedPassword: await hashPassword(instanceAdminPassword),
+                    isAnonymous: false
                   }, this.pool);
 
                 } catch (error) {
@@ -355,12 +368,12 @@ export default class Server {
   setupRoutes() {
 
     this.app.use("/access-policies", accessPoliciesRouter);
-    this.app.use("/instance", instanceRouter);
-    this.app.use("/items", itemsRouter);
-    this.app.use("/projects", projectsRouter);
-    this.app.use("/workspaces", workspacesRouter);
-    this.app.use("/user", userRouter);
-    this.app.use("/users", usersRouter);
+    // this.app.use("/instance", instanceRouter);
+    // this.app.use("/items", itemsRouter);
+    // this.app.use("/projects", projectsRouter);
+    // this.app.use("/workspaces", workspacesRouter);
+    // this.app.use("/user", userRouter);
+    // this.app.use("/users", usersRouter);
 
     this.app.get("/", (_, response) => {
       

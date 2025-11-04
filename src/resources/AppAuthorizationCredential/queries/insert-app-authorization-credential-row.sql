@@ -1,0 +1,1 @@
+insert into app_authorization_credentials (app_authorization_id, expiration_date) values ($1, $2) returning *;

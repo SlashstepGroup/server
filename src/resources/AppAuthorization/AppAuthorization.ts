@@ -79,6 +79,25 @@ export default class AppAuthorization {
     
   }
 
+  static async initializeTable(pool: Pool): Promise<void> {
+
+    const poolClient = await pool.connect();
+
+    try {
+
+      const createAppsTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-app-authorizations-table.sql"), "utf8");
+      const createHydratedAppsViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-app-authorizations-view.sql"), "utf8");
+      await poolClient.query(createAppsTableQuery);
+      await poolClient.query(createHydratedAppsViewQuery);
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
   static async getByID(id: string, pool: Pool): Promise<AppAuthorization> {
 
     const poolClient = await pool.connect();
@@ -107,7 +126,6 @@ export default class AppAuthorization {
     }
 
   }
-
 
   static async create(data: InitialAppAuthorizationCredentialProperties, pool: Pool): Promise<AppAuthorization> {
 

@@ -11,6 +11,7 @@ import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
 import { ResponseLocals } from "#utilities/types.js";
 import storeAnonymousUser from "#utilities/hooks/storeAnonymousUser.js";
 import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import User from "#resources/User/User.js";
 
 const deleteAccessPolicyRouter = Router({mergeParams: true});
 deleteAccessPolicyRouter.use(authenticateUser);
@@ -59,21 +60,6 @@ deleteAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>
   } catch (error) {
 
     if (error instanceof HTTPError) {
-
-      if (deleteAccessPolicyAction) {
-
-        await server.attemptToCreateActionLog({
-          actorType: app ? "App" : "User",
-          actorUserID: app ? null : user?.id,
-          actorAppID: app ? app.id : null,
-          actorIPAddress: request.ip,
-          actionID: deleteAccessPolicyAction.id,
-          targetResourceType: "AccessPolicy",
-          targetAccessPolicyID: accessPolicy?.id,
-          errorMessage: error.message
-        });
-
-      }
 
       response.status(error.getStatusCode()).json(error);
 

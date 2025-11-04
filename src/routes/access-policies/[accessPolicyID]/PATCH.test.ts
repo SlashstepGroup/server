@@ -50,11 +50,13 @@ describe("Route: PATCH /access-policies/:accessPolicyID", async () => {
 
     // Grant unauthenticated users access to the action.
     const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.update", slashstepServer.pool);
+    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.accessPolicies.update");
+
+    const randomAction = await testEnvironment.createRandomAction();
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
       principalRoleID: unauthenticatedUsersRole.id,
-      actionID: getAccessPolicyAction.id,
+      actionID: randomAction.id,
       permissionLevel: AccessPolicyPermissionLevel.Editor,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
       scopedResourceType: AccessPolicyScopedResourceType.Instance
@@ -158,7 +160,8 @@ describe("Route: PATCH /access-policies/:accessPolicyID", async () => {
     const user = await User.create({
       username: TestEnvironment.generateRandomString(4),
       displayName: TestEnvironment.generateRandomString(16),
-      hashedPassword: TestEnvironment.generateRandomString(64)
+      hashedPassword: TestEnvironment.generateRandomString(64),
+      isAnonymous: false
     }, slashstepServer.pool);
 
     const session = await Session.create({

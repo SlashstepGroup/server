@@ -8,22 +8,23 @@ import { dirname, resolve } from "path";
 import type { default as Principal, PrincipalResourceClassMap } from "src/interfaces/Principal.js";
 import type { default as Role, InitialWritableRoleProperties } from "#resources/Role/Role.js";
 import type { default as RoleMembership } from "#resources/RoleMembership/RoleMembership.js";
+import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 
 export type UserProperties = {
   id: string;
   username?: string | null;
-  displayName: string;
+  displayName?: string | null;
   hashedPassword?: string | null;
   isAnonymous: boolean;
   ipAddress?: string | null;
 };
 
-export type InitialUserProperties = Omit<UserProperties, "id" | "isAnonymous"> & {isAnonymous?: boolean};
+export type InitialUserProperties = Omit<UserProperties, "id">;
 
 export type UserQueryResult = {
   id: string;
   username: string | null;
-  display_name: string;
+  display_name: string | null;
   is_anonymous: boolean;
   ip_address: string | null;
   hashed_password: string | null;
@@ -174,7 +175,6 @@ export default class User implements Principal {
 
       const query = readFileSync(resolve(import.meta.dirname, "queries", "get-user-row-by-ip-address.sql"), "utf8");
       const result = await poolClient.query(query, [ipAddress]);
-      poolClient.release();
 
       // Convert the user data into a User object.
       const row = result.rows[0];
@@ -224,7 +224,7 @@ export default class User implements Principal {
 
   async listRoleMemberships(roleMembershipClass: typeof RoleMembership, pool: Pool): Promise<RoleMembership[]> {
 
-    const roleMemberships = await roleMembershipClass.list(`principal_user_id = "${this.id}"`, pool);
+    const roleMemberships = await roleMembershipClass.list(`principalUserID = "${this.id}"`, pool);
     return roleMemberships;
 
   }
@@ -324,7 +324,15 @@ export default class User implements Principal {
     const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, scope, minimumPermissionLevel);
     if (!canPrincipalAccess) {
 
-      throw new ForbiddenError();
+      if (this.isAnonymous) {
+
+        throw new UnauthenticatedError();
+
+      } else {
+
+        throw new ForbiddenError();
+
+      }
 
     }
 

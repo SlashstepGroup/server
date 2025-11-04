@@ -1,22 +1,25 @@
 import HTTPError from "#errors/HTTPError.js";
 import SlashstepQLInvalidKeyError from "#errors/SlashstepQLInvalidKeyError.js";
 import SlashstepQLInvalidQueryError from "#errors/SlashstepQLInvalidQueryError.js";
+import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js";
+import ActionLog from "#resources/ActionLog/ActionLog.js";
 import Role from "#resources/Role/Role.js";
-import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
 import authenticateApp from "#utilities/hooks/authenticateApp.js";
 import authenticateAppAuthorization from "#utilities/hooks/authenticateAppAuthorization.js";
 import authenticateUser from "#utilities/hooks/authenticateUser.js";
+import storeAnonymousUser from "#utilities/hooks/storeAnonymousUser.js";
 import HTTPInputValidator from "#utilities/HTTPInputValidator/HTTPInputValidator.js";
 import { ResourceClassMap, ResponseLocals } from "#utilities/types.js";
 import { Response, Router } from "express";
+import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
 
 const listAccessPoliciesRouter = Router({mergeParams: true});
-listAccessPoliciesRouter.use(allowUnauthenticatedRequests);
 listAccessPoliciesRouter.use(authenticateUser);
 listAccessPoliciesRouter.use(authenticateApp);
 listAccessPoliciesRouter.use(authenticateAppAuthorization);
+listAccessPoliciesRouter.use(storeAnonymousUser);
 listAccessPoliciesRouter.use(async (request, response: Response<unknown, ResponseLocals>) => {
 
   try {
@@ -89,21 +92,28 @@ listAccessPoliciesRouter.use(async (request, response: Response<unknown, Respons
     // }
 
     const listActionsAction = await Action.getPreDefinedActionByName("slashstep.actions.list", response.locals.server.pool);
-    const { authenticatedUser } = response.locals;
-    if (authenticatedUser) {
-
-      await authenticatedUser.verifyPermissions({Action, AccessPolicy}, listActionsAction.id);
-
-    } else {
-
-      await Role.verifyPermissionsForUnauthenticatedUsers({Action, AccessPolicy}, listActionsAction.id, response.locals.server.pool);
+    const { user, app, server } = response.locals;
+    const principal = app ?? user;
+    if (!principal) {
+      
+      throw new UnauthenticatedError();
 
     }
 
-    const { server } = response.locals;
+    await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, listActionsAction.id);
+
     const items = await Action.list(query ?? "", server.pool);
     const totalItemCount = await Action.count(query ?? "", server.pool);
     
+    await ActionLog.create({
+      actorType: app ? "App" : "User",
+      actorUserID: app ? null : user?.id,
+      actorAppID: app ? app.id : null,
+      actorIPAddress: request.ip,
+      actionID: listActionsAction.id,
+      targetResourceType: "Instance"
+    }, server.pool);
+
     response.json({
       totalItemCount,
       items

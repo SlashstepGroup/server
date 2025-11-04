@@ -29,7 +29,6 @@ async function storeAnonymousUser(request: Request, response: Response<unknown, 
 
         ipUser = await User.create({
           ipAddress: request.ip,
-          displayName: request.ip,
           isAnonymous: true
         }, response.locals.server.pool);
 
@@ -43,7 +42,7 @@ async function storeAnonymousUser(request: Request, response: Response<unknown, 
 
     // Make sure the user has the unauthenticated-users role.
     const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", response.locals.server.pool);
-    const roleMemberships = await RoleMembership.list(`role_id = "${unauthenticatedUsersRole.id} and principal_user_id = "${ipUser.id}"`, response.locals.server.pool);
+    const roleMemberships = await RoleMembership.list(`roleID = "${unauthenticatedUsersRole.id}" and principalUserID = "${ipUser.id}"`, response.locals.server.pool);
     if (!roleMemberships.find((roleMembership) => roleMembership.roleID === unauthenticatedUsersRole.id)) {
 
       await RoleMembership.create({

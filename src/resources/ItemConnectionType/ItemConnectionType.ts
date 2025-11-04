@@ -1,104 +1,164 @@
-// import { ResourceType } from "#utilities/types.js";
-// import Client from "../../utilities/Client.js";
+import { StringUnion } from "#utilities/types.js";
+import { Pool } from "pg";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
-// export type ItemConnectionTypeProperties = {
-//   id: string;
-//   name: string;
-//   inwardDescription: string;
-//   outwardDescription: string;
-//   parentResourceType: ResourceType;
-//   parentResourceID: string;
-// }
+export type ItemConnectionTypeQueryResult = {
+  id: string;
+  display_name: string;
+  inward_description: string;
+  outward_description: string;
+  parent_resource_type: StringUnion<ItemConnectionTypeParentResourceType>;
+  parent_project_id: string;
+  parent_workspace_id: string;
+}
 
-// /**
-//  * An ItemConnectionType is a type of a connection between two items.
-//  */
-// export default class ItemConnectionType {
+export enum ItemConnectionTypeParentResourceType {
+  Project = "Project",
+  Workspace = "Workspace"
+}
 
-//   /** The connection type's ID. */
-//   readonly id: ItemConnectionTypeProperties["id"];
+export type BaseItemConnectionTypeProperties = {
+  id: string;
+  displayName: string;
+  inwardDescription: string;
+  outwardDescription: string;
+  parentResourceType: StringUnion<ItemConnectionTypeParentResourceType>;
+  parentProjectID?: string | null;
+  parentWorkspaceID?: string | null;
+}
 
-//   /** The connection type's name. */
-//   readonly name: ItemConnectionTypeProperties["name"];
+export type InitialItemConnectionTypeProperties = Omit<BaseItemConnectionTypeProperties, "id">;
 
-//   /** The inward description of the connection type. */
-//   readonly inwardDescription: ItemConnectionTypeProperties["inwardDescription"];
+export class ItemConnectionType {
 
-//   /** The outward description of the connection type. */
-//   readonly outwardDescription: ItemConnectionTypeProperties["outwardDescription"];
+  static readonly name = "ItemConnectionType";
 
-//   /** The resource type that this connection type belongs to. */
-//   readonly parentResourceType: ItemConnectionTypeProperties["parentResourceType"];
+  /** The item connection type's ID. */
+  readonly id: BaseItemConnectionTypeProperties["id"];
 
-//   /** The ID of the resource that this connection type belongs to. */
-//   readonly parentResourceID: ItemConnectionTypeProperties["parentResourceID"];
+  /** The item connection type's display name. */
+  readonly displayName: BaseItemConnectionTypeProperties["displayName"];
 
-//   /** The client used to make requests. */
-//   readonly #client: Client;
+  /** The item connection type's inward description. */
+  readonly inwardDescription: BaseItemConnectionTypeProperties["inwardDescription"];
 
-//   constructor(data: ItemConnectionTypeProperties, client: Client) {
+  /** The item connection type's outward description. */
+  readonly outwardDescription: BaseItemConnectionTypeProperties["outwardDescription"];
 
-//     this.id = data.id;
-//     this.name = data.name;
-//     this.inwardDescription = data.inwardDescription;
-//     this.outwardDescription = data.outwardDescription;
-//     this.parentResourceType = data.parentResourceType;
-//     this.parentResourceID = data.parentResourceID;
-//     this.#client = client;
+  /** The item connection type's parent resource type. */
+  readonly parentResourceType: BaseItemConnectionTypeProperties["parentResourceType"];
 
-//   }
+  /** The item connection type's parent project ID, if applicable. */
+  readonly parentProjectID: BaseItemConnectionTypeProperties["parentProjectID"];
 
-//   /**
-//    * Requests the server to create a new itemConnectionType.
-//    *
-//    * @param data The data for the new ItemConnectionType, excluding the ID.
-//    */
-//   static async create(data: Omit<ItemConnectionTypeProperties, "id">, client: Client): Promise<ItemConnectionType> {
+  /** The item connection type's parent workspace ID, if applicable. */
+  readonly parentWorkspaceID: BaseItemConnectionTypeProperties["parentWorkspaceID"];
 
-//     const actionProperties = await client.fetch("/item-connection-types", {
-//       method: "POST",
-//       body: JSON.stringify(data)
-//     });
+  /** The pool used to send queries to the database. */
+  readonly #pool: Pool
 
-//     const itemConnectionType = new ItemConnectionType(actionProperties, client);
+  constructor(data: BaseItemConnectionTypeProperties, pool: Pool) {
 
-//     return itemConnectionType;
+    this.id = data.id;
+    this.displayName = data.displayName;
+    this.inwardDescription = data.inwardDescription;
+    this.outwardDescription = data.outwardDescription;
+    this.parentResourceType = data.parentResourceType;
+    this.parentProjectID = data.parentProjectID;
+    this.parentWorkspaceID = data.parentWorkspaceID;
+    this.#pool = pool;
 
-//   }
+  }
 
-//   /**
-//    * Requests the server to return a specific itemConnectionType by ID.
-//    * @param id The ID of the itemConnectionType to retrieve.
-//    * @param client The client used to make requests.
-//    * @returns The requested itemConnectionType.
-//    */
-//   static async get(id: string, client: Client): Promise<ItemConnectionType> {
+  /**
+   * Requests the server to create a new item connection type.
+   *
+   * @param data The data for the new item connection type, excluding the ID.
+   */
+  static async create(data: InitialItemConnectionTypeProperties, pool: Pool): Promise<ItemConnectionType> {
 
-//     const itemConnectionTypeProperties = await client.fetch(`/item-connection-types/${id}`);
+    // Insert the item connection type into the database.
+    const poolClient = await pool.connect();
 
-//     return new ItemConnectionType(itemConnectionTypeProperties, client);
+    try {
 
-//   }
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-item-connection-type-row.sql"), "utf8");
+      const values = [
+        data.displayName,
+        data.inwardDescription,
+        data.outwardDescription,
+        data.parentResourceType,
+        data.parentProjectID,
+        data.parentWorkspaceID
+      ];
+      const result = await poolClient.query<ItemConnectionTypeQueryResult>(query, values);
 
-//   /**
-//    * Requests the server to return a list of item connection types.
-//    *
-//    * @param filterQuery A SlashstepQL filter to apply to the list of item connection types.
-//    */
-//   static async list(filterQuery: string,  client: Client): Promise<ItemConnectionType[]> {
+      // Convert the row to an item connection type object.
+      const rowData = result.rows[0];
+      const itemConnectionType = new ItemConnectionType(ItemConnectionType.getPropertiesFromRow(rowData), pool);
 
-//     const itemConnectionTypePropertiesList = await client.fetch(`/item-connection-types?filter-query=${filterQuery}`);
+      // Return the item connection type.
+      return itemConnectionType;
 
-//     if (!(itemConnectionTypePropertiesList instanceof Array)) {
+    } finally {
 
-//       throw new Error(`Expected an array of item connection types, but received ${typeof itemConnectionTypePropertiesList}`);
+      poolClient.release();
 
-//     }
+    }
 
-//     const itemConnectionTypes = itemConnectionTypePropertiesList.map((itemConnectionTypeProperties) => new ItemConnectionType(itemConnectionTypeProperties, client));
+  }
 
-//     return itemConnectionTypes;
+  static async initializeTable(pool: Pool): Promise<void> {
 
-//   }
+    const poolClient = await pool.connect();
 
-// }
+    try {
+
+      const createItemConnectionTypesTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-item-connection-types-table.sql"), "utf8");
+      const createHydratedItemConnectionTypesViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-item-connection-types-view.sql"), "utf8");
+      await poolClient.query(createItemConnectionTypesTableQuery);
+      await poolClient.query(createHydratedItemConnectionTypesViewQuery);
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
+  static getPropertiesFromRow(rowData: ItemConnectionTypeQueryResult): BaseItemConnectionTypeProperties {
+        
+    return {
+      id: rowData.id,
+      displayName: rowData.display_name,
+      inwardDescription: rowData.inward_description,
+      outwardDescription: rowData.outward_description,
+      parentResourceType: rowData.parent_resource_type,
+      parentProjectID: rowData.parent_project_id,
+      parentWorkspaceID: rowData.parent_workspace_id
+    };
+    
+  }
+
+  async delete(): Promise<void> {
+
+    const poolClient = await this.#pool.connect();
+
+    try {
+
+      await poolClient.query("begin;");
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "delete-item-connection-type-row.sql"), "utf8");
+      await poolClient.query(query, [this.id]);
+      await poolClient.query("commit;");
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
+}

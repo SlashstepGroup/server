@@ -6,7 +6,7 @@ import type { default as Item } from "#resources/Item/Item.js";
 import type { default as Milestone } from "#resources/Milestone/Milestone.js";
 import type { default as Project } from "#resources/Project/Project.js";
 import type { default as Role } from "#resources/Role/Role.js";
-import Session from "#resources/Session/Session.js";
+import type { default as Session } from "#resources/Session/Session.js";
 import type { default as User } from "#resources/User/User.js";
 import type { default as Workspace } from "#resources/Workspace/Workspace.js";
 import type { default as Server } from "#utilities/Server/Server.js";
@@ -34,3 +34,6 @@ export type ResourceClassMap = Record<string, (
   | typeof User
   | typeof Workspace
 )>;
+
+export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
+export type StringUnion<T extends string> = T | `${T}`;

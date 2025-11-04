@@ -51,7 +51,8 @@ describe("Class: AccessPolicy", async () => {
     const user = await User.create({
       username: generateUUIDv7().replaceAll("-", ""), // This should be exactly 32 characters
       displayName: generateRandomString(32),
-      hashedPassword: generateRandomString(64)
+      hashedPassword: generateRandomString(64),
+      isAnonymous: false
     }, slashstepServer.pool);
 
     return user;

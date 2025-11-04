@@ -1,158 +1,264 @@
-// import Client from "#utilities/Client.js";
-// import { ResourceType } from "#utilities/types.js";
+import { DatabaseError, Pool } from "pg";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
+import { StringUnion } from "#utilities/types.js";
+import ResourceConflictError from "#errors/ResourceConflictError.js";
 
-// export type SelectFieldProperties = FieldProperties<"Select", {
-//   choices: Choice[];
-//   defaultValue?: string[];
-//   minimumChoices?: number;
-//   maximumChoices?: number;
-// }>
+export enum FieldType {
+  Text = "Text",
+  Number = "Number",
+  Date = "Date",
+  Checkbox = "Checkbox",
+  Stakeholder = "Stakeholder"
+}
 
-// export type ResourceFieldProperties = FieldProperties<"Resource", {
-//   resourceType?: ResourceType;
-//   filterQuery?: string;
-//   defaultValue?: string[];
-//   minimumChoices?: number;
-//   maximumChoices?: number;
-// }>
+export enum FieldParentResourceType {
+  Workspace = "Workspace",
+  Project = "Project"
+}
 
-// export type ItemConnectionFieldProperties = FieldProperties<"ItemConnection", {
-//   minimumChoices?: number;
-//   maximumChoices?: number;
-// }>
+export type BaseFieldProperties = {
+  id: string;
+  name: string;
+  displayName: string;
+  type: StringUnion<FieldType>;
+  description?: string | null;
+  parentResourceType: StringUnion<FieldParentResourceType>;
+  parentWorkspaceID?: string | null;
+  parentProjectID?: string | null;
+  areStakeholderReviewsEnabled?: boolean | null;
+  minimumValue?: number | null;
+  maximumValue?: number | null;
+  minimumChoices?: number | null;
+  maximumChoices?: number | null;
+  isRequired: boolean;
+}
 
-// export type NumberFieldProperties = FieldProperties<"Number", {
-//   minimumValue?: number;
-//   maximumValue?: number;
-//   defaultValue?: number;
-// }>
+export type FieldQueryResult = {
+  id: string;
+  name: string;
+  display_name: string;
+  type: StringUnion<FieldType>;
+  description: string;
+  parent_resource_type: StringUnion<FieldParentResourceType>;
+  parent_workspace_id: string;
+  parent_project_id: string;
+  are_stakeholder_reviews_enabled: boolean;
+  minimum_value: number;
+  maximum_value: number;
+  minimum_choices: number;
+  maximum_choices: number;
+  is_required: boolean;
+}
 
-// export type DateFieldProperties = FieldProperties<"Date", {
-//   minimumValue?: Date;
-//   maximumValue?: Date;
-//   defaultValue?: Date;
-// }>
+export type InitialFieldProperties = Omit<BaseFieldProperties, "id">;
 
-// export type BooleanFieldProperties = FieldProperties<"Boolean", {
-//   defaultValue?: boolean;
-// }>
+/**
+ * A Field is a type of data structure that holds a value for a specific item.
+ */
+export default class Field {
 
-// export type StakeholderFieldProperties = FieldProperties<"Stakeholder", {
-//   areReviewsEnabled?: boolean;
-//   defaultValue?: string[]; /** Principal IDs */
-//   filterQuery?: string;
-//   minimumChoices?: number;
-//   maximumChoices?: number;
-// }>
+  static readonly name = "Field";
 
-// export type Choice = {
-//   id: string;
-//   name: string;
-//   colorHex: string;
-// }
+  /** The field's ID. */
+  readonly id: BaseFieldProperties["id"];
 
-// export type FieldProperties<FieldType extends string = string, Attributes extends Record<string, unknown> = Record<string, unknown>> = {
-//   id: string;
-//   name: string;
-//   displayName: string;
-//   type: FieldType;
-//   description?: string;
-//   parentResourceID: string;
-//   parentResourceType: "Workspace" | "Project";
-//   attributes: Attributes;
-// }
+  /** The field's name. */
+  readonly name: BaseFieldProperties["name"];
 
+  /** The field's display name. */
+  readonly displayName: BaseFieldProperties["displayName"];
 
-// /**
-//  * A Field is a type of data structure that holds a value for a specific item.
-//  */
-// export default class Field<SelectedFieldProperties extends FieldProperties = FieldProperties> {
+  /** The field's type. */
+  readonly type: BaseFieldProperties["type"];
 
-//   static readonly name = "Field";
+  /** The field's description, if applicable. */
+  readonly description: BaseFieldProperties["description"];
 
-//   /** The field's ID. */
-//   readonly id: SelectedFieldProperties["id"];
+  /** The field's parent resource type. */
+  readonly parentResourceType: BaseFieldProperties["parentResourceType"];
 
-//   /** The field's name. */
-//   readonly name: SelectedFieldProperties["name"];
+  /** The field's parent workspace ID. */
+  readonly parentWorkspaceID: BaseFieldProperties["parentWorkspaceID"];
 
-//   /** The field's display name. */
-//   readonly displayName: SelectedFieldProperties["displayName"];
+  /** The field's parent project ID. */
+  readonly parentProjectID: BaseFieldProperties["parentProjectID"];
 
-//   /** The field's description, if applicable. */
-//   readonly description: SelectedFieldProperties["description"];
+  /** Whether stakeholder reviews are enabled for this field. This only has an effect on stakeholder fields. */
+  readonly areStakeholderReviewsEnabled: BaseFieldProperties["areStakeholderReviewsEnabled"];
 
-//   /** The field's parent resource ID. */
-//   readonly parentResourceID: SelectedFieldProperties["parentResourceID"];
+  /** The minimum value for this field. This only has an effect on number fields. */
+  readonly minimumValue: BaseFieldProperties["minimumValue"];
 
-//   /** The field's parent resource type, such as "Workspace" or "Project". */
-//   readonly parentResourceType: SelectedFieldProperties["parentResourceType"];
+  /** The maximum value for this field. This only has an effect on number fields. */
+  readonly maximumValue: BaseFieldProperties["maximumValue"];
 
-//   /** The field's type. */
-//   readonly type: SelectedFieldProperties["type"];
+  /** The minimum number of choices for this field. This only has an effect on choice fields. */
+  readonly minimumChoices: BaseFieldProperties["minimumChoices"];
 
-//   /** The field's attributes, if applicable. */
-//   readonly attributes: SelectedFieldProperties["attributes"];
+  /** The maximum number of choices for this field. This only has an effect on choice fields. */
+  readonly maximumChoices: BaseFieldProperties["maximumChoices"];
 
-//   /** The client used to make requests. */
-//   readonly #client: Client;
+  /** Whether the field is required. */
+  readonly isRequired: BaseFieldProperties["isRequired"];
 
-//   constructor(data: SelectedFieldProperties, client: Client) {
+  readonly #pool: Pool;
 
-//     this.id = data.id;
-//     this.name = data.name;
-//     this.displayName = data.displayName;
-//     this.description = data.description;
-//     this.parentResourceID = data.parentResourceID;
-//     this.parentResourceType = data.parentResourceType;
-//     this.type = data.type;
-//     this.attributes = data.attributes;
-//     this.#client = client;
+  constructor(data: BaseFieldProperties, pool: Pool) {
 
-//   }
+    this.id = data.id;
+    this.name = data.name;
+    this.displayName = data.displayName;
+    this.type = data.type;
+    this.description = data.description;
+    this.parentResourceType = data.parentResourceType;
+    this.parentWorkspaceID = data.parentWorkspaceID;
+    this.parentProjectID = data.parentProjectID;
+    this.areStakeholderReviewsEnabled = data.areStakeholderReviewsEnabled;
+    this.minimumValue = data.minimumValue;
+    this.maximumValue = data.maximumValue;
+    this.minimumChoices = data.minimumChoices;
+    this.maximumChoices = data.maximumChoices;
+    this.isRequired = data.isRequired;
+    this.#pool = pool;
 
-//   /**
-//    * Requests the server for a list of fields. 
-//    * 
-//    * Attempts to return the specific field type if known, otherwise returns a generic Field.
-//    * 
-//    * @param data The data for the new Field, excluding the ID.
-//    */
-//   static async list(filterQuery: string, client: Client): Promise<(Field<SelectFieldProperties> | Field<ResourceFieldProperties> | Field<StakeholderFieldProperties> | Field<BooleanFieldProperties> | Field<ItemConnectionFieldProperties> | Field<NumberFieldProperties> | Field<DateFieldProperties>)[]> {
+  }
 
-//     const fieldsData = await client.fetch(`/fields?filter-query=${filterQuery}`);
+  static async getByID(id: string, pool: Pool): Promise<Field> {
+  
+    const poolClient = await pool.connect();
 
-//     const fields = fieldsData.map((fieldData: FieldProperties) => new Field(fieldData, client));
+    try {
 
-//     return fields;
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "get-field-row.sql"), "utf8");
+      const result = await poolClient.query(query, [id]);
 
-//   }
+      const rowData = result.rows[0];
 
-//   /**
-//    * Requests the server to update this field.
-//    * 
-//    * @param data The data to update the field with.
-//    */
-//   async update(data: Omit<Partial<SelectedFieldProperties>, "id" | "type" | "creationTime" | "updateTime">): Promise<Field<SelectedFieldProperties>> {
+      if (!rowData) {
 
-//     const editedFieldData = await this.#client.fetch(`/fields/${this.id}`, {
-//       method: "PATCH",
-//       body: JSON.stringify(data)
-//     });
+        throw new ResourceNotFoundError("Field");
 
-//     return new Field(editedFieldData, this.#client);
+      }
 
-//   }
+      const field = new Field(Field.getPropertiesFromRow(rowData), pool);
 
-//   /**
-//    * Requests the server to delete this field.
-//    */
-//   async delete(): Promise<void> {
+      return field;
 
-//     await this.#client.fetch(`/fields/${this.id}`, {
-//       method: "DELETE"
-//     });
+    } finally {
 
-//   }
+      poolClient.release();
 
-// }
+    }
+
+  }
+
+  static async create(data: InitialFieldProperties, pool: Pool): Promise<Field> {
+
+    const poolClient = await pool.connect();
+
+    try {
+      
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-field-row.sql"), "utf8");
+      const values = [
+        data.name,
+        data.displayName,
+        data.type,
+        data.description,
+        data.parentResourceType,
+        data.parentWorkspaceID,
+        data.parentProjectID,
+        data.areStakeholderReviewsEnabled,
+        data.minimumValue,
+        data.maximumValue,
+        data.minimumChoices,
+        data.maximumChoices,
+        data.isRequired
+      ];
+      const result = await poolClient.query<FieldQueryResult>(query, values);
+
+      const rowData = result.rows[0];
+      const accessPolicy = new Field(Field.getPropertiesFromRow(rowData), pool);
+
+      return accessPolicy;
+
+    } catch (error) {
+      
+      if (error instanceof DatabaseError && error.code === "23505") {
+
+        throw new ResourceConflictError("Field");
+        
+      }
+
+      throw error;
+      
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
+  static async initializeTable(pool: Pool): Promise<void> {
+
+    const poolClient = await pool.connect();
+
+    try {
+
+      await poolClient.query("begin;");
+      const createFieldsTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-fields-table.sql"), "utf8");
+      const createHydratedFieldsViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-fields-view.sql"), "utf8");
+      await poolClient.query(createFieldsTableQuery);
+      await poolClient.query(createHydratedFieldsViewQuery);
+      await poolClient.query("commit;");
+
+    } finally {
+
+      poolClient.release();
+
+    }
+
+  }
+
+  static getPropertiesFromRow(rowData: FieldQueryResult): BaseFieldProperties {
+        
+    return {
+      id: rowData.id,
+      name: rowData.name,
+      displayName: rowData.display_name,
+      type: rowData.type,
+      description: rowData.description,
+      parentResourceType: rowData.parent_resource_type,
+      parentWorkspaceID: rowData.parent_workspace_id,
+      parentProjectID: rowData.parent_project_id,
+      areStakeholderReviewsEnabled: rowData.are_stakeholder_reviews_enabled,
+      minimumValue: rowData.minimum_value,
+      maximumValue: rowData.maximum_value,
+      minimumChoices: rowData.minimum_choices,
+      maximumChoices: rowData.maximum_choices,
+      isRequired: rowData.is_required
+    };
+    
+  }
+
+  async delete(): Promise<void> {
+
+    const poolClient = await this.#pool.connect();
+    try {
+
+      await poolClient.query("begin;");
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "delete-app-authorization-row.sql"), "utf8");
+      await poolClient.query(query, [this.id]);
+      await poolClient.query("commit;");
+
+    } finally {
+      
+      poolClient.release();
+
+    }
+
+  }
+
+}

@@ -10,6 +10,7 @@ import { ResponseLocals } from "#utilities/types.js";
 import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
 import storeAnonymousUser from "#utilities/hooks/storeAnonymousUser.js";
 import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import ActionLog from "#resources/ActionLog/ActionLog.js";
 
 const updateAccessPolicyRouter = Router({mergeParams: true});
 updateAccessPolicyRouter.use(authenticateUser);
@@ -54,26 +55,21 @@ updateAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string },
       permissionLevel: AccessPolicy.validatePropertyValue("permissionLevel", request.body.permissionLevel)
     });
 
+    await ActionLog.create({
+      actorType: app ? "App" : "User",
+      actorUserID: app ? null : user?.id,
+      actorAppID: app ? app.id : null,
+      actorIPAddress: request.ip,
+      actionID: updateAccessPolicyAction.id,
+      targetResourceType: "AccessPolicy",
+      targetAccessPolicyID: accessPolicy.id
+    }, server.pool);
+
     response.json(updatedAccessPolicy);
 
   } catch (error) {
 
     if (error instanceof HTTPError) {
-
-      if (updateAccessPolicyAction) {
-
-        await server.attemptToCreateActionLog({
-          actorType: app ? "App" : "User",
-          actorUserID: app ? null : user?.id,
-          actorAppID: app ? app.id : null,
-          actorIPAddress: request.ip,
-          actionID: updateAccessPolicyAction.id,
-          targetResourceType: "AccessPolicy",
-          targetAccessPolicyID: accessPolicy?.id,
-          errorMessage: error.message
-        });
-
-      }
 
       response.status(error.getStatusCode()).json(error);
 

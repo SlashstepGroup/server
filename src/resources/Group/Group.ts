@@ -66,13 +66,20 @@ export default class Group {
    */
   static async initializeTable(pool: Pool): Promise<void> {
 
-    // Create the table.
     const poolClient = await pool.connect();
-    const createAccessPoliciesTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-groups-table.sql"), "utf8");
-    const createHydratedGroupsViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-groups-view.sql"), "utf8");
-    await poolClient.query(createAccessPoliciesTableQuery);
-    await poolClient.query(createHydratedGroupsViewQuery);
-    poolClient.release();
+    
+    try {
+
+      const createAccessPoliciesTableQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-groups-table.sql"), "utf8");
+      const createHydratedGroupsViewQuery = readFileSync(resolve(import.meta.dirname, "queries", "create-hydrated-groups-view.sql"), "utf8");
+      await poolClient.query(createAccessPoliciesTableQuery);
+      await poolClient.query(createHydratedGroupsViewQuery);
+
+    } finally {
+
+      poolClient.release();
+
+    }
 
   }
 

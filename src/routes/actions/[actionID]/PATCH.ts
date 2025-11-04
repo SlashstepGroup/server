@@ -5,31 +5,37 @@ import Action from "#resources/Action/Action.js";
 import authenticateApp from "#utilities/hooks/authenticateApp.js";
 import type { ResponseLocals } from "#utilities/types.js";
 import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import ActionLog from "#resources/ActionLog/ActionLog.js";
+import Role from "#resources/Role/Role.js";
+import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
+import BadRequestError from "#errors/BadRequestError.js";
 
 const patchActionRouter = Router({mergeParams: true});
 patchActionRouter.use(authenticateApp);
 patchActionRouter.use(async (request: Request<{ actionID: string }>, response: Response<unknown, ResponseLocals>) => {
 
+  const { app, server } = response.locals;
+  let updateActionAction: Action | null = null;
+
   try {
-
-    const { actionID } = request.params;
-    const action = await Action.getByID(actionID, response.locals.server.pool);
-    const actionScopeData = action.getScopeData();
-    const updateActionAction = await Action.getPreDefinedActionByName("slashstep.actions.update", response.locals.server.pool);
-
-    const { authenticatedApp } = response.locals;
-    if (!authenticatedApp) {
+    
+    if (!app) {
 
       throw new UnauthenticatedError("This endpoint can only be accessed by apps.");
 
     }
 
-    await authenticatedApp.verifyPermissions({Action, AccessPolicy}, updateActionAction.id, actionScopeData);
+    const { actionID } = request.params;
+    const action = await Action.getByID(actionID, response.locals.server.pool);
+    const actionScopeData = action.getScopeData();
+    updateActionAction = await Action.getPreDefinedActionByName("slashstep.actions.update", response.locals.server.pool);
+
+    await app.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, updateActionAction.id, actionScopeData);
     
     // Update the action.
     if (!request.body) {
 
-      throw new HTTPError(400, "The request body must be a JSON object.");
+      throw new BadRequestError("The request body must be a JSON object.");
 
     }
 
@@ -38,6 +44,15 @@ patchActionRouter.use(async (request: Request<{ actionID: string }>, response: R
       displayName: Action.validatePropertyValue("displayName", request.body.displayName),
       description: Action.validatePropertyValue("description", request.body.description)
     });
+
+    await ActionLog.create({
+      actorType: "App",
+      actorAppID: app.id,
+      actorIPAddress: request.ip,
+      actionID: updateActionAction.id,
+      targetResourceType: "Action",
+      targetActionID: action.id
+    }, server.pool);
 
     response.json(updatedAction);
 
