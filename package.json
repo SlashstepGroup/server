@@ -4,6 +4,7 @@
   "description": "JavaScript software development kit for developing applications for Slashstep.",
   "type": "module",
   "main": "./dist/app.js",
+  "private": true,
   "scripts": {
     "build": "tsc -b --clean && tsc -b --project tsconfig.build.json",
     "dev": "tsc --project tsconfig.build.json && copyfiles -u 1 src/**/*.sql dist && node --env-file=.env --trace-deprecation ./dist/app.js",
