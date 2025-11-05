@@ -34,7 +34,7 @@ import AppAuthorization from "#resources/AppAuthorization/AppAuthorization.js";
 import Field from "#resources/Field/Field.js";
 import AppAuthorizationCredential from "#resources/AppAuthorizationCredential/AppAuthorizationCredential.js";
 import ItemConnection from "#resources/ItemConnection/ItemConnection.js";
-import { ItemConnectionType } from "#resources/ItemConnectionType/ItemConnectionType.js";
+import ItemConnectionType from "#resources/ItemConnectionType/ItemConnectionType.js";
 import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
 import Principal from "src/interfaces/Principal.js";
 import UnauthenticatedError from "#errors/UnauthenticatedError.js";
@@ -171,6 +171,7 @@ export default class Server {
     await Action.initializePreDefinedRoles(Role, this.pool);
     await Action.initializePreDefinedRoleAccessPolicies({AccessPolicy, Role}, this.pool);
     await User.initializePreDefinedRoles(Role, this.pool);
+    await ActionLogEntry.initializeActions(Action, this.pool);
 
   }
 

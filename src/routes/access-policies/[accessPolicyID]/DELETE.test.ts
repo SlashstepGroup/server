@@ -52,13 +52,13 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
 
   it("can return a 204 status code if successful", async () => {
 
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.accessPolicies.delete");
+    const anonymousUsersRole = await Role.getByName("anonymous-users", slashstepServer.pool);
+    await testEnvironment.createAccessPolicyForAnonymousUsers("slashstep.accessPolicies.delete");
 
     const randomAction = await testEnvironment.createRandomAction();
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
+      principalRoleID: anonymousUsersRole.id,
       actionID: randomAction.id,
       permissionLevel: AccessPolicyPermissionLevel.Editor,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
@@ -76,13 +76,13 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
 
   it("can create an action log for a successful delete", async () => {
 
-    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.accessPolicies.delete");
+    await testEnvironment.createAccessPolicyForAnonymousUsers("slashstep.accessPolicies.delete");
 
     const randomAction = await testEnvironment.createRandomAction();
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
+    const anonymousUsersRole = await Role.getByName("anonymous-users", slashstepServer.pool);
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
+      principalRoleID: anonymousUsersRole.id,
       actionID: randomAction.id,
       permissionLevel: AccessPolicyPermissionLevel.Editor,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
@@ -101,7 +101,7 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
 
   it("can return a 400 if the access policy ID is not a UUID", async () => {
 
-    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.accessPolicies.delete");
+    await testEnvironment.createAccessPolicyForAnonymousUsers("slashstep.accessPolicies.delete");
 
     const numberResponse = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/1`, {
       method: "DELETE"
@@ -117,11 +117,11 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
 
   it("can return a 401 status code if the user needs authentication", async () => {
     
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
+    const anonymousUsersRole = await Role.getByName("anonymous-users", slashstepServer.pool);
     const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.delete", slashstepServer.pool);
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
+      principalRoleID: anonymousUsersRole.id,
       actionID: getAccessPolicyAction.id,
       permissionLevel: AccessPolicyPermissionLevel.None,
       inheritanceLevel: AccessPolicyInheritanceLevel.Disabled,
@@ -138,11 +138,11 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
   it("can return a 403 status code if the user doesn't have permission to delete the requested access policy", async () => {
 
     // Grant unauthenticated users access to the action.
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
+    const anonymousUsersRole = await Role.getByName("anonymous-users", slashstepServer.pool);
     const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.delete", slashstepServer.pool);
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
+      principalRoleID: anonymousUsersRole.id,
       actionID: getAccessPolicyAction.id,
       permissionLevel: AccessPolicyPermissionLevel.User,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
@@ -182,7 +182,7 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
 
   it("can return a 404 status code if the requested access policy doesn't exist", async () => {
 
-    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.accessPolicies.delete");
+    await testEnvironment.createAccessPolicyForAnonymousUsers("slashstep.accessPolicies.delete");
 
     const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${generateUUIDv7()}`, {
       method: "DELETE"

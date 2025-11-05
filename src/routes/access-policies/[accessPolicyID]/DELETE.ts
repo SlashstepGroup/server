@@ -22,7 +22,7 @@ deleteAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>
   await ServerLogEntry.create({
     message: `Getting access policy ${accessPolicyID}...`,
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
 
   const deleteAccessPolicyAction: Action = await Action.getPreDefinedActionByName("slashstep.accessPolicies.delete", server.pool);
@@ -32,7 +32,7 @@ deleteAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>
   await ServerLogEntry.create({
     message: `Verifying principal's permissions to delete access policy ${accessPolicy.id}...`,
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
 
   const accessPolicyAction = await Action.getByID(accessPolicy.actionID, server.pool);
@@ -46,7 +46,7 @@ deleteAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>
   await ServerLogEntry.create({
     message: `Deleting access policy ${accessPolicy.id}...`,
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
 
   await accessPolicy.delete();

@@ -345,7 +345,7 @@ export default class User implements Resource<UserScopeData>, Principal {
 
     const roleDataList: Omit<InitialWritableRoleProperties, "parentResourceType">[] = [
       {
-        name: "unauthenticated-users",
+        name: "anonymous-users",
         displayName: "Unauthenticated users",
         description: "Principals who are not logged in."
       }

@@ -5,8 +5,8 @@ import { StringUnion } from "#utilities/types.js";
 
 export enum ServerLogEntryLevel {
   Success = "Success",
+  Trace = "Trace",
   Info = "Info",
-  Pending = "Pending",
   Warning = "Warning",
   Error = "Error",
   Critical = "Critical"
@@ -150,8 +150,8 @@ export default class ServerLogEntry {
 
     const levelColorMap: Record<ServerLogEntryLevel, string> = {
       [ServerLogEntryLevel.Success]: "\x1b[32m",
-      [ServerLogEntryLevel.Info]: "\x1b[37m",
-      [ServerLogEntryLevel.Pending]: "\x1b[36m",
+      [ServerLogEntryLevel.Trace]: "\x1b[2m",
+      [ServerLogEntryLevel.Info]: "",
       [ServerLogEntryLevel.Warning]: "\x1b[33m",
       [ServerLogEntryLevel.Error]: "\x1b[31m",
       [ServerLogEntryLevel.Critical]: "\x1b[41m"

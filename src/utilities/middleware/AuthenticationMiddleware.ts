@@ -37,7 +37,7 @@ export default class AuthenticationMiddleware {
           await ServerLogEntry.create({
             message: "Authenticating as an app...",
             httpRequestID: httpRequest.id,
-            level: ServerLogEntryLevel.Pending
+            level: ServerLogEntryLevel.Trace
           }, server.pool, true);
 
           const credentialID = payload.jti;
@@ -176,7 +176,7 @@ export default class AuthenticationMiddleware {
 
     try {
     
-      const { server } = response.locals;
+      const { server, httpRequest } = response.locals;
       const { sessionToken: cookieToken } = request.cookies ?? {};
       const token = cookieToken;
 
@@ -185,6 +185,12 @@ export default class AuthenticationMiddleware {
         const payload = jsonwebtoken.decode(token);
         if (payload && typeof(payload) === "object" && payload.sub && payload.jti) {
 
+          await ServerLogEntry.create({
+            message: "Authenticating as a user...",
+            httpRequestID: httpRequest.id,
+            level: ServerLogEntryLevel.Trace
+          }, server.pool, true);
+          
           const sessionID = payload.jti;
           const session = await Session.get(sessionID, server.pool);
 
@@ -201,9 +207,23 @@ export default class AuthenticationMiddleware {
             response.locals.user = user;
             response.locals.session = session;
 
+            await ServerLogEntry.create({
+              message: `Successfully authenticated as user ${user.id}.`,
+              httpRequestID: httpRequest.id,
+              level: ServerLogEntryLevel.Info
+            }, server.pool, true);
+
           }
           
         }
+
+      } else {
+
+        await ServerLogEntry.create({
+          message: "No user token found in request. Continuing...",
+          httpRequestID: httpRequest.id,
+          level: ServerLogEntryLevel.Info
+        }, server.pool, true);
 
       }
 
@@ -218,15 +238,9 @@ export default class AuthenticationMiddleware {
           message: "Provide a valid session token."
         });
 
-      } else {
-
-        console.error(error);
-
-        response.status(500).json({
-          message: "Something bad happened on our side. Try again later."
-        });
-
       }
+      
+      throw error;
 
     }
 
@@ -234,10 +248,18 @@ export default class AuthenticationMiddleware {
 
   static async storeAnonymousUser(request: Request, response: Response<unknown, ResponseLocals>, next: NextFunction) {
 
+    const { server, httpRequest } = response.locals;
+
     try {
 
       if (!request.ip || response.locals.user || response.locals.app || response.locals.appAuthorization) {
         
+        await ServerLogEntry.create({
+          message: `Requestor is already authenticated. Continuing...`,
+          httpRequestID: httpRequest.id,
+          level: ServerLogEntryLevel.Info
+        }, server.pool, true);
+
         next();
         return;
 
@@ -247,11 +269,23 @@ export default class AuthenticationMiddleware {
 
       try {
 
+        await ServerLogEntry.create({
+          message: "Checking for existing anonymous user...",
+          httpRequestID: httpRequest.id,
+          level: ServerLogEntryLevel.Trace
+        }, server.pool, true);
+
         ipUser = await User.getByIPAddress(request.ip, response.locals.server.pool);
 
       } catch (error) {
 
         if (error instanceof ResourceNotFoundError) {
+
+          await ServerLogEntry.create({
+            message: "Creating anonymous user...",
+            httpRequestID: httpRequest.id,
+            level: ServerLogEntryLevel.Trace
+          }, server.pool, true);
 
           ipUser = await User.create({
             ipAddress: request.ip,
@@ -266,13 +300,19 @@ export default class AuthenticationMiddleware {
 
       }
 
-      // Make sure the user has the unauthenticated-users role.
-      const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", response.locals.server.pool);
-      const roleMemberships = await RoleMembership.list(`roleID = "${unauthenticatedUsersRole.id}" and principalUserID = "${ipUser.id}"`, response.locals.server.pool);
-      if (!roleMemberships.find((roleMembership) => roleMembership.roleID === unauthenticatedUsersRole.id)) {
+      // Make sure the user has the anonymous-users role.
+      const anonymousUsersRole = await Role.getByName("anonymous-users", response.locals.server.pool);
+      const roleMemberships = await RoleMembership.list(`roleID = "${anonymousUsersRole.id}" and principalUserID = "${ipUser.id}"`, response.locals.server.pool);
+      if (!roleMemberships.find((roleMembership) => roleMembership.roleID === anonymousUsersRole.id)) {
+
+        await ServerLogEntry.create({
+          message: "Adding anonymous user to anonymous-users role...",
+          httpRequestID: httpRequest.id,
+          level: ServerLogEntryLevel.Trace
+        }, server.pool, true);
 
         await RoleMembership.create({
-          roleID: unauthenticatedUsersRole.id,
+          roleID: anonymousUsersRole.id,
           principalType: "User",
           principalUserID: ipUser.id
         }, response.locals.server.pool);
@@ -280,6 +320,12 @@ export default class AuthenticationMiddleware {
       }
 
       response.locals.user = ipUser;
+      await ServerLogEntry.create({
+        message: `Authenticated as anonymous user ${ipUser.id}.`,
+        httpRequestID: httpRequest.id,
+        level: ServerLogEntryLevel.Info
+      }, server.pool, true);
+
       next();
       return;
 

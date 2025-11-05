@@ -45,7 +45,7 @@ describe("Route: GET /actions/:actionID", async () => {
   it("can return a 200 status code and the requested action", async () => {
 
     // Grant unauthenticated users access to the action.
-    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.actions.get");
+    await testEnvironment.createAccessPolicyForAnonymousUsers("slashstep.actions.get");
     const action = await testEnvironment.createRandomAction();
     
     const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/actions/${action.id}`);

@@ -8,6 +8,7 @@ import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
 import ActionLogEntry from "#resources/ActionLogEntry/ActionLogEntry.js";
 import AuthenticationMiddleware from "#utilities/middleware/AuthenticationMiddleware.js";
 import HTTPTypeGuard from "#utilities/HTTPTypeGuard.js";
+import ServerLogEntry, { ServerLogEntryLevel } from "#resources/ServerLogEntry/ServerLogEntry.js";
 
 const listAccessPoliciesRouter = Router({mergeParams: true});
 listAccessPoliciesRouter.use(AuthenticationMiddleware.authenticateUser);
@@ -107,6 +108,12 @@ listAccessPoliciesRouter.use(async (request, response: Response<unknown, Respons
     totalItemCount,
     items
   });
+
+  await ServerLogEntry.create({
+    message: `Successfully returned ${items.length} access polic${items.length === 1 ? "y" : "ies"}.`,
+    httpRequestID: httpRequest.id,
+    level: ServerLogEntryLevel.Success
+  }, server.pool, true);
 
 });
 

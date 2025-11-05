@@ -1,5 +1,5 @@
-create or replace view hydrated_action_logs as
+create or replace view hydrated_action_log_entries as
   select
-    action_logs.*
+    action_log_entries.*
   from
-    action_logs
+    action_log_entries

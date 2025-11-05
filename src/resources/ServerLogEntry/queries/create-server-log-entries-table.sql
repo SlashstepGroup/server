@@ -3,8 +3,8 @@ begin
   if not exists (select 1 from pg_type where typname = 'server_log_entry_level') then
     create type server_log_entry_level as enum (
       'Success',
+      'Trace',
       'Info',
-      'Pending',
       'Warning',
       'Error',
       'Critical'

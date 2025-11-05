@@ -30,14 +30,14 @@ getAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, r
   await ServerLogEntry.create({
     message: `Getting access policy ${accessPolicyID}...`,
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
   const accessPolicy = await AccessPolicy.getByID(accessPolicyID, server.pool);
 
   await ServerLogEntry.create({
     message: `Verifying principal's permissions to get access policy ${accessPolicy.id}...`,
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
   const accessPolicyScopeData = await accessPolicy.getScopeData();
   const principal = app ?? user;
@@ -53,7 +53,7 @@ getAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, r
     await ServerLogEntry.create({
       message: `Getting included resources for access policy ${accessPolicy.id}...`,
       httpRequestID: httpRequest.id,
-      level: ServerLogEntryLevel.Pending
+      level: ServerLogEntryLevel.Trace
     }, server.pool, true);
 
     const addResourceClass = (resourceType: string) => {

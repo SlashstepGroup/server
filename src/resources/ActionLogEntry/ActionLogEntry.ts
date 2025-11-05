@@ -4,6 +4,29 @@ import { resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import ResourceConflictError from "#errors/ResourceConflictError.js";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
+import type { default as AccessPolicy } from "#resources/AccessPolicy/AccessPolicy.js";
+import type { default as Action, InitialWritableActionProperties } from "#resources/Action/Action.js";
+import type { default as App } from "#resources/App/App.js";
+import type { default as AppAuthorization } from "#resources/AppAuthorization/AppAuthorization.js";
+import type { default as AppAuthorizationCredential } from "#resources/AppAuthorizationCredential/AppAuthorizationCredential.js";
+import type { default as AppCredential } from "#resources/AppCredential/AppCredential.js";
+import type { default as Field } from "#resources/Field/Field.js";
+import type { default as Group } from "#resources/Group/Group.js";
+import type { default as Item } from "#resources/Item/Item.js";
+import type { default as ItemConnection } from "#resources/ItemConnection/ItemConnection.js";
+import type { default as ItemConnectionType } from "#resources/ItemConnectionType/ItemConnectionType.js";
+import type { default as Milestone } from "#resources/Milestone/Milestone.js";
+import type { default as Project } from "#resources/Project/Project.js";
+import type { default as Role } from "#resources/Role/Role.js";
+import type { default as Session } from "#resources/Session/Session.js";
+import type { default as User } from "#resources/User/User.js"; 
+import type { default as Workspace } from "#resources/Workspace/Workspace.js";
+import BadRequestError from "#errors/BadRequestError.js";
+
+export type ActionLogEntryScopeData = {
+  scopedResourceType: "ActionLogEntry";
+  actionLogEntryID: string;
+}
 
 export enum ActionLogEntryActorType {
   User = "User",
@@ -30,6 +53,27 @@ export enum ActionLogEntryTargetResourceType {
   Session = "Session",
   User = "User",
   Workspace = "Workspace"
+}
+
+export type ActionLogEntryIncludedResourceClassMap = {
+  targetAccessPolicyID?: typeof AccessPolicy;
+  targetActionID?: typeof Action;
+  targetActionLogEntryID?: typeof ActionLogEntry;
+  targetAppID?: typeof App;
+  targetAppAuthorizationID?: typeof AppAuthorization;
+  targetAppAuthorizationCredentialID?: typeof AppAuthorizationCredential;
+  targetAppCredentialID?: typeof AppCredential;
+  targetFieldID?: typeof Field;
+  targetGroupID?: typeof Group;
+  targetItemID?: typeof Item;
+  targetItemConnectionID?: typeof ItemConnection;
+  targetItemConnectionTypeID?: typeof ItemConnectionType;
+  targetMilestoneID?: typeof Milestone;
+  targetProjectID?: typeof Project;
+  targetRoleID?: typeof Role;
+  targetSessionID?: typeof Session;
+  targetUserID?: typeof User;
+  targetWorkspaceID?: typeof Workspace;
 }
 
 export type BaseActionLogEntryProperties = {
@@ -204,6 +248,9 @@ export default class ActionLogEntry {
   /** The action log's error message, if applicable. */
   readonly errorMessage: BaseActionLogEntryProperties["errorMessage"];
 
+  /** The action log's action ID. */
+  readonly actionID: BaseActionLogEntryProperties["actionID"];
+
   /** The client used to make requests. */
   readonly #pool: Pool;
 
@@ -213,6 +260,7 @@ export default class ActionLogEntry {
     this.actorType = data.actorType;
     this.actorUserID = data.actorUserID;
     this.actorAppID = data.actorAppID;
+    this.actionID = data.actionID;
     this.httpRequestID = data.httpRequestID;
     this.targetResourceType = data.targetResourceType;
     this.targetAccessPolicyID = data.targetAccessPolicyID;
@@ -313,27 +361,45 @@ export default class ActionLogEntry {
    *
    * @param id The ID of the user to retrieve.
    */
-  static async get(id: string, pool: Pool): Promise<ActionLogEntry> {
+  static async getByID(id: string, pool: Pool): Promise<ActionLogEntry> {
 
     // Get the app data from the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(import.meta.dirname, "ActionLogEntry", "queries", "get-action-log-entry-row.sql"), "utf8");
-    const result = await poolClient.query(query, [id]);
-    poolClient.release();
 
-    // Convert the app data into an App object.
-    const row = result.rows[0];
+    try {
 
-    if (!row) {
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "get-action-log-entry-row.sql"), "utf8");
+      const result = await poolClient.query(query, [id]);
 
-      throw new ResourceNotFoundError("ActionLogEntry");
+      // Convert the app data into an App object.
+      const row = result.rows[0];
+
+      if (!row) {
+
+        throw new ResourceNotFoundError("ActionLogEntry");
+
+      }
+
+      const app = new ActionLogEntry(ActionLogEntry.getPropertiesFromRow(row), pool);
+
+      // Return the app.
+      return app;
+
+    } catch (error) {
+          
+      if (error instanceof DatabaseError && error.code === "22P02") {
+
+        throw new BadRequestError("The access policy ID must be a UUID.");
+
+      }
+
+      throw error;
+      
+    } finally {
+
+      poolClient.release();
 
     }
-
-    const app = new ActionLogEntry(ActionLogEntry.getPropertiesFromRow(row), pool);
-
-    // Return the app.
-    return app;
 
   }
 
@@ -379,12 +445,12 @@ export default class ActionLogEntry {
     try {
 
       const { whereClause, values, limit, offset } = SlashstepQLFilterSanitizer.sanitize({
-        tableName: "hydrated_action_logs", 
+        tableName: "hydrated_action_log_entries", 
         filterQuery, 
         defaultLimit: 1000, 
         allowedQueryFields: this.allowedQueryFields
       });
-      const result = await poolClient.query(`select * from hydrated_action_logs${whereClause ? ` where ${whereClause}` : ""}${limit !== undefined ? ` limit ${limit}` : ""}${offset !== undefined ? ` offset ${offset}` : ""}`, values);
+      const result = await poolClient.query(`select * from hydrated_action_log_entries${whereClause ? ` where ${whereClause}` : ""}${limit !== undefined ? ` limit ${limit}` : ""}${offset !== undefined ? ` offset ${offset}` : ""}`, values);
       const actionLogs = result.rows.map((row) => {
         
         const actionLogEntry = new ActionLogEntry(ActionLogEntry.getPropertiesFromRow(row), pool);
@@ -411,13 +477,13 @@ export default class ActionLogEntry {
     try {
 
       const { whereClause, values } = SlashstepQLFilterSanitizer.sanitize({
-        tableName: "hydrated_action_logs",
+        tableName: "hydrated_action_log_entries",
         filterQuery,
         shouldIgnoreOffset: true,
         shouldIgnoreLimit: true,
         allowedQueryFields: this.allowedQueryFields
       });
-      const result = await poolClient.query(`select count(*) from hydrated_action_logs${whereClause ? ` where ${whereClause}` : ""}`, values);
+      const result = await poolClient.query(`select count(*) from hydrated_action_log_entries${whereClause ? ` where ${whereClause}` : ""}`, values);
       
       // Convert the list of rows to AccessPolicy objects.
       const count = parseInt(result.rows[0].count, 10);
@@ -452,6 +518,60 @@ export default class ActionLogEntry {
 
   }
 
+  static async initializeActions(actionClass: typeof Action, pool: Pool): Promise<Action[]> {
+  
+    const actionPropertiesList: InitialWritableActionProperties[] = [
+      {
+        name: "slashstep.actionLogEntries.get",
+        displayName: "Get action log entry",
+        description: "View an action log entry."
+      },
+      {
+        name: "slashstep.actionLogEntries.list",
+        displayName: "List action log entries",
+        description: "List action log entries on a particular scope."
+      },
+      {
+        name: "slashstep.actionLogEntries.create",
+        displayName: "Create action log entries",
+        description: "Create action log entries on a particular scope."
+      },
+      {
+        name: "slashstep.actionLogEntries.delete",
+        displayName: "Delete action log entries",
+        description: "Delete action log entries on a particular scope."
+      }
+    ];
+
+    const actions = [];
+    for (const actionProperties of actionPropertiesList) {
+
+      try {
+
+        const action = await actionClass.create(actionProperties, pool);
+        actions.push(action);
+
+      } catch (error) {
+
+        if (error instanceof ResourceConflictError) {
+
+          const action = await actionClass.getByName(actionProperties.name, pool);
+          actions.push(action);
+
+        } else {
+
+          throw error;
+
+        }
+
+      }
+
+    }
+
+    return actions;
+
+  }
+
   /**
    * Requests the server to delete this user.
    */
@@ -471,6 +591,15 @@ export default class ActionLogEntry {
       poolClient.release();
 
     }
+
+  }
+
+  getScopeData(): ActionLogEntryScopeData {
+
+    return {
+      scopedResourceType: "ActionLogEntry",
+      actionLogEntryID: this.id
+    };
 
   }
 

@@ -30,7 +30,7 @@ export type BaseItemConnectionTypeProperties = {
 
 export type InitialItemConnectionTypeProperties = Omit<BaseItemConnectionTypeProperties, "id">;
 
-export class ItemConnectionType {
+export default class ItemConnectionType {
 
   static readonly name = "ItemConnectionType";
 

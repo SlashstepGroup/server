@@ -24,7 +24,7 @@ updateAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string },
   await ServerLogEntry.create({
     message: `Getting access policy ${accessPolicyID}...`,
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
 
   const accessPolicy = await AccessPolicy.getByID(accessPolicyID, server.pool);
@@ -34,7 +34,7 @@ updateAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string },
   await ServerLogEntry.create({
     message: `Verifying principal's permissions to get access policy ${accessPolicy.id}...`,
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
   const accessPolicyScopeData = await accessPolicy.getScopeData();
   const updateAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.update", server.pool);
@@ -54,7 +54,7 @@ updateAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string },
   await ServerLogEntry.create({
     message: `Updating access policy ${accessPolicy.id}...`,
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
 
   const updatedAccessPolicy = await accessPolicy.update({

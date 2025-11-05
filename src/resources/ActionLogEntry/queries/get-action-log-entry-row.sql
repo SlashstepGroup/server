@@ -1,1 +1,1 @@
-select * from action_logs where id = $1;
+select * from action_log_entries where id = $1 limit 1;

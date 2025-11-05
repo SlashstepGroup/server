@@ -13,6 +13,7 @@ import Session from "#resources/Session/Session.js";
 import User from "#resources/User/User.js";
 import App, { AppParentResourceType } from "#resources/App/App.js";
 import AppCredential from "#resources/AppCredential/AppCredential.js";
+import ActionLogEntry, { ActionLogEntryActorType, ActionLogEntryTargetResourceType } from "#resources/ActionLogEntry/ActionLogEntry.js";
 
 export default class TestEnvironment {
 
@@ -82,6 +83,28 @@ export default class TestEnvironment {
 
   }
 
+  async createRandomActionLogEntry(): Promise<ActionLogEntry> {
+
+    if (!this.slashstepServer) {
+
+      throw new Error("Slashstep server not found.");
+
+    }
+
+    const app = await this.createRandomApp();
+    const action = await this.createRandomAction();
+
+    const actionLogEntry = await ActionLogEntry.create({
+      actorType: ActionLogEntryActorType.App,
+      actorAppID: app.id,
+      actionID: action.id,
+      targetResourceType: ActionLogEntryTargetResourceType.Instance
+    }, this.slashstepServer.pool);
+
+    return actionLogEntry;
+
+  }
+
   async createRandomAction(actionProperties: Partial<InitialWritableActionProperties> = {}): Promise<Action> {
 
     if (!this.slashstepServer) {
@@ -141,7 +164,7 @@ export default class TestEnvironment {
 
   }
 
-  async createAccessPolicyForUnauthenticatedUsers(actionName: string, permissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<AccessPolicy> {
+  async createAccessPolicyForAnonymousUsers(actionName: string, permissionLevel: AccessPolicyPermissionLevel = AccessPolicyPermissionLevel.User): Promise<AccessPolicy> {
 
     if (!this.slashstepServer) {
 
@@ -149,12 +172,12 @@ export default class TestEnvironment {
 
     }
 
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", this.slashstepServer.pool);
+    const anonymousUsersRole = await Role.getByName("anonymous-users", this.slashstepServer.pool);
     const action = await Action.getByName(actionName, this.slashstepServer.pool);
 
     return AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
+      principalRoleID: anonymousUsersRole.id,
       actionID: action.id,
       permissionLevel,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,

@@ -33,7 +33,7 @@ begin
 end
 $$ LANGUAGE plpgsql;
 
-create table if not exists action_logs (
+create table if not exists action_log_entries (
   id UUID default uuidv7() primary key,
   action_id UUID not null,
   actor_type action_log_entry_actor_type not null,

@@ -111,6 +111,7 @@ export type BaseAccessPolicyProperties = {
 export type AccessPolicyScopeData = {
   scopedResourceType: AccessPolicyScopedResourceType | `${AccessPolicyScopedResourceType}`;
   actionID?: string | null;
+  actionLogEntryID?: string | null;
   appID?: string | null;
   groupID?: string | null;
   itemID?: string | null;
@@ -143,6 +144,7 @@ export type EditableAccessPolicyProperties = Omit<BaseAccessPolicyProperties, "i
 export enum AccessPolicyScopedResourceType {
   App = "App",
   Action = "Action",
+  ActionLogEntry = "ActionLogEntry",
   Instance = "Instance",
   Workspace = "Workspace",
   Project = "Project",
@@ -1270,6 +1272,7 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
 
     const scopedAccessPolicies = await AccessPolicy.listScopedAccessPolicies(actionID, pool, principalData, scopeData);
     const actionAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.Action);
+    const actionLogEntryAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.ActionLogEntry);
     const appAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.App);
     const groupAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.Group);
     const itemAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.Item);
@@ -1284,6 +1287,7 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
       [scopedResourceType in AccessPolicyScopedResourceType]: AccessPolicy | undefined;
     } = {
       [AccessPolicyScopedResourceType.Action]: actionAccessPolicy ?? appAccessPolicy ?? instanceAccessPolicy,
+      [AccessPolicyScopedResourceType.ActionLogEntry]: actionLogEntryAccessPolicy ?? instanceAccessPolicy,
       [AccessPolicyScopedResourceType.App]: appAccessPolicy ?? instanceAccessPolicy,
       [AccessPolicyScopedResourceType.Group]: groupAccessPolicy ?? instanceAccessPolicy,
       [AccessPolicyScopedResourceType.Instance]: instanceAccessPolicy,

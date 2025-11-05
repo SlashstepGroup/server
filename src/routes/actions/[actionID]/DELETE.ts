@@ -18,7 +18,7 @@ deleteActionRouter.use(async (request: Request<{ actionID: string }>, response: 
   await ServerLogEntry.create({
     message: "Verifying principal is an app...",
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
   HTTPTypeGuard.assertPrincipal(app);
   
@@ -27,7 +27,7 @@ deleteActionRouter.use(async (request: Request<{ actionID: string }>, response: 
   await ServerLogEntry.create({
     message: `Getting action ${actionID}...`,
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
   const action = await Action.getByID(actionID, response.locals.server.pool);
 
@@ -38,7 +38,7 @@ deleteActionRouter.use(async (request: Request<{ actionID: string }>, response: 
   await ServerLogEntry.create({
     message: `Verifying principal's permissions to delete action ${action.id}...`,
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
   await app.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, deleteActionAction.id, actionScopeData);
 
@@ -46,7 +46,7 @@ deleteActionRouter.use(async (request: Request<{ actionID: string }>, response: 
   await ServerLogEntry.create({
     message: `Deleting action ${action.id}...`,
     httpRequestID: httpRequest.id,
-    level: ServerLogEntryLevel.Pending
+    level: ServerLogEntryLevel.Trace
   }, server.pool, true);
   await action.delete();
 

@@ -49,25 +49,17 @@ describe("Route: GET /access-policies", async () => {
 
   it("can return a 200 status code and the requested access policies", async () => {
 
-    // Grant unauthenticated users access to the action.
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const listAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.list", slashstepServer.pool);
-    const accessPolicy = await AccessPolicy.create({
-      principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
-      actionID: listAccessPolicyAction.id,
-      permissionLevel: AccessPolicyPermissionLevel.User,
-      inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
-      scopedResourceType: AccessPolicyScopedResourceType.Instance
-    }, slashstepServer.pool);
-    
+    // Test the default query.
+    const accessPolicy = await testEnvironment.createAccessPolicyForAnonymousUsers("slashstep.accessPolicies.list");
     const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies`);
     strictEqual(response.status, 200);
 
     const jsonResponse = await response.json();
-    strictEqual(jsonResponse.totalItemCount >= 1, true);
+    const accessPolicyCount = await AccessPolicy.count("", slashstepServer.pool);
+    strictEqual(jsonResponse.totalItemCount, accessPolicyCount);
     strictEqual(jsonResponse.items instanceof Array, true);
     
+    // Test query filtering.
     const accessPolicyResponse = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies?query=id = "${accessPolicy.id}"`);
     strictEqual(accessPolicyResponse.status, 200);
 
@@ -80,18 +72,7 @@ describe("Route: GET /access-policies", async () => {
 
   it("can return up to 1,000 access policies by default", async () => {
 
-    // Grant unauthenticated users access to the action.
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const listAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.list", slashstepServer.pool);
-    await AccessPolicy.create({
-      principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
-      actionID: listAccessPolicyAction.id,
-      permissionLevel: AccessPolicyPermissionLevel.User,
-      inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
-      scopedResourceType: AccessPolicyScopedResourceType.Instance
-    }, slashstepServer.pool);
-
+    const accessPolicy = await testEnvironment.createAccessPolicyForAnonymousUsers("slashstep.accessPolicies.list");
     const originalAccessPolicyCount = await AccessPolicy.count("", slashstepServer.pool);
     const newActionCount = Math.max(0, 1001 - originalAccessPolicyCount);
     const accessPolicies = [];
@@ -110,8 +91,8 @@ describe("Route: GET /access-policies", async () => {
       }
 
       const action = await createRandomAction();
-      const accessPolicy = await AccessPolicy.create({
-        principalRoleID: unauthenticatedUsersRole.id,
+      const newAccessPolicy = await AccessPolicy.create({
+        principalRoleID: accessPolicy.principalRoleID,
         actionID: action.id,
         principalType: AccessPolicyPrincipalType.Role,
         permissionLevel: AccessPolicyPermissionLevel.Admin,
@@ -119,7 +100,7 @@ describe("Route: GET /access-policies", async () => {
         scopedResourceType: AccessPolicyScopedResourceType.Action,
         scopedActionID: action.id
       }, slashstepServer.pool);
-      accessPolicies.push(accessPolicy);
+      accessPolicies.push(newAccessPolicy);
 
     }
     
@@ -138,17 +119,18 @@ describe("Route: GET /access-policies", async () => {
     strictEqual(jsonOffsetResponse.totalItemCount, originalAccessPolicyCount + newActionCount);
     strictEqual(jsonOffsetResponse.items instanceof Array, true);
     strictEqual(jsonOffsetResponse.items.length, 1);
+    strictEqual(jsonOffsetResponse.items[0].id, accessPolicies[accessPolicies.length - 1].id);
 
   });
 
   it("can return a 400 if the query is invalid", async () => {
 
     // Grant unauthenticated users access to the action.
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
+    const anonymousUsersRole = await Role.getByName("anonymous-users", slashstepServer.pool);
     const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.list", slashstepServer.pool);
     await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
+      principalRoleID: anonymousUsersRole.id,
       actionID: getAccessPolicyAction.id,
       permissionLevel: AccessPolicyPermissionLevel.User,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
@@ -167,17 +149,6 @@ describe("Route: GET /access-policies", async () => {
   });
 
   it("can return a 401 status code if the user needs authentication", async () => {
-
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const listAccessPoliciesAction = await Action.getByName("slashstep.accessPolicies.list", slashstepServer.pool);
-    await AccessPolicy.create({
-      principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
-      actionID: listAccessPoliciesAction.id,
-      permissionLevel: AccessPolicyPermissionLevel.None,
-      inheritanceLevel: AccessPolicyInheritanceLevel.Disabled,
-      scopedResourceType: AccessPolicyScopedResourceType.Instance
-    }, slashstepServer.pool);
 
     const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies`);
     strictEqual(response.status, 401);

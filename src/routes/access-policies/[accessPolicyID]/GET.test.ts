@@ -50,11 +50,11 @@ describe("Route: GET /access-policies/:accessPolicyID", async () => {
   it("can return a 200 status code and the requested access policy", async () => {
 
     // Grant unauthenticated users access to the action.
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
+    const anonymousUsersRole = await Role.getByName("anonymous-users", slashstepServer.pool);
     const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.get", slashstepServer.pool);
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
+      principalRoleID: anonymousUsersRole.id,
       actionID: getAccessPolicyAction.id,
       permissionLevel: AccessPolicyPermissionLevel.User,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
@@ -89,11 +89,11 @@ describe("Route: GET /access-policies/:accessPolicyID", async () => {
   it("can return a 400 if the access policy ID is not a UUID", async () => {
 
     // Grant unauthenticated users access to the action.
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
+    const anonymousUsersRole = await Role.getByName("anonymous-users", slashstepServer.pool);
     const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.get", slashstepServer.pool);
     await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
+      principalRoleID: anonymousUsersRole.id,
       actionID: getAccessPolicyAction.id,
       permissionLevel: AccessPolicyPermissionLevel.User,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
@@ -110,11 +110,11 @@ describe("Route: GET /access-policies/:accessPolicyID", async () => {
 
   it("can return a 401 status code if the user needs authentication", async () => {
 
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
+    const anonymousUsersRole = await Role.getByName("anonymous-users", slashstepServer.pool);
     const deleteAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.delete", slashstepServer.pool);
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
+      principalRoleID: anonymousUsersRole.id,
       actionID: deleteAccessPolicyAction.id,
       permissionLevel: AccessPolicyPermissionLevel.None,
       inheritanceLevel: AccessPolicyInheritanceLevel.Disabled,
@@ -128,11 +128,11 @@ describe("Route: GET /access-policies/:accessPolicyID", async () => {
   it("can return a 403 status code if the user doesn't have permission to view the requested access policy", async () => {
 
     // Grant unauthenticated users access to the action.
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
+    const anonymousUsersRole = await Role.getByName("anonymous-users", slashstepServer.pool);
     const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.get", slashstepServer.pool);
     const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
+      principalRoleID: anonymousUsersRole.id,
       actionID: getAccessPolicyAction.id,
       permissionLevel: AccessPolicyPermissionLevel.User,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
@@ -172,11 +172,11 @@ describe("Route: GET /access-policies/:accessPolicyID", async () => {
   it("can return a 404 status code if the requested access policy doesn't exist", async () => {
 
     // Grant unauthenticated users access to the action.
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
+    const anonymousUsersRole = await Role.getByName("anonymous-users", slashstepServer.pool);
     const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.get", slashstepServer.pool);
     await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
+      principalRoleID: anonymousUsersRole.id,
       actionID: getAccessPolicyAction.id,
       permissionLevel: AccessPolicyPermissionLevel.User,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,

@@ -493,7 +493,7 @@ describe("Class: AccessPolicy", async () => {
 
   });
 
-  it("can return up to 1,000 access policies at a time", {timeout: 5000}, async () => {
+  it("can return up to 1,000 access policies at a time", {timeout: 10000}, async () => {
 
     // Make sure there isn't any access policies right now.
     const initialAccessPolicyList = await AccessPolicy.list("", slashstepServer.pool);

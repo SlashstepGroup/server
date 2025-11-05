@@ -1,4 +1,4 @@
-insert into action_logs (
+insert into action_log_entries (
   action_id,
   actor_type,
   actor_user_id,

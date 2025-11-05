@@ -47,7 +47,7 @@ describe("Route: GET /actions", async () => {
   it("can return a 200 status code and the requested actions", async () => {
 
     // Grant unauthenticated users access to the action.
-    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.actions.list");
+    await testEnvironment.createAccessPolicyForAnonymousUsers("slashstep.actions.list");
     const action = await testEnvironment.createRandomAction();
     
     const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/actions`);
@@ -70,7 +70,7 @@ describe("Route: GET /actions", async () => {
   it("can return up to 1,000 actions by default", async () => {
 
     // Grant unauthenticated users access to the action.
-    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.actions.list");
+    await testEnvironment.createAccessPolicyForAnonymousUsers("slashstep.actions.list");
 
     const originalActionCount = await Action.count("", slashstepServer.pool);
     const newActionCount = Math.max(0, 1001 - originalActionCount);
@@ -115,7 +115,7 @@ describe("Route: GET /actions", async () => {
   it("can return a 400 if the query is invalid", async () => {
 
     // Grant unauthenticated users access to the action.
-    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.actions.list");
+    await testEnvironment.createAccessPolicyForAnonymousUsers("slashstep.actions.list");
 
     const sqlInjectionResponse = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/actions?query=1 = 1; DROP access_policies CASCADE; select * from users`);
     strictEqual(sqlInjectionResponse.status, 400);

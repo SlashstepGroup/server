@@ -1,1 +1,1 @@
-delete from action_logs where id = $1;
+delete from action_log_entries where id = $1;
