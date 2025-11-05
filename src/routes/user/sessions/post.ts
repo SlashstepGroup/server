@@ -2,7 +2,7 @@ import { Response, Router } from "express";
 import HTTPError from "#errors/HTTPError.js";
 import { DatabaseError, Pool } from "pg";
 import User from "#resources/User/User.js";
-import ActionLog from "#resources/ActionLog/ActionLog.js";
+import ActionLogEntry from "#resources/ActionLogEntry/ActionLogEntry.js";
 import Action from "#resources/Action/Action.js";
 import AccessPolicy, { AccessPolicyPermissionLevel, AccessPolicyPrincipalType } from "#resources/AccessPolicy/AccessPolicy.js";
 import ForbiddenError from "#errors/ForbiddenError.js";
@@ -145,7 +145,7 @@ createUserSessionRouter.post("/", async (request, response: Response<unknown, { 
       });
 
       // Log the action.
-      await ActionLog.create({
+      await ActionLogEntry.create({
         actionID: action.id,
         actorID: user.id,
         actorIPAddress: request.ip,

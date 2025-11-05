@@ -41,11 +41,9 @@ export type InitialWritableActionProperties = Omit<BaseActionProperties, "id">;
 export default class Action implements Resource<ActionScopeData> {
 
   static readonly name = "Action";
-
   static readonly maximumActionNameLength = 256;
   static readonly maximumActionDisplayNameLength = 256;
   static readonly maximumActionDescriptionLength = 1028;
-
   static readonly allowedQueryFields = {
     id: "id", 
     name: "name", 
@@ -53,6 +51,8 @@ export default class Action implements Resource<ActionScopeData> {
     description: "description", 
     appID: "app_id"
   }
+
+  readonly resourceType = "Action";
 
   /** The action's ID. */
   readonly id: BaseActionProperties["id"];

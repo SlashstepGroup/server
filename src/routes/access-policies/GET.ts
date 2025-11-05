@@ -1,142 +1,112 @@
-import HTTPError from "#errors/HTTPError.js";
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js";
 import Role from "#resources/Role/Role.js";
-import authenticateApp from "#utilities/hooks/authenticateApp.js";
-import authenticateAppAuthorization from "#utilities/hooks/authenticateAppAuthorization.js";
-import authenticateUser from "#utilities/hooks/authenticateUser.js";
-import storeAnonymousUser from "#utilities/hooks/storeAnonymousUser.js";
 import HTTPInputValidator from "#utilities/HTTPInputValidator/HTTPInputValidator.js";
 import { ResourceClassMap, ResponseLocals } from "#utilities/types.js";
 import { Response, Router } from "express";
 import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
-import ActionLog from "#resources/ActionLog/ActionLog.js";
+import ActionLogEntry from "#resources/ActionLogEntry/ActionLogEntry.js";
+import AuthenticationMiddleware from "#utilities/middleware/AuthenticationMiddleware.js";
+import HTTPTypeGuard from "#utilities/HTTPTypeGuard.js";
 
 const listAccessPoliciesRouter = Router({mergeParams: true});
-listAccessPoliciesRouter.use(authenticateUser);
-listAccessPoliciesRouter.use(authenticateApp);
-listAccessPoliciesRouter.use(authenticateAppAuthorization);
-listAccessPoliciesRouter.use(storeAnonymousUser);
+listAccessPoliciesRouter.use(AuthenticationMiddleware.authenticateUser);
+listAccessPoliciesRouter.use(AuthenticationMiddleware.authenticateApp);
+listAccessPoliciesRouter.use(AuthenticationMiddleware.authenticateAppAuthorization);
+listAccessPoliciesRouter.use(AuthenticationMiddleware.storeAnonymousUser);
 listAccessPoliciesRouter.use(async (request, response: Response<unknown, ResponseLocals>) => {
 
-  const { user, app, server } = response.locals;
-  let listAccessPolicyAction: Action | null = null;
+  const { user, app } = response.locals;
+  const { query, include } = request.query;
+  HTTPInputValidator.verifyString("query", query);
 
-  try {
+  const includedResources: ResourceClassMap = {};
+
+  // if (include) {
+
+  //   const addResourceClass = (resourceType: string) => {
+
+  //     const resourceClassMap: ResourceClassMap = {
+  //       action: Action,
+  //       "action.app": App,
+  //       "action.app.workspace": Workspace,
+  //       app: App,
+  //       "app.workspace": Workspace,
+  //       group: Group,
+  //       "group.workspace": Workspace,
+  //       item: Item,
+  //       "item.project": Project,
+  //       "item.project.workspace": Workspace,
+  //       milestone: Milestone,
+  //       "milestone.project": Project,
+  //       "milestone.project.workspace": Workspace,
+  //       "milestone.workspace": Workspace,
+  //       project: Project,
+  //       "project.workspace": Workspace,
+  //       role: Role,
+  //       "role.workspace": Workspace,
+  //       "role.project": Project,
+  //       "role.project.workspace": Workspace,
+  //       user: User,
+  //       workspace: Workspace,
+  //     };
+
+  //     const resourceClass = resourceClassMap[resourceType];
+  //     if (!resourceClass) {
+
+  //       throw new HTTPError(400, "include query must be \"project\", \"project.workspace\", or excluded.");
+
+  //     }
+
+  //     includedResources[resourceType] = resourceClass;
+
+  //   }
+
+  //   if (typeof(include) === "string") {
+
+  //     addResourceClass(include);
+
+  //   } else if (include instanceof Array) {
+
+  //     for (const resourceType of include) {
+
+  //       if (typeof(resourceType) !== "string") {
+
+  //         throw new HTTPError(400, "include query must be an array of strings.");
+
+  //       }
+
+  //       addResourceClass(resourceType);
+
+  //     }
+
+  //   }
+
+  // }
+
+  const listAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.list", response.locals.server.pool);
+  const principal = user ?? app;
+  HTTPTypeGuard.assertPrincipal(principal);
+
+  await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, listAccessPolicyAction.id);
+
+  const { server, httpRequest } = response.locals;
+  const items = await AccessPolicy.list(query ?? "", server.pool, includedResources);
+  const totalItemCount = await AccessPolicy.count(query ?? "", server.pool);
   
-    const { query, include } = request.query;
-    HTTPInputValidator.verifyString("query", query);
+  await ActionLogEntry.create({
+    actorType: principal.resourceType,
+    actorUserID: principal.resourceType === "User" ? principal.id : null,
+    actorAppID: principal.resourceType === "App" ? principal.id : null,
+    httpRequestID: httpRequest.id,
+    actionID: listAccessPolicyAction.id,
+    targetResourceType: "Instance"
+  }, server.pool);
 
-    const includedResources: ResourceClassMap = {};
-
-    // if (include) {
-
-    //   const addResourceClass = (resourceType: string) => {
-
-    //     const resourceClassMap: ResourceClassMap = {
-    //       action: Action,
-    //       "action.app": App,
-    //       "action.app.workspace": Workspace,
-    //       app: App,
-    //       "app.workspace": Workspace,
-    //       group: Group,
-    //       "group.workspace": Workspace,
-    //       item: Item,
-    //       "item.project": Project,
-    //       "item.project.workspace": Workspace,
-    //       milestone: Milestone,
-    //       "milestone.project": Project,
-    //       "milestone.project.workspace": Workspace,
-    //       "milestone.workspace": Workspace,
-    //       project: Project,
-    //       "project.workspace": Workspace,
-    //       role: Role,
-    //       "role.workspace": Workspace,
-    //       "role.project": Project,
-    //       "role.project.workspace": Workspace,
-    //       user: User,
-    //       workspace: Workspace,
-    //     };
-
-    //     const resourceClass = resourceClassMap[resourceType];
-    //     if (!resourceClass) {
-
-    //       throw new HTTPError(400, "include query must be \"project\", \"project.workspace\", or excluded.");
-
-    //     }
-
-    //     includedResources[resourceType] = resourceClass;
-
-    //   }
-
-    //   if (typeof(include) === "string") {
-
-    //     addResourceClass(include);
-
-    //   } else if (include instanceof Array) {
-
-    //     for (const resourceType of include) {
-
-    //       if (typeof(resourceType) !== "string") {
-
-    //         throw new HTTPError(400, "include query must be an array of strings.");
-
-    //       }
-
-    //       addResourceClass(resourceType);
-
-    //     }
-
-    //   }
-
-    // }
-
-    listAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.list", response.locals.server.pool);
-    const principal = user ?? app;
-    if (!principal) {
- 
-      throw new UnauthenticatedError();
-
-    }
-
-    await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, listAccessPolicyAction.id);
-
-    const { server } = response.locals;
-    const items = await AccessPolicy.list(query ?? "", server.pool, includedResources);
-    const totalItemCount = await AccessPolicy.count(query ?? "", server.pool);
-    
-    await ActionLog.create({
-      actorType: app ? "App" : "User",
-      actorUserID: app ? null : user?.id,
-      actorAppID: app ? app.id : null,
-      actorIPAddress: request.ip,
-      actionID: listAccessPolicyAction.id,
-      targetResourceType: "Instance"
-    }, server.pool);
-
-    response.json({
-      totalItemCount,
-      items
-    });
-
-  } catch (error) {
-
-    if (error instanceof HTTPError) {
-
-      response.status(error.getStatusCode()).json(error);
-
-    } else {
-
-      console.error(error);
-
-      response.status(500).json({
-        message: "Something bad happened on our side. Please try again later."
-      });
-
-    }
-
-  }
+  response.json({
+    totalItemCount,
+    items
+  });
 
 });
 

@@ -10,7 +10,7 @@
 // import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
 // import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 // import ForbiddenError from "#errors/ForbiddenError.js";
-// import ActionLog from "#resources/ActionLog/ActionLog.js";
+// import ActionLogEntry from "#resources/ActionLogEntry/ActionLogEntry.js";
 // import allowUnauthenticatedRequests from "#utilities/hooks/allowUnauthenticatedRequests.js";
 // import type { default as Server } from "#utilities/Server/Server.js";
 
@@ -72,7 +72,7 @@
 //       }, server.pool);
 
 //       // Log the action.
-//       await ActionLog.create({
+//       await ActionLogEntry.create({
 //         actionID: action.id,
 //         actorID: authenticatedUser?.id,
 //         actorIPAddress: request.ip,

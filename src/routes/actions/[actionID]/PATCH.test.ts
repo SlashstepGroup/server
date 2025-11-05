@@ -19,6 +19,7 @@ describe("Route: PATCH /actions/:actionID", async () => {
     await testEnvironment.startPostgreSQLContainer();
     slashstepServer = await testEnvironment.initializeSlashstepServer();
     slashstepServer.app.patch("/actions/:actionID", patchActionRouter);
+    slashstepServer.setupErrorHandling();
     await testEnvironment.initializeHTTPServer();
 
   });
@@ -61,7 +62,8 @@ describe("Route: PATCH /actions/:actionID", async () => {
         "Content-Type": "application/json",
         authorization: `App ${token}`
       },
-      body: JSON.stringify(newActionProperties)
+      body: JSON.stringify(newActionProperties),
+      credentials: "include"
     });
 
     strictEqual(response.status, 200);
@@ -87,7 +89,8 @@ describe("Route: PATCH /actions/:actionID", async () => {
       method: "PATCH",
       headers: {
         authorization: `App ${token}`
-      }
+      },
+      credentials: "include"
     });
     strictEqual(numberResponse.status, 400);
 
@@ -95,7 +98,8 @@ describe("Route: PATCH /actions/:actionID", async () => {
       method: "PATCH",
       headers: {
         authorization: `App ${token}`
-      }
+      },
+      credentials: "include"
     });
     strictEqual(stringResponse.status, 400);
 
@@ -122,6 +126,7 @@ describe("Route: PATCH /actions/:actionID", async () => {
       headers: {
         authorization: `App ${token}`
       },
+      credentials: "include"
     });
     
     strictEqual(response.status, 403);
@@ -137,7 +142,8 @@ describe("Route: PATCH /actions/:actionID", async () => {
       method: "PATCH",
       headers: {
         authorization: `App ${token}`
-      }
+      },
+      credentials: "include"
     });
     strictEqual(response.status, 404);
 

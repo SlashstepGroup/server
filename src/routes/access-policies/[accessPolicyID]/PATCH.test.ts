@@ -23,6 +23,7 @@ describe("Route: PATCH /access-policies/:accessPolicyID", async () => {
     await testEnvironment.startPostgreSQLContainer();
     slashstepServer = await testEnvironment.initializeSlashstepServer();
     slashstepServer.app.patch("/access-policies/:accessPolicyID", updateAccessPolicyRouter);
+    slashstepServer.setupErrorHandling();
     await testEnvironment.initializeHTTPServer();
 
   });

@@ -3,11 +3,12 @@ import ForbiddenError from "#errors/ForbiddenError.js";
 import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { PrincipalResourceClassMap } from "src/interfaces/Principal.js";
+import Principal, { PrincipalResourceClassMap } from "src/interfaces/Principal.js";
 import type { default as AccessPolicy, AccessPolicyPermissionLevel, AccessPolicyPrincipalData, AccessPolicyScopeData } from "#resources/AccessPolicy/AccessPolicy.js";
 import type { default as User } from "#resources/User/User.js";
 import type { default as Workspace } from "#resources/Workspace/Workspace.js";
 import type { default as RoleMembership } from "#resources/RoleMembership/RoleMembership.js";
+import Resource from "src/interfaces/Resource.js";
 
 export enum AppParentResourceType {
   Instance = "Instance",
@@ -47,8 +48,10 @@ export type AppQueryResult = {
   parent_workspace_id: string;
 }
 
-export default class App {
+export default class App implements Resource<AppScopeData>, Principal {
   
+  readonly resourceType = "App";
+
   /** The app's ID. */
   readonly id: AppProperties["id"];
 

@@ -9,6 +9,7 @@ import type { default as Principal, PrincipalResourceClassMap } from "src/interf
 import type { default as Role, InitialWritableRoleProperties } from "#resources/Role/Role.js";
 import type { default as RoleMembership } from "#resources/RoleMembership/RoleMembership.js";
 import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import Resource from "src/interfaces/Resource.js";
 
 export type UserProperties = {
   id: string;
@@ -35,8 +36,10 @@ export type UserScopeData = {
   userID: string;
 }
 
-export default class User implements Principal {
+export default class User implements Resource<UserScopeData>, Principal {
   
+  readonly resourceType = "User";
+
   /** The user's ID. */
   readonly id: UserProperties["id"];
 

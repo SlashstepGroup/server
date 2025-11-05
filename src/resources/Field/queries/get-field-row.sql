@@ -1,1 +1,1 @@
-select * from app_authorizations where id = $1;
+select * from fields where id = $1 limit 1;

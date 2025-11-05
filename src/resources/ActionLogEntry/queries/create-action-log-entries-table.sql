@@ -1,17 +1,17 @@
 do $$
 begin
-  if not exists (select 1 from pg_type where typname = 'action_log_actor_type') then
-    create type action_log_actor_type as enum (
+  if not exists (select 1 from pg_type where typname = 'action_log_entry_actor_type') then
+    create type action_log_entry_actor_type as enum (
       'User',
       'App'
     );
   end if;
 
-  if not exists (select 1 from pg_type where typname = 'action_log_target_resource_type') then
-    create type action_log_target_resource_type as enum (
+  if not exists (select 1 from pg_type where typname = 'action_log_entry_target_resource_type') then
+    create type action_log_entry_target_resource_type as enum (
       'AccessPolicy',
       'Action',
-      'ActionLog',
+      'ActionLogEntry',
       'App',
       'AppAuthorization',
       'AppAuthorizationCredential',
@@ -35,14 +35,15 @@ $$ LANGUAGE plpgsql;
 
 create table if not exists action_logs (
   id UUID default uuidv7() primary key,
-  actor_type action_log_actor_type not null,
+  action_id UUID not null,
+  actor_type action_log_entry_actor_type not null,
   actor_user_id UUID,
   actor_app_id UUID,
-  actor_ip_address inet,
-  target_resource_type action_log_target_resource_type not null,
+  http_request_id UUID,
+  target_resource_type action_log_entry_target_resource_type not null,
   target_access_policy_id UUID,
   target_action_id UUID,
-  target_action_log_id UUID,
+  target_action_log_entry_id UUID,
   target_app_id UUID,
   target_app_authorization_id UUID,
   target_app_authorization_credential_id UUID,

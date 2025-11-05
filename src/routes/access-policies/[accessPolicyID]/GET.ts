@@ -1,122 +1,151 @@
-import { ItemIncludedResourcesConstructorMap } from "#resources/Item/Item.js";
+import Item from "#resources/Item/Item.js";
 import { Request, Response, Router } from "express";
-import HTTPError from "#errors/HTTPError.js";
-import authenticateUser from "#utilities/hooks/authenticateUser.js";
-import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
+import AccessPolicy, { AccessPolicyIncludedResourceClassMap } from "#resources/AccessPolicy/AccessPolicy.js";
 import Role from "#resources/Role/Role.js";
 import Action from "#resources/Action/Action.js";
 import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
-import authenticateApp from "#utilities/hooks/authenticateApp.js";
-import authenticateAppAuthorization from "#utilities/hooks/authenticateAppAuthorization.js";
-import storeAnonymousUser from "#utilities/hooks/storeAnonymousUser.js";
 import { ResponseLocals } from "#utilities/types.js";
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
-import ActionLog from "#resources/ActionLog/ActionLog.js";
+import ActionLogEntry from "#resources/ActionLogEntry/ActionLogEntry.js";
+import Project from "#resources/Project/Project.js";
+import Workspace from "#resources/Workspace/Workspace.js";
+import BadRequestError from "#errors/BadRequestError.js";
+import App from "#resources/App/App.js";
+import Group from "#resources/Group/Group.js";
+import Milestone from "#resources/Milestone/Milestone.js";
+import User from "#resources/User/User.js";
+import AuthenticationMiddleware from "#utilities/middleware/AuthenticationMiddleware.js";
+import HTTPTypeGuard from "#utilities/HTTPTypeGuard.js";
+import ServerLogEntry, { ServerLogEntryLevel } from "#resources/ServerLogEntry/ServerLogEntry.js";
 
 const getAccessPolicyRouter = Router({mergeParams: true});
-getAccessPolicyRouter.use(authenticateUser);
-getAccessPolicyRouter.use(authenticateApp);
-getAccessPolicyRouter.use(authenticateAppAuthorization);
-getAccessPolicyRouter.use(storeAnonymousUser);
+getAccessPolicyRouter.use(AuthenticationMiddleware.authenticateUser);
+getAccessPolicyRouter.use(AuthenticationMiddleware.authenticateApp);
+getAccessPolicyRouter.use(AuthenticationMiddleware.authenticateAppAuthorization);
+getAccessPolicyRouter.use(AuthenticationMiddleware.storeAnonymousUser);
 getAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, response: Response<unknown, ResponseLocals>) => {
 
-  const { user, app, server } = response.locals;
-  let getAccessPolicyAction: Action | null = null;
-  let accessPolicy: AccessPolicy | null = null;
+  const { user, app, server, httpRequest } = response.locals;
+  const { accessPolicyID } = request.params;
 
-  try {
+  await ServerLogEntry.create({
+    message: `Getting access policy ${accessPolicyID}...`,
+    httpRequestID: httpRequest.id,
+    level: ServerLogEntryLevel.Pending
+  }, server.pool, true);
+  const accessPolicy = await AccessPolicy.getByID(accessPolicyID, server.pool);
 
-    getAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.get", server.pool);
+  await ServerLogEntry.create({
+    message: `Verifying principal's permissions to get access policy ${accessPolicy.id}...`,
+    httpRequestID: httpRequest.id,
+    level: ServerLogEntryLevel.Pending
+  }, server.pool, true);
+  const accessPolicyScopeData = await accessPolicy.getScopeData();
+  const principal = app ?? user;
+  HTTPTypeGuard.assertPrincipal(principal);
+  const getAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.get", server.pool);
+  await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, getAccessPolicyAction.id, accessPolicyScopeData);
 
-    const { accessPolicyID } = request.params;
-    accessPolicy = await AccessPolicy.getByID(accessPolicyID, server.pool);
-    const accessPolicyScopeData = await accessPolicy.getScopeData();
+  const includedResources: AccessPolicyIncludedResourceClassMap = {};
+  const { include } = request.query;
 
-    const principal = user ?? app;
-    if (!principal) {
+  if (include) {
 
-      throw new UnauthenticatedError();
+    await ServerLogEntry.create({
+      message: `Getting included resources for access policy ${accessPolicy.id}...`,
+      httpRequestID: httpRequest.id,
+      level: ServerLogEntryLevel.Pending
+    }, server.pool, true);
+
+    const addResourceClass = (resourceType: string) => {
+
+      switch (resourceType) {
+
+        case "scopedAction":
+          includedResources.scopedAction = Action;
+          break;
+        
+        case "scopedApp":
+          includedResources.scopedApp = App;
+          break;
+        
+        case "scopedGroup":
+          includedResources.scopedGroup = Group;
+          break;
+        
+        case "scopedItem":
+          includedResources.scopedItem = Item;
+          break;
+        
+        case "scopedMilestone":
+          includedResources.scopedMilestone = Milestone;
+          break;
+        
+        case "scopedProject":
+          includedResources.scopedProject = Project;
+          break;
+        
+        case "scopedRole":
+          includedResources.scopedRole = Role;
+          break;
+        
+        case "scopedUser":
+          includedResources.scopedUser = User;
+          break;
+        
+        case "scopedWorkspace":
+          includedResources.scopedWorkspace = Workspace;
+          break;
+
+        default:
+          throw new BadRequestError(`include query must be "scopedAction", "scopedApp", "scopedGroup", "scopedItem", "scopedMilestone", "scopedProject", "scopedRole", "scopedUser", "scopedWorkspace", or excluded.`);
+
+      }
 
     }
 
-    await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, getAccessPolicyAction.id, accessPolicyScopeData);
+    if (typeof(include) === "string") {
 
-    const { include } = request.query;
+      addResourceClass(include);
 
-    const includedResources: ItemIncludedResourcesConstructorMap = {};
+    } else if (include instanceof Array) {
 
-    // if (include) {
+      for (const resourceType of include) {
 
-    //   const addResourceClass = (resourceType: string) => {
+        if (typeof(resourceType) !== "string") {
 
-    //     switch (resourceType) {
+          throw new BadRequestError("include query must be an array of strings.");
 
-    //       case "project":
-    //         includedResources.Project = Project;
-    //         break;
+        }
 
-    //       case "project.workspace":
-    //         includedResources.Workspace = Workspace;
-    //         break;
+        addResourceClass(resourceType);
 
-    //       default:
-    //         throw new HTTPError(400, "include query must be \"project\", \"project.workspace\", or excluded.");
-
-    //     }
-
-    //   }
-
-    //   if (typeof(include) === "string") {
-
-    //     addResourceClass(include);
-
-    //   } else if (include instanceof Array) {
-
-    //     for (const resourceType of include) {
-
-    //       if (typeof(resourceType) !== "string") {
-
-    //         throw new HTTPError(400, "include query must be an array of strings.");
-
-    //       }
-
-    //       addResourceClass(resourceType);
-
-    //     }
-
-    //   }
-
-    // }
-
-    await ActionLog.create({
-      actorType: app ? "App" : "User",
-      actorUserID: app ? null : user?.id,
-      actorAppID: app ? app.id : null,
-      actorIPAddress: request.ip,
-      actionID: getAccessPolicyAction.id,
-      targetResourceType: "AccessPolicy",
-      targetAccessPolicyID: accessPolicy.id
-    }, server.pool);
-
-    response.json(accessPolicy);
-
-  } catch (error) {
-
-    if (error instanceof HTTPError) {
-
-      response.status(error.getStatusCode()).json(error);
-
-    } else {
-
-      console.error(error);
-
-      response.status(500).json({
-        message: "Something bad happened on our side. Please try again later."
-      });
+      }
 
     }
 
   }
+
+  await ActionLogEntry.create({
+    actorType: principal.resourceType,
+    actorUserID: principal.resourceType === "User" ? principal.id : null,
+    actorAppID: principal.resourceType === "App" ? principal.id : null,
+    httpRequestID: httpRequest.id,
+    actionID: getAccessPolicyAction.id,
+    targetResourceType: "AccessPolicy",
+    targetAccessPolicyID: accessPolicy.id
+  }, server.pool);
+
+  await ServerLogEntry.create({
+    message: `Successfully returned access policy ${accessPolicy.id}.`,
+    httpRequestID: httpRequest.id,
+    level: ServerLogEntryLevel.Success
+  }, server.pool, true);
+
+  response.json(accessPolicy);
+
+  await httpRequest.update({
+    statusCode: 200
+  });
 
 });
 

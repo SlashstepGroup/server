@@ -1,70 +1,41 @@
 import { Request, Response, Router } from "express";
-import HTTPError from "#errors/HTTPError.js";
-import authenticateUser from "#utilities/hooks/authenticateUser.js";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Role from "#resources/Role/Role.js";
 import Action from "#resources/Action/Action.js";
-import authenticateApp from "#utilities/hooks/authenticateApp.js";
-import authenticateAppAuthorization from "#utilities/hooks/authenticateAppAuthorization.js";
-import ActionLog from "#resources/ActionLog/ActionLog.js";
+import ActionLogEntry from "#resources/ActionLogEntry/ActionLogEntry.js";
 import { ResponseLocals } from "#utilities/types.js";
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
-import storeAnonymousUser from "#utilities/hooks/storeAnonymousUser.js";
+import HTTPTypeGuard from "#utilities/HTTPTypeGuard.js";
+import AuthenticationMiddleware from "#utilities/middleware/AuthenticationMiddleware.js";
 
 const getActionRouter = Router({mergeParams: true});
-getActionRouter.use(authenticateUser);
-getActionRouter.use(authenticateApp);
-getActionRouter.use(authenticateAppAuthorization);
-getActionRouter.use(storeAnonymousUser);
+getActionRouter.use(AuthenticationMiddleware.authenticateUser);
+getActionRouter.use(AuthenticationMiddleware.authenticateApp);
+getActionRouter.use(AuthenticationMiddleware.authenticateAppAuthorization);
+getActionRouter.use(AuthenticationMiddleware.storeAnonymousUser);
 getActionRouter.use(async (request: Request<{ actionID: string }>, response: Response<unknown, ResponseLocals>) => {
 
-  const { user, app, server } = response.locals;
+  const { user, app, server, httpRequest } = response.locals;
+  const principal = app ?? user;
+  HTTPTypeGuard.assertPrincipal(principal);
 
-  try {
+  const { actionID } = request.params;
+  const action = await Action.getByID(actionID, response.locals.server.pool);
+  const actionScopeData = action.getScopeData();
+  const getActionAction = await Action.getPreDefinedActionByName("slashstep.actions.get", response.locals.server.pool);
+  await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, getActionAction.id, actionScopeData);
 
-    const principal = user ?? app;
-    if (!principal) {
+  await ActionLogEntry.create({
+    actorType: principal.resourceType,
+    actorUserID: principal.resourceType === "User" ? principal.id : null,
+    actorAppID: principal.resourceType === "App" ? principal.id : null,
+    httpRequestID: httpRequest.id,
+    actionID: getActionAction.id,
+    targetResourceType: "Action",
+    targetActionID: action.id
+  }, server.pool);
 
-      throw new UnauthenticatedError();
-
-    }
-
-    const { actionID } = request.params;
-    const action = await Action.getByID(actionID, response.locals.server.pool);
-    const actionScopeData = action.getScopeData();
-    const getActionAction = await Action.getPreDefinedActionByName("slashstep.actions.get", response.locals.server.pool);
-    await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, getActionAction.id, actionScopeData);
-
-    await ActionLog.create({
-      actorType: app ? "App" : "User",
-      actorUserID: app ? null : user?.id,
-      actorAppID: app ? app.id : null,
-      actorIPAddress: request.ip,
-      actionID: getActionAction.id,
-      targetResourceType: "Action",
-      targetActionID: action.id
-    }, server.pool);
-
-    response.json(action);
-
-  } catch (error) {
-
-    if (error instanceof HTTPError) {
-
-      response.status(error.getStatusCode()).json(error);
-
-    } else {
-
-      console.error(error);
-
-      response.status(500).json({
-        message: "Something bad happened on our side. Please try again later."
-      });
-
-    }
-
-  }
+  response.json(action);
 
 });
 

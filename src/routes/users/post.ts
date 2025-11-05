@@ -2,7 +2,7 @@
 // import HTTPError from "#errors/HTTPError.js";
 // import { DatabaseError, Pool } from "pg";
 // import User from "#resources/User/User.js";
-// import ActionLog from "#resources/ActionLog/ActionLog.js";
+// import ActionLogEntry from "#resources/ActionLogEntry/ActionLogEntry.js";
 // import Action from "#resources/Action/Action.js";
 // import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
 // import ForbiddenError from "#errors/ForbiddenError.js";
@@ -105,7 +105,7 @@
 //       }, server.pool);
 
 //       // Log the action.
-//       await ActionLog.create({
+//       await ActionLogEntry.create({
 //         actionID: action.id,
 //         actorID: (authenticatedUser ?? user).id,
 //         actorIPAddress: request.ip,

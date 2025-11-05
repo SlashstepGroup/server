@@ -21,6 +21,7 @@ describe("Route: DELETE /actions/:actionID", async () => {
     await testEnvironment.startPostgreSQLContainer();
     slashstepServer = await testEnvironment.initializeSlashstepServer();
     slashstepServer.app.delete("/actions/:actionID", deleteActionRouter);
+    slashstepServer.setupErrorHandling();
     await testEnvironment.initializeHTTPServer();
 
   });
@@ -54,7 +55,8 @@ describe("Route: DELETE /actions/:actionID", async () => {
       method: "DELETE",
       headers: {
         authorization: `App ${token}`
-      }
+      },
+      credentials: "include"
     });
 
     strictEqual(response.status, 204);
@@ -71,7 +73,8 @@ describe("Route: DELETE /actions/:actionID", async () => {
       method: "DELETE",
       headers: {
         authorization: `App ${token}`
-      }
+      },
+      credentials: "include"
     });
     strictEqual(numberResponse.status, 400);
 
@@ -79,7 +82,8 @@ describe("Route: DELETE /actions/:actionID", async () => {
       method: "DELETE",
       headers: {
         authorization: `App ${token}`
-      }
+      },
+      credentials: "include"
     });
     strictEqual(stringResponse.status, 400);
 
@@ -106,6 +110,7 @@ describe("Route: DELETE /actions/:actionID", async () => {
       headers: {
         authorization: `App ${token}`
       },
+      credentials: "include"
     });
     
     strictEqual(response.status, 403);
@@ -121,7 +126,8 @@ describe("Route: DELETE /actions/:actionID", async () => {
       method: "DELETE",
       headers: {
         authorization: `App ${token}`
-      }
+      },
+      credentials: "include"
     });
     strictEqual(response.status, 404);
 

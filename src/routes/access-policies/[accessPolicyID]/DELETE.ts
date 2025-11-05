@@ -1,79 +1,78 @@
 import { Request, Response, Router } from "express";
-import HTTPError from "#errors/HTTPError.js";
-import authenticateUser from "#utilities/hooks/authenticateUser.js";
 import AccessPolicy, { AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js";
-import authenticateApp from "#utilities/hooks/authenticateApp.js";
-import authenticateAppAuthorization from "#utilities/hooks/authenticateAppAuthorization.js";
-import ActionLog from "#resources/ActionLog/ActionLog.js";
+import ActionLogEntry from "#resources/ActionLogEntry/ActionLogEntry.js";
 import Role from "#resources/Role/Role.js";
 import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
 import { ResponseLocals } from "#utilities/types.js";
-import storeAnonymousUser from "#utilities/hooks/storeAnonymousUser.js";
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
-import User from "#resources/User/User.js";
+import HTTPTypeGuard from "#utilities/HTTPTypeGuard.js";
+import AuthenticationMiddleware from "#utilities/middleware/AuthenticationMiddleware.js";
+import ServerLogEntry, { ServerLogEntryLevel } from "#resources/ServerLogEntry/ServerLogEntry.js";
 
 const deleteAccessPolicyRouter = Router({mergeParams: true});
-deleteAccessPolicyRouter.use(authenticateUser);
-deleteAccessPolicyRouter.use(authenticateApp);
-deleteAccessPolicyRouter.use(authenticateAppAuthorization);
-deleteAccessPolicyRouter.use(storeAnonymousUser);
+deleteAccessPolicyRouter.use(AuthenticationMiddleware.authenticateUser);
+deleteAccessPolicyRouter.use(AuthenticationMiddleware.authenticateApp);
+deleteAccessPolicyRouter.use(AuthenticationMiddleware.authenticateAppAuthorization);
+deleteAccessPolicyRouter.use(AuthenticationMiddleware.storeAnonymousUser);
 deleteAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string }>, response: Response<unknown, ResponseLocals>) => {
 
-  const { user, app, server } = response.locals;
-  let deleteAccessPolicyAction: Action | null = null;
-  let accessPolicy: AccessPolicy | null = null;
+  // Get the access policy.
+  const { user, app, server, httpRequest } = response.locals;
+  const { accessPolicyID } = request.params;
+  await ServerLogEntry.create({
+    message: `Getting access policy ${accessPolicyID}...`,
+    httpRequestID: httpRequest.id,
+    level: ServerLogEntryLevel.Pending
+  }, server.pool, true);
 
-  try {
-    
-    deleteAccessPolicyAction = await Action.getPreDefinedActionByName("slashstep.accessPolicies.delete", server.pool);
+  const deleteAccessPolicyAction: Action = await Action.getPreDefinedActionByName("slashstep.accessPolicies.delete", server.pool);
+  const accessPolicy = await AccessPolicy.getByID(accessPolicyID, server.pool);
 
-    const { accessPolicyID } = request.params;
-    accessPolicy = await AccessPolicy.getByID(accessPolicyID, server.pool);
-    const accessPolicyAction = await Action.getByID(accessPolicy.actionID, response.locals.server.pool);
-    const accessPolicyScopeData = await accessPolicy.getScopeData();
+  // Make sure the requestor has permission to delete the access policy.
+  await ServerLogEntry.create({
+    message: `Verifying principal's permissions to delete access policy ${accessPolicy.id}...`,
+    httpRequestID: httpRequest.id,
+    level: ServerLogEntryLevel.Pending
+  }, server.pool, true);
 
-    const principal = user ?? app;
-    if (!principal) {
+  const accessPolicyAction = await Action.getByID(accessPolicy.actionID, server.pool);
+  const accessPolicyScopeData = await accessPolicy.getScopeData();
+  const principal = app ?? user;
+  HTTPTypeGuard.assertPrincipal(principal);
+  await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, deleteAccessPolicyAction.id, accessPolicyScopeData);
+  await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, accessPolicyAction.id, accessPolicyScopeData, AccessPolicyPermissionLevel.Editor);
 
-      throw new UnauthenticatedError();
+  // Delete the access policy.
+  await ServerLogEntry.create({
+    message: `Deleting access policy ${accessPolicy.id}...`,
+    httpRequestID: httpRequest.id,
+    level: ServerLogEntryLevel.Pending
+  }, server.pool, true);
 
-    }
+  await accessPolicy.delete();
 
-    await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, deleteAccessPolicyAction.id, accessPolicyScopeData);
-    await principal.verifyPermissions({Action, AccessPolicy, Role, RoleMembership}, accessPolicyAction.id, accessPolicyScopeData, AccessPolicyPermissionLevel.Editor);
+  // Log the action.
+  await ActionLogEntry.create({
+    actorType: principal.resourceType,
+    actorUserID: principal.resourceType === "User" ? principal.id : null,
+    actorAppID: principal.resourceType === "App" ? principal.id : null,
+    httpRequestID: httpRequest.id,
+    actionID: deleteAccessPolicyAction.id,
+    targetResourceType: "AccessPolicy",
+    targetAccessPolicyID: accessPolicy.id
+  }, server.pool);
 
-    await accessPolicy.delete();
+  await ServerLogEntry.create({
+    message: `Successfully deleted access policy ${accessPolicy.id}.`,
+    httpRequestID: httpRequest.id,
+    level: ServerLogEntryLevel.Success
+  }, server.pool, true);
 
-    await ActionLog.create({
-      actorType: app ? "App" : "User",
-      actorUserID: app ? null : user?.id,
-      actorAppID: app ? app.id : null,
-      actorIPAddress: request.ip,
-      actionID: deleteAccessPolicyAction.id,
-      targetResourceType: "AccessPolicy",
-      targetAccessPolicyID: accessPolicy.id
-    }, server.pool);
+  response.sendStatus(204);
 
-    response.sendStatus(204);
-
-  } catch (error) {
-
-    if (error instanceof HTTPError) {
-
-      response.status(error.getStatusCode()).json(error);
-
-    } else {
-
-      console.error(error);
-
-      response.status(500).json({
-        message: "Something bad happened on our side. Please try again later."
-      });
-
-    }
-
-  }
+  await httpRequest.update({
+    statusCode: 204
+  });
 
 });
 

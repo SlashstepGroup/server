@@ -1,1 +1,1 @@
-delete from app_authorizations where id = $1;
+delete from fields where id = $1;

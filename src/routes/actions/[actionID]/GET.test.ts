@@ -18,6 +18,7 @@ describe("Route: GET /actions/:actionID", async () => {
     await testEnvironment.startPostgreSQLContainer();
     slashstepServer = await testEnvironment.initializeSlashstepServer();
     slashstepServer.app.get("/actions/:actionID", getActionRouter);
+    slashstepServer.setupErrorHandling();
     await testEnvironment.initializeHTTPServer();
 
   });
@@ -86,7 +87,7 @@ describe("Route: GET /actions/:actionID", async () => {
     const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/actions/${action.id}`, {
       headers: {
         cookie: `sessionToken=${sessionToken}`
-      },
+      }
     });
     
     strictEqual(response.status, 403);

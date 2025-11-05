@@ -1,5 +1,5 @@
 import { default as SlashstepServer } from "#utilities/Server/Server.js";
-import test, { after, afterEach, before, beforeEach, describe, it } from "node:test";
+import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import { strictEqual } from "node:assert";
 import deleteAccessPolicyRouter from "./DELETE.js";
 import { v7 as generateUUIDv7 } from "uuid";
@@ -11,6 +11,7 @@ import Session from "#resources/Session/Session.js";
 import TestEnvironment from "#utilities/TestEnvironment/TestEnvironment.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import { rejects } from "node:assert/strict";
+import ActionLogEntry from "#resources/ActionLogEntry/ActionLogEntry.js";
 
 describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
 
@@ -25,6 +26,7 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
     await testEnvironment.startPostgreSQLContainer();
     slashstepServer = await testEnvironment.initializeSlashstepServer();
     slashstepServer.app.delete("/access-policies/:accessPolicyID", deleteAccessPolicyRouter);
+    slashstepServer.setupErrorHandling();
     await testEnvironment.initializeHTTPServer();
 
   });
@@ -50,7 +52,6 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
 
   it("can return a 204 status code if successful", async () => {
 
-    // Grant unauthenticated users access to the action.
     const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
     await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.accessPolicies.delete");
 
@@ -73,19 +74,34 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
 
   });
 
-  it("can return a 400 if the access policy ID is not a UUID", async () => {
+  it("can create an action log for a successful delete", async () => {
 
-    // Grant unauthenticated users access to the action.
+    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.accessPolicies.delete");
+
+    const randomAction = await testEnvironment.createRandomAction();
     const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const deleteAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.delete", slashstepServer.pool);
-    await AccessPolicy.create({
+    const accessPolicy = await AccessPolicy.create({
       principalType: AccessPolicyPrincipalType.Role,
       principalRoleID: unauthenticatedUsersRole.id,
-      actionID: deleteAccessPolicyAction.id,
-      permissionLevel: AccessPolicyPermissionLevel.User,
+      actionID: randomAction.id,
+      permissionLevel: AccessPolicyPermissionLevel.Editor,
       inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
       scopedResourceType: AccessPolicyScopedResourceType.Instance
-    }, slashstepServer.pool);
+    }, slashstepServer.pool)
+
+    await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${accessPolicy.id}`, {
+      method: "DELETE"
+    });
+
+    const deleteAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.delete", slashstepServer.pool);
+    const actionLogCount = await ActionLogEntry.count(`actionID = "${deleteAccessPolicyAction.id}" and targetAccessPolicyID = "${accessPolicy.id}"`, slashstepServer.pool);
+    strictEqual(actionLogCount, 1);
+
+  });
+
+  it("can return a 400 if the access policy ID is not a UUID", async () => {
+
+    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.accessPolicies.delete");
 
     const numberResponse = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/1`, {
       method: "DELETE"
@@ -166,17 +182,7 @@ describe("Route: DELETE /access-policies/:accessPolicyID", async () => {
 
   it("can return a 404 status code if the requested access policy doesn't exist", async () => {
 
-    // Grant unauthenticated users access to the action.
-    const unauthenticatedUsersRole = await Role.getByName("unauthenticated-users", slashstepServer.pool);
-    const getAccessPolicyAction = await Action.getByName("slashstep.accessPolicies.delete", slashstepServer.pool);
-    await AccessPolicy.create({
-      principalType: AccessPolicyPrincipalType.Role,
-      principalRoleID: unauthenticatedUsersRole.id,
-      actionID: getAccessPolicyAction.id,
-      permissionLevel: AccessPolicyPermissionLevel.User,
-      inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
-      scopedResourceType: AccessPolicyScopedResourceType.Instance
-    }, slashstepServer.pool);
+    await testEnvironment.createAccessPolicyForUnauthenticatedUsers("slashstep.accessPolicies.delete");
 
     const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/access-policies/${generateUUIDv7()}`, {
       method: "DELETE"

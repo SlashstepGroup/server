@@ -284,6 +284,8 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
 
   static readonly name = "AccessPolicy";
 
+  readonly resourceType = "AccessPolicy";
+
   static readonly allowedQueryFields = {
     id: "id", 
     actionID: "action_id",

@@ -2,6 +2,7 @@ import type { default as Action } from "#resources/Action/Action.js";
 import type { default as App } from "#resources/App/App.js";
 import type { default as AppAuthorization } from "#resources/AppAuthorization/AppAuthorization.js";
 import type { default as Group } from "#resources/Group/Group.js";
+import type { default as HTTPRequest } from "#resources/HTTPRequest/HTTPRequest.js";
 import type { default as Item } from "#resources/Item/Item.js";
 import type { default as Milestone } from "#resources/Milestone/Milestone.js";
 import type { default as Project } from "#resources/Project/Project.js";
@@ -20,6 +21,7 @@ export type ResponseLocals = {
   user?: User;
   app?: App;
   session?: Session;
+  httpRequest: HTTPRequest;
   appAuthorization?: AppAuthorization;
 }
 

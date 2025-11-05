@@ -2,6 +2,8 @@ export default interface Resource<ScopeData> {
 
   id: string;
 
+  resourceType: string;
+
   /**
    * 
    */

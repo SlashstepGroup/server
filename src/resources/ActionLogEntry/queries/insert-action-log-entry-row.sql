@@ -1,12 +1,13 @@
 insert into action_logs (
+  action_id,
   actor_type,
   actor_user_id,
   actor_app_id,
-  actor_ip_address,
+  http_request_id,
   target_resource_type,
   target_access_policy_id,
   target_action_id,
-  target_action_log_id,
+  target_action_log_entry_id,
   target_app_id,
   target_app_authorization_id,
   target_app_authorization_credential_id,
@@ -49,5 +50,6 @@ insert into action_logs (
   $22,
   $23,
   $24,
-  $25
+  $25,
+  $26
 ) returning *;

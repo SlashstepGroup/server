@@ -8,20 +8,20 @@ import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import Action from "#resources/Action/Action.js";
 import User from "#resources/User/User.js";
 import App from "#resources/App/App.js";
-import ActionLog, { InitialActionLogProperties } from "#resources/ActionLog/ActionLog.js";
+import ActionLogEntry from "#resources/ActionLogEntry/ActionLogEntry.js";
 import Session from "#resources/Session/Session.js";
 import os from "os";
 import { createServer as createHTTPSServer } from "https";
-import instanceRouter from "#routes/instance/index.js";
-import itemsRouter from "#routes/items/index.js";
+// import instanceRouter from "#routes/instance/index.js";
+// import itemsRouter from "#routes/items/index.js";
 // import workspacesRouter from "#routes/workspaces/index.js";
 // import projectsRouter from "#routes/projects/index.js";
 // import usersRouter from "#routes/users/index.js";
-import express, { Application, Request, Response, response } from "express";
+import express, { Application } from "express";
 import cors from "cors";
 import { read } from "read";
 import { hash as hashPassword } from "argon2";
-import userRouter from "#routes/user/index.js";
+// import userRouter from "#routes/user/index.js";
 import cookieParser from "cookie-parser";
 import accessPoliciesRouter from "#routes/access-policies/index.js";
 import Group from "#resources/Group/Group.js";
@@ -36,6 +36,11 @@ import AppAuthorizationCredential from "#resources/AppAuthorizationCredential/Ap
 import ItemConnection from "#resources/ItemConnection/ItemConnection.js";
 import { ItemConnectionType } from "#resources/ItemConnectionType/ItemConnectionType.js";
 import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
+import Principal from "src/interfaces/Principal.js";
+import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import HTTPRequest from "#resources/HTTPRequest/HTTPRequest.js";
+import CommonMiddleware from "#utilities/middleware/CommonMiddleware.js";
+import ServerLogEntry from "#resources/ServerLogEntry/ServerLogEntry.js";
 
 export type ServerProperties = {
   environment: string;
@@ -133,6 +138,8 @@ export default class Server {
 
     }
 
+    await HTTPRequest.initializeTable(this.pool); // No references.
+    await ServerLogEntry.initializeTable(this.pool); // References HTTP requests.
     await Group.initializeTable(this.pool); // Self-referential.
     await Workspace.initializeTable(this.pool); // No references.
     await User.initializeTable(this.pool); // No references.
@@ -151,7 +158,7 @@ export default class Server {
     await ItemConnection.initializeTable(this.pool); // References items and item connections.
     await Session.initializeTable(this.pool); // References users.
     await AccessPolicy.initializeTable(this.pool); // References all of the above.
-    await ActionLog.initializeTable(this.pool); // References all of the above.
+    await ActionLogEntry.initializeTable(this.pool); // References all of the above.
 
   }
 
@@ -390,6 +397,16 @@ export default class Server {
     });
 
   }
+
+  assertPrincipal<T extends Principal>(principal: T | null | undefined): asserts principal is T {
+
+    if (!principal) {
+  
+      throw new UnauthenticatedError();
+  
+    }
+
+  }
   
   setupMiddleware() {
 
@@ -419,12 +436,39 @@ export default class Server {
       credentials: true
     }));
     this.app.disable("x-powered-by");
+    this.app.use(async (request, response, next) => {
+
+      if (!request.ip) {
+
+        response.status(400).json({
+          message: "An IP address is required to use this API."
+        });
+        return;
+
+      }
+
+      const headersWithoutSensitiveData = {...request.headers};
+      delete headersWithoutSensitiveData["authorization"];
+      delete headersWithoutSensitiveData["cookie"];
+
+      const httpRequest = await HTTPRequest.create({
+        method: request.method,
+        url: request.originalUrl,
+        ipAddress: request.ip,
+        headers: JSON.stringify(headersWithoutSensitiveData),
+      }, this.pool);
+
+      response.locals.httpRequest = httpRequest;
+
+      next();
+
+    });
 
   }
 
   async listen(): Promise<HTTPServer> {
 
-    return await new Promise((resolve, reject) => {
+    return await new Promise((resolve) => {
 
       if (this.environment === "development") {
 
@@ -450,17 +494,9 @@ export default class Server {
 
   }
 
-  async attemptToCreateActionLog(actionLogProperties: InitialActionLogProperties) {
-      
-    try {
+  setupErrorHandling() {
 
-      await ActionLog.create(actionLogProperties, this.pool);
-
-    } catch (error) {
-
-      console.error(`Couldn't create action log.`, error);
-
-    }
+    this.app.use(CommonMiddleware.handleErrors);
 
   }
 
@@ -471,6 +507,9 @@ export default class Server {
     
     console.log("Setting up routes...");
     this.setupRoutes();
+
+    console.log("Setting up error handling...");
+    this.setupErrorHandling();
 
     console.log("Listening for requests...");
     await this.listen();
