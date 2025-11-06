@@ -437,7 +437,7 @@ export default class ActionLogEntry {
     
   }
 
-  static async list(filterQuery: string, pool: Pool): Promise<ActionLogEntry[]> {
+  static async list(filterQuery: string, pool: Pool, includedResources?: ActionLogEntryIncludedResourceClassMap): Promise<ActionLogEntry[]> {
 
     // Get the list from the database.
     const poolClient = await pool.connect();

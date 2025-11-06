@@ -133,8 +133,6 @@ getActionLogEntryRouter.use(async (request: Request<{ actionLogEntryID: string }
 
   }
 
-  response.json(actionLogEntry);
-
   await ActionLogEntry.create({
     actorType: principal.resourceType,
     actorUserID: principal.resourceType === "User" ? principal.id : null,
