@@ -8,6 +8,7 @@ import type { default as Role } from "#resources/Role/Role.js";
 import { AccessPolicyScopedResourceType, type default as AccessPolicy, type AccessPolicyPermissionLevel } from "#resources/AccessPolicy/AccessPolicy.js";
 import Resource from "src/interfaces/Resource.js";
 import BadRequestError from "#errors/BadRequestError.js";
+import type { default as App, AppProperties } from "#resources/App/App.js";
 
 export type BaseActionProperties = {
   id: string;
@@ -20,7 +21,8 @@ export type BaseActionProperties = {
 export type ActionQueryResult = {
   id: string;
   name: string;
-  app_id?: string | null;
+  app_id: string | null;
+  app: AppProperties | null;
   display_name: string;
   description: string;
 }
@@ -29,6 +31,14 @@ export type ActionScopeData = {
   scopedResourceType: AccessPolicyScopedResourceType.Action;
   actionID: string;
   appID?: string | null;
+}
+
+export type ActionIncludedResourcesConstructorMap = {
+  app?: typeof App;
+}
+
+export type ActionIncludedResourceMap = {
+  [key in keyof ActionIncludedResourcesConstructorMap]?: InstanceType<NonNullable<ActionIncludedResourcesConstructorMap[key]>>;
 }
 
 export type EditableActionProperties = Omit<BaseActionProperties, "id" | "appID">;
@@ -126,12 +136,22 @@ export default class Action implements Resource<ActionScopeData> {
 
   }
 
+  static mapIncludedResources(rowData: ActionQueryResult, includedResources: ActionIncludedResourcesConstructorMap, pool: Pool): ActionIncludedResourceMap {
+
+    const mappedResources: ActionIncludedResourceMap = {
+      app: includedResources.app && rowData.app ? new includedResources.app(rowData.app, pool) : undefined
+    };
+
+    return mappedResources;
+
+  }
+
   /**
    * Requests the server to create a new action.
    * 
    * @param data The data for the new Action, excluding the ID.
    */
-  static async create(data: Omit<BaseActionProperties, "id">, pool: Pool): Promise<Action> {
+  static async create(data: Omit<BaseActionProperties, "id">, pool: Pool, includedResources?: ActionIncludedResourcesConstructorMap): Promise<Action> {
 
     // Insert the access policy into the database.
     const poolClient = await pool.connect();
@@ -145,7 +165,11 @@ export default class Action implements Resource<ActionScopeData> {
       // Convert the row to an Action object.
       const actionRow = result.rows[0];
       const actionProperties = Action.getPropertiesFromRow(actionRow);
-      const accessPolicy = new Action(actionProperties, pool);
+      const mappedResources = includedResources ? Action.mapIncludedResources(actionRow, includedResources, pool) : {};
+      const accessPolicy = new Action({
+        ...actionProperties,
+        ...mappedResources
+      }, pool);
 
       // Return the access policy.
       return accessPolicy;

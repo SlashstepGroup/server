@@ -1,9 +1,7 @@
 create or replace view hydrated_actions as
   select
     actions.*,
-    apps.name as app_name,
-    apps.display_name as app_display_name,
-    apps.description as app_description
+    row_to_json(apps.*) as app
   from
     actions
   left join

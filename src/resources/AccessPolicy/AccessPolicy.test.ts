@@ -225,7 +225,6 @@ describe("Class: AccessPolicy", async () => {
     strictEqual(accessPolicy.permissionLevel, accessPolicyProperties.permissionLevel);
     strictEqual(accessPolicy.inheritanceLevel, accessPolicyProperties.inheritanceLevel);
 
-
   });
 
   it("can return a list of access policies without a query", {timeout: 1000}, async () => {

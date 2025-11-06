@@ -5,16 +5,17 @@ import { dirname, resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import ResourceConflictError from "#errors/ResourceConflictError.js";
 import BadRequestError from "#errors/BadRequestError.js";
-import type { default as Action, InitialWritableActionProperties } from "#resources/Action/Action.js";
-import type { default as App, AppParentResourceType } from "#resources/App/App.js";
-import type { default as Group } from "#resources/Group/Group.js";
+import type { default as Action, BaseActionProperties, InitialWritableActionProperties } from "#resources/Action/Action.js";
+import type { default as App, AppProperties } from "#resources/App/App.js";
+import type { BaseGroupProperties, default as Group } from "#resources/Group/Group.js";
 import type { default as Item } from "#resources/Item/Item.js";
-import type { default as Milestone, MilestoneParentResourceType } from "#resources/Milestone/Milestone.js";
-import type { default as Project } from "#resources/Project/Project.js";
-import type { default as Role, InitialWritableRoleProperties, RoleParentResourceType } from "#resources/Role/Role.js";
-import type { default as User } from "#resources/User/User.js";
-import type { default as Workspace } from "#resources/Workspace/Workspace.js";
+import type { BaseMilestoneProperties, default as Milestone } from "#resources/Milestone/Milestone.js";
+import type { default as Project, ProjectProperties } from "#resources/Project/Project.js";
+import type { default as Role, InitialWritableRoleProperties, BaseRoleProperties } from "#resources/Role/Role.js";
+import type { default as User, UserProperties } from "#resources/User/User.js";
+import type { default as Workspace, WorkspaceProperties } from "#resources/Workspace/Workspace.js";
 import type { default as Resource } from "src/interfaces/Resource.js";
+import type { StringUnion } from "#utilities/types.js";
 
 export type AccessPolicyIncludedResourceClassMap = {
   principalUser?: typeof User;
@@ -34,20 +35,7 @@ export type AccessPolicyIncludedResourceClassMap = {
 }
 
 export type AccessPolicyIncludedResourceMap = {
-  principalUser?: User;
-  principalGroup?: Group;
-  principalRole?: Role;
-  principalApp?: App;
-  scopedAction?: Action;
-  scopedApp?: App;
-  scopedGroup?: Group;
-  scopedItem?: Item;
-  scopedMilestone?: Milestone;
-  scopedProject?: Project;
-  scopedRole?: Role;
-  scopedUser?: User;
-  scopedWorkspace?: Workspace;
-  action?: Action;
+  [key in keyof AccessPolicyIncludedResourceClassMap]?: InstanceType<NonNullable<AccessPolicyIncludedResourceClassMap[key]>>;
 }
 
 export enum AccessPolicyPermissionLevel {
@@ -88,21 +76,21 @@ export enum AccessPolicyPrincipalType {
 
 export type BaseAccessPolicyProperties = {
   id: string;
-  principalType: AccessPolicyPrincipalType | `${AccessPolicyPrincipalType}`;
-  principalUserID?: string;
-  principalGroupID?: string;
-  principalRoleID?: string;
-  principalAppID?: string;
-  scopedResourceType: AccessPolicyScopedResourceType | `${AccessPolicyScopedResourceType}`;
-  scopedActionID?: string;
-  scopedAppID?: string;
-  scopedGroupID?: string;
-  scopedItemID?: string;
-  scopedMilestoneID?: string;
-  scopedProjectID?: string;
-  scopedRoleID?: string;
-  scopedUserID?: string;
-  scopedWorkspaceID?: string;
+  principalType: StringUnion<AccessPolicyPrincipalType>;
+  principalUserID?: string | null;
+  principalGroupID?: string | null;
+  principalRoleID?: string | null;
+  principalAppID?: string | null;
+  scopedResourceType: StringUnion<AccessPolicyScopedResourceType>;
+  scopedActionID?: string | null;
+  scopedAppID?: string | null;
+  scopedGroupID?: string | null;
+  scopedItemID?: string | null;
+  scopedMilestoneID?: string | null;
+  scopedProjectID?: string | null;
+  scopedRoleID?: string | null;
+  scopedUserID?: string | null;
+  scopedWorkspaceID?: string | null;
   actionID: string;
   permissionLevel: AccessPolicyPermissionLevel | `${AccessPolicyPermissionLevel}`;
   inheritanceLevel: AccessPolicyInheritanceLevel | `${AccessPolicyInheritanceLevel}`;
@@ -165,92 +153,39 @@ export type AccessPolicyTableQueryResult = {
 }
 
 export type AccessPolicyQueryResult = {
-  principal_role_is_predefined: boolean;
-  principal_role_description?: string;
   id: string;
-  principal_type: AccessPolicyPrincipalType;
-  principal_app_id?: string;
-  principal_app_name?: string;
-  principal_app_display_name?: string;
-  principal_app_parent_resource_type?: AppParentResourceType | `${AppParentResourceType}`;
-  principal_app_parent_user_id?: string;
-  principal_app_parent_workspace_id?: string;
-  principal_app_description?: string;
-  principal_user_id?: string;
-  principal_user_username?: string;
-  principal_user_display_name?: string;
-  principal_user_hashed_password?: string;
-  principal_user_is_anonymous?: boolean;
-  principal_user_ip_address?: string;
-  principal_group_display_name?: string;
-  principal_group_name?: string;
-  principal_group_id?: string;
-  principal_role_id?: string;
-  principal_role_name?: string;
-  principal_role_display_name?: string;
-  principal_role_parent_resource_type?: RoleParentResourceType;
-  principal_role_parent_workspace_id?: string;
-  principal_role_parent_project_id?: string;
-  principal_role_parent_group_id?: string;
-  scoped_resource_type: AccessPolicyScopedResourceType;
-  scoped_action_id?: string;
-  scoped_action_name?: string;
-  scoped_action_display_name?: string;
-  scoped_action_description?: string;
-  scoped_app_id?: string;
-  scoped_app_name?: string;
-  scoped_app_display_name?: string;
-  scoped_app_parent_resource_type?: AppParentResourceType | `${AppParentResourceType}`;
-  scoped_app_parent_user_id?: string;
-  scoped_app_parent_workspace_id?: string;
-  scoped_app_description?: string;
-  scoped_group_id?: string;
-  scoped_group_display_name?: string;
-  scoped_group_name?: string;
-  scoped_item_id?: string;
-  scoped_item_summary?: string;
-  scoped_item_description?: string;
-  scoped_item_project_id?: string;
-  scoped_item_number?: string;
-  scoped_milestone_id?: string;
-  scoped_milestone_name?: string;
-  scoped_milestone_display_name?: string;
-  scoped_milestone_description?: string;
-  scoped_milestone_parent_resource_type?: MilestoneParentResourceType;
-  scoped_milestone_parent_project_id?: string;
-  scoped_milestone_parent_workspace_id?: string;
-  scoped_project_id?: string;
-  scoped_project_name?: string;
-  scoped_project_display_name?: string;
-  scoped_project_key?: string;
-  scoped_project_description?: string;
-  scoped_project_start_date?: Date;
-  scoped_project_end_date?: Date;
-  scoped_project_workspace_id?: string;
-  scoped_role_id?: string;
-  scoped_role_name?: string;
-  scoped_role_is_predefined?: boolean;
-  scoped_role_description?: string;
-  scoped_role_display_name?: string;
-  scoped_role_parent_resource_type?: RoleParentResourceType;
-  scoped_role_parent_workspace_id?: string;
-  scoped_role_parent_project_id?: string;
-  scoped_role_parent_group_id?: string;
-  scoped_user_id?: string;
-  scoped_user_username?: string;
-  scoped_user_display_name?: string;
-  scoped_user_hashed_password?: string;
-  scoped_user_is_anonymous?: boolean;
-  scoped_user_ip_address?: string;
-  scoped_workspace_id?: string;
-  scoped_workspace_name?: string;
-  scoped_workspace_display_name?: string;
+  principal_type: StringUnion<AccessPolicyPrincipalType>;
+  principal_app: AppProperties | null;
+  principal_app_id: string | null;
+  principal_user_id: string | null;
+  principal_user: UserProperties | null;
+  principal_group: BaseGroupProperties | null;
+  principal_group_id: string | null;
+  principal_role_id: string;
+  principal_role: BaseRoleProperties | null;
+  scoped_resource_type: StringUnion<AccessPolicyScopedResourceType>;
+  scoped_action_id: string | null;
+  scoped_action: BaseActionProperties | null;
+  scoped_app_id: string | null;
+  scoped_app: AppProperties | null;
+  scoped_group_id: string | null;
+  scoped_group: BaseGroupProperties | null;
+  scoped_item_id: string | null;
+  scoped_item: Item | null;
+  scoped_milestone_id: string | null;
+  scoped_milestone: BaseMilestoneProperties | null;
+  scoped_project_id: string | null;
+  scoped_project: ProjectProperties | null;
+  scoped_role_id: string | null;
+  scoped_role: BaseRoleProperties | null;
+  scoped_user_id: string | null;
+  scoped_user: UserProperties | null;
+  scoped_workspace_id: string | null;
+  scoped_workspace: WorkspaceProperties | null;
   action_id: string;
-  action_name?: string;
-  action_display_name?: string;
-  action_description?: string;
-  permission_level: AccessPolicyPermissionLevel;
-  inheritance_level: AccessPolicyInheritanceLevel;
+  action: BaseActionProperties;
+  permission_level: StringUnion<AccessPolicyPermissionLevel>;
+  inheritance_level: StringUnion<AccessPolicyInheritanceLevel>;
 }
 
 export type AccessPolicyPrincipalData = {
@@ -804,202 +739,22 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
 
   private static mapIncludedResources(rowData: AccessPolicyQueryResult, includedResources: AccessPolicyIncludedResourceClassMap, pool: Pool): AccessPolicyIncludedResourceMap {
 
-    const mappedResources: AccessPolicyIncludedResourceMap = {};
-
-    // Principals
-    let User = includedResources.principalUser;
-    if (User && rowData.principal_user_id && rowData.principal_user_username && rowData.principal_user_display_name && rowData.principal_user_hashed_password && rowData.principal_user_is_anonymous !== undefined) {
-
-      mappedResources.principalUser = new User({
-        id: rowData.principal_user_id,
-        username: rowData.principal_user_username,
-        displayName: rowData.principal_user_display_name,
-        hashedPassword: rowData.principal_user_hashed_password,
-        isAnonymous: rowData.principal_user_is_anonymous,
-        ipAddress: rowData.principal_user_ip_address
-      }, pool);
-
-    }
-
-    let Group = includedResources.principalGroup;
-    if (Group && rowData.principal_group_id && rowData.principal_group_display_name && rowData.principal_group_name) {
-
-      mappedResources.principalGroup = new Group({
-        id: rowData.principal_group_id,
-        displayName: rowData.principal_group_display_name,
-        name: rowData.principal_group_name
-      }, pool);
-
-    }
-
-    let Role = includedResources.principalRole;
-    if (Role && rowData.principal_role_id && rowData.principal_role_name && rowData.principal_role_display_name && rowData.principal_role_parent_resource_type) {
-
-      mappedResources.principalRole = new Role({
-        id: rowData.principal_role_id,
-        name: rowData.principal_role_name,
-        displayName: rowData.principal_role_display_name,
-        isPreDefined: rowData.principal_role_is_predefined,
-        description: rowData.principal_role_description,
-        parentResourceType: rowData.principal_role_parent_resource_type,
-        parentWorkspaceID: rowData.principal_role_parent_workspace_id,
-        parentProjectID: rowData.principal_role_parent_project_id,
-        parentGroupID: rowData.principal_role_parent_group_id
-      }, pool);
-
-    }
-
-    let App = includedResources.principalApp;
-    if (App && rowData.principal_app_id && rowData.principal_app_name && rowData.principal_app_display_name && rowData.principal_app_parent_resource_type) {
-
-      mappedResources.principalApp = new App({
-        id: rowData.principal_app_id,
-        name: rowData.principal_app_name,
-        displayName: rowData.principal_app_display_name,
-        description: rowData.principal_app_description,
-        parentResourceType: rowData.principal_app_parent_resource_type,
-        parentUserID: rowData.principal_app_parent_user_id,
-        parentWorkspaceID: rowData.principal_app_parent_workspace_id
-      }, pool);
-
-    }
-
-    // Scopes
-    let Action = includedResources.scopedAction;
-    if (Action && rowData.scoped_action_id && rowData.scoped_action_name && rowData.scoped_action_display_name && rowData.scoped_action_description) {
-
-      mappedResources.scopedAction = new Action({
-        id: rowData.scoped_action_id,
-        name: rowData.scoped_action_name,
-        displayName: rowData.scoped_action_display_name,
-        description: rowData.scoped_action_description
-      }, pool);
-
-    }
-
-    Action = includedResources.action;
-    if (Action && rowData.action_id && rowData.action_name && rowData.action_display_name && rowData.action_description) {
-
-      mappedResources.action = new Action({
-        id: rowData.action_id,
-        name: rowData.action_name,
-        displayName: rowData.action_display_name,
-        description: rowData.action_description
-      }, pool);
-
-    }
-
-    App = includedResources.scopedApp;
-    if (App && rowData.scoped_app_id && rowData.scoped_app_name && rowData.scoped_app_display_name && rowData.scoped_app_description && rowData.scoped_app_parent_resource_type) {
-
-      mappedResources.scopedApp = new App({
-        id: rowData.scoped_app_id,
-        name: rowData.scoped_app_name,
-        displayName: rowData.scoped_app_display_name,
-        description: rowData.scoped_app_description,
-        parentResourceType: rowData.scoped_app_parent_resource_type,
-        parentUserID: rowData.scoped_app_parent_user_id,
-        parentWorkspaceID: rowData.scoped_app_parent_workspace_id
-      }, pool);
-
-    }
-
-    Group = includedResources.scopedGroup;
-    if (Group && rowData.scoped_group_id && rowData.scoped_group_display_name && rowData.scoped_group_name) {
-
-      mappedResources.scopedGroup = new Group({
-        id: rowData.scoped_group_id,
-        displayName: rowData.scoped_group_display_name,
-        name: rowData.scoped_group_name
-      }, pool);
-
-    }
-    
-    const Item = includedResources.scopedItem;
-    if (Item && rowData.scoped_item_id && rowData.scoped_item_summary && rowData.scoped_item_project_id && rowData.scoped_item_number) {
-
-      mappedResources.scopedItem = new Item({
-        id: rowData.scoped_item_id,
-        summary: rowData.scoped_item_summary,
-        description: rowData.scoped_item_description,
-        projectID: rowData.scoped_item_project_id,
-        number: rowData.scoped_item_number
-      }, pool);
-
-    }
-
-    const Milestone = includedResources.scopedMilestone;
-    if (Milestone && rowData.scoped_milestone_id && rowData.scoped_milestone_name && rowData.scoped_milestone_display_name && rowData.scoped_milestone_description && rowData.scoped_milestone_parent_resource_type) {
-
-      mappedResources.scopedMilestone = new Milestone({
-        id: rowData.scoped_milestone_id,
-        name: rowData.scoped_milestone_name,
-        displayName: rowData.scoped_milestone_display_name,
-        description: rowData.scoped_milestone_description,
-        parentResourceType: rowData.scoped_milestone_parent_resource_type,
-        parentProjectID: rowData.scoped_milestone_parent_project_id,
-        parentWorkspaceID: rowData.scoped_milestone_parent_workspace_id
-      }, pool);
-
-    }
-
-    const Project = includedResources.scopedProject;
-    if (Project && rowData.scoped_project_id && rowData.scoped_project_name && rowData.scoped_project_display_name && rowData.scoped_project_key && rowData.scoped_project_workspace_id) {
-
-      mappedResources.scopedProject = new Project({
-        id: rowData.scoped_project_id,
-        name: rowData.scoped_project_name,
-        displayName: rowData.scoped_project_display_name,
-        key: rowData.scoped_project_key,
-        description: rowData.scoped_project_description,
-        startDate: rowData.scoped_project_start_date,
-        endDate: rowData.scoped_project_end_date,
-        workspaceID: rowData.scoped_project_workspace_id
-      }, pool);
-
-    }
-
-    Role = includedResources.scopedRole;
-    if (Role && rowData.scoped_role_id && rowData.scoped_role_name && rowData.scoped_role_display_name && rowData.scoped_role_parent_resource_type && rowData.scoped_role_is_predefined !== undefined) {
-
-      mappedResources.scopedRole = new Role({
-        id: rowData.scoped_role_id,
-        name: rowData.scoped_role_name,
-        displayName: rowData.scoped_role_display_name,
-        isPreDefined: rowData.scoped_role_is_predefined,
-        description: rowData.scoped_role_description,
-        parentResourceType: rowData.scoped_role_parent_resource_type,
-        parentWorkspaceID: rowData.scoped_role_parent_workspace_id,
-        parentProjectID: rowData.scoped_role_parent_project_id,
-        parentGroupID: rowData.scoped_role_parent_group_id
-      }, pool);
-
-    }
-
-    User = includedResources.scopedUser;
-    if (User && rowData.scoped_user_id && rowData.scoped_user_username && rowData.scoped_user_display_name && rowData.scoped_user_hashed_password && rowData.scoped_user_is_anonymous !== undefined) {
-
-      mappedResources.scopedUser = new User({
-        id: rowData.scoped_user_id,
-        username: rowData.scoped_user_username,
-        displayName: rowData.scoped_user_display_name,
-        hashedPassword: rowData.scoped_user_hashed_password,
-        isAnonymous: rowData.scoped_user_is_anonymous,
-        ipAddress: rowData.scoped_user_ip_address
-      }, pool);
-
-    }
-
-    const Workspace = includedResources.scopedWorkspace;
-    if (Workspace && rowData.scoped_workspace_id && rowData.scoped_workspace_name && rowData.scoped_workspace_display_name) {
-
-      mappedResources.scopedWorkspace = new Workspace({
-        id: rowData.scoped_workspace_id,
-        name: rowData.scoped_workspace_name,
-        displayName: rowData.scoped_workspace_display_name
-      }, pool);
-
-    }
+    const mappedResources: AccessPolicyIncludedResourceMap = {
+      action: includedResources.action && rowData.action ? new includedResources.action(rowData.action, pool) : undefined,
+      principalApp: includedResources.principalApp && rowData.principal_app ? new includedResources.principalApp(rowData.principal_app, pool) : undefined,
+      principalUser: includedResources.principalUser && rowData.principal_user ? new includedResources.principalUser(rowData.principal_user, pool) : undefined,
+      principalGroup: includedResources.principalGroup && rowData.principal_group ? new includedResources.principalGroup(rowData.principal_group, pool) : undefined,
+      principalRole: includedResources.principalRole && rowData.principal_role ? new includedResources.principalRole(rowData.principal_role, pool) : undefined,
+      scopedAction: includedResources.scopedAction && rowData.scoped_action ? new includedResources.scopedAction(rowData.scoped_action, pool) : undefined,
+      scopedApp: includedResources.scopedApp && rowData.scoped_app ? new includedResources.scopedApp(rowData.scoped_app, pool) : undefined,
+      scopedGroup: includedResources.scopedGroup && rowData.scoped_group ? new includedResources.scopedGroup(rowData.scoped_group, pool) : undefined,
+      scopedItem: includedResources.scopedItem && rowData.scoped_item ? new includedResources.scopedItem(rowData.scoped_item, pool) : undefined,
+      scopedMilestone: includedResources.scopedMilestone && rowData.scoped_milestone ? new includedResources.scopedMilestone(rowData.scoped_milestone, pool) : undefined,
+      scopedProject: includedResources.scopedProject && rowData.scoped_project ? new includedResources.scopedProject(rowData.scoped_project, pool) : undefined,
+      scopedRole: includedResources.scopedRole && rowData.scoped_role ? new includedResources.scopedRole(rowData.scoped_role, pool) : undefined,
+      scopedUser: includedResources.scopedUser && rowData.scoped_user ? new includedResources.scopedUser(rowData.scoped_user, pool) : undefined,
+      scopedWorkspace: includedResources.scopedWorkspace && rowData.scoped_workspace ? new includedResources.scopedWorkspace(rowData.scoped_workspace, pool) : undefined
+    };
 
     return mappedResources;
 
@@ -1037,42 +792,9 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
     const accessPolicies: AccessPolicy[] = [];
     for (const row of result.rows) {
 
-      const { principalApp, principalUser, principalGroup, principalRole, scopedAction, scopedApp, scopedGroup, scopedItem, scopedMilestone, scopedProject, scopedRole, scopedUser, scopedWorkspace, action } = AccessPolicy.mapIncludedResources(row, includedResources, pool);
-
       const accessPolicy = new AccessPolicy({
-        id: row.id,
-        principalType: row.principal_type,
-        principalUser,
-        principalApp,
-        principalAppID: row.principal_app_id,
-        principalUserID: row.principal_user_id,
-        principalGroup,
-        principalGroupID: row.principal_group_id,
-        principalRole,
-        principalRoleID: row.principal_role_id,
-        scopedResourceType: row.scoped_resource_type,
-        scopedWorkspace,
-        scopedWorkspaceID: row.scoped_workspace_id,
-        scopedProject,
-        scopedProjectID: row.scoped_project_id,
-        scopedItem,
-        scopedItemID: row.scoped_item_id,
-        scopedAction,
-        scopedActionID: row.scoped_action_id,
-        scopedRole,
-        scopedRoleID: row.scoped_role_id,
-        scopedGroup,
-        scopedGroupID: row.scoped_group_id,
-        scopedUser,
-        scopedUserID: row.scoped_user_id,
-        scopedApp,
-        scopedAppID: row.scoped_app_id,
-        scopedMilestone,
-        scopedMilestoneID: row.scoped_milestone_id,
-        action,
-        actionID: row.action_id,
-        permissionLevel: row.permission_level,
-        inheritanceLevel: row.inheritance_level
+        ...AccessPolicy.getPropertiesFromRow(row),
+        ...AccessPolicy.mapIncludedResources(row, includedResources, pool)
       }, pool);
 
       accessPolicies.push(accessPolicy);

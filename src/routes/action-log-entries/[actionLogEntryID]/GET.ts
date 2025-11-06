@@ -65,23 +65,23 @@ getActionLogEntryRouter.use(async (request: Request<{ actionLogEntryID: string }
     }, server.pool, true);
 
     const resourceClassMap: ActionLogEntryIncludedResourceClassMap = {
-      targetAccessPolicyID: AccessPolicy,
-      targetActionID: Action,
-      targetActionLogEntryID: ActionLogEntry,
-      targetAppID: App,
-      targetAppAuthorizationID: AppAuthorization,
-      targetAppAuthorizationCredentialID: AppAuthorizationCredential,
-      targetAppCredentialID: AppCredential,
-      targetFieldID: Field,
-      targetGroupID: Group,
-      targetItemID: Item,
-      targetItemConnectionID: ItemConnection,
-      targetItemConnectionTypeID: ItemConnectionType,
-      targetMilestoneID: Milestone,
-      targetProjectID: Project,
-      targetRoleID: Role,
-      targetSessionID: Session,
-      targetUserID: User,
+      targetAccessPolicy: AccessPolicy,
+      targetAction: Action,
+      targetActionLogEntry: ActionLogEntry,
+      targetApp: App,
+      targetAppAuthorization: AppAuthorization,
+      targetAppAuthorizationCredential: AppAuthorizationCredential,
+      targetAppCredential: AppCredential,
+      targetField: Field,
+      targetGroup: Group,
+      targetItem: Item,
+      targetItemConnection: ItemConnection,
+      targetItemConnectionType: ItemConnectionType,
+      targetMilestone: Milestone,
+      targetProject: Project,
+      targetRole: Role,
+      targetSession: Session,
+      targetUser: User,
     };
     const allowedResourceTypes = Object.keys(resourceClassMap);
     const assertResourceType: (resourceType: string) => asserts resourceType is keyof ActionLogEntryIncludedResourceClassMap = (resourceType) => {
@@ -132,6 +132,8 @@ getActionLogEntryRouter.use(async (request: Request<{ actionLogEntryID: string }
     }
 
   }
+
+  response.json(actionLogEntry);
 
   await ActionLogEntry.create({
     actorType: principal.resourceType,

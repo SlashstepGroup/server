@@ -4,23 +4,23 @@ import { resolve } from "path";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import ResourceConflictError from "#errors/ResourceConflictError.js";
 import SlashstepQLFilterSanitizer from "#utilities/SlashstepQLFilterSanitizer.js";
-import type { default as AccessPolicy } from "#resources/AccessPolicy/AccessPolicy.js";
-import type { default as Action, InitialWritableActionProperties } from "#resources/Action/Action.js";
-import type { default as App } from "#resources/App/App.js";
-import type { default as AppAuthorization } from "#resources/AppAuthorization/AppAuthorization.js";
-import type { default as AppAuthorizationCredential } from "#resources/AppAuthorizationCredential/AppAuthorizationCredential.js";
-import type { default as AppCredential } from "#resources/AppCredential/AppCredential.js";
-import type { default as Field } from "#resources/Field/Field.js";
-import type { default as Group } from "#resources/Group/Group.js";
-import type { default as Item } from "#resources/Item/Item.js";
-import type { default as ItemConnection } from "#resources/ItemConnection/ItemConnection.js";
-import type { default as ItemConnectionType } from "#resources/ItemConnectionType/ItemConnectionType.js";
-import type { default as Milestone } from "#resources/Milestone/Milestone.js";
-import type { default as Project } from "#resources/Project/Project.js";
-import type { default as Role } from "#resources/Role/Role.js";
-import type { default as Session } from "#resources/Session/Session.js";
-import type { default as User } from "#resources/User/User.js"; 
-import type { default as Workspace } from "#resources/Workspace/Workspace.js";
+import type { default as AccessPolicy, BaseAccessPolicyProperties } from "#resources/AccessPolicy/AccessPolicy.js";
+import type { default as Action, BaseActionProperties, InitialWritableActionProperties } from "#resources/Action/Action.js";
+import type { default as App, AppProperties } from "#resources/App/App.js";
+import type { default as AppAuthorization, BaseAppAuthorizationProperties } from "#resources/AppAuthorization/AppAuthorization.js";
+import type { default as AppAuthorizationCredential, BaseAppAuthorizationCredentialProperties } from "#resources/AppAuthorizationCredential/AppAuthorizationCredential.js";
+import type { default as AppCredential, BaseAppCredentialProperties } from "#resources/AppCredential/AppCredential.js";
+import type { BaseFieldProperties, default as Field } from "#resources/Field/Field.js";
+import type { BaseGroupProperties, default as Group } from "#resources/Group/Group.js";
+import type { default as Item, ItemProperties } from "#resources/Item/Item.js";
+import type { BaseItemConnectionProperties, default as ItemConnection } from "#resources/ItemConnection/ItemConnection.js";
+import type { BaseItemConnectionTypeProperties, default as ItemConnectionType } from "#resources/ItemConnectionType/ItemConnectionType.js";
+import type { BaseMilestoneProperties, default as Milestone } from "#resources/Milestone/Milestone.js";
+import type { default as Project, ProjectProperties } from "#resources/Project/Project.js";
+import type { BaseRoleProperties, default as Role } from "#resources/Role/Role.js";
+import type { default as Session, SessionProperties } from "#resources/Session/Session.js";
+import type { default as User, UserProperties } from "#resources/User/User.js"; 
+import type { default as Workspace, WorkspaceProperties } from "#resources/Workspace/Workspace.js";
 import BadRequestError from "#errors/BadRequestError.js";
 
 export type ActionLogEntryScopeData = {
@@ -56,24 +56,30 @@ export enum ActionLogEntryTargetResourceType {
 }
 
 export type ActionLogEntryIncludedResourceClassMap = {
-  targetAccessPolicyID?: typeof AccessPolicy;
-  targetActionID?: typeof Action;
-  targetActionLogEntryID?: typeof ActionLogEntry;
-  targetAppID?: typeof App;
-  targetAppAuthorizationID?: typeof AppAuthorization;
-  targetAppAuthorizationCredentialID?: typeof AppAuthorizationCredential;
-  targetAppCredentialID?: typeof AppCredential;
-  targetFieldID?: typeof Field;
-  targetGroupID?: typeof Group;
-  targetItemID?: typeof Item;
-  targetItemConnectionID?: typeof ItemConnection;
-  targetItemConnectionTypeID?: typeof ItemConnectionType;
-  targetMilestoneID?: typeof Milestone;
-  targetProjectID?: typeof Project;
-  targetRoleID?: typeof Role;
-  targetSessionID?: typeof Session;
-  targetUserID?: typeof User;
-  targetWorkspaceID?: typeof Workspace;
+  actorUser?: typeof User;
+  actorApp?: typeof App;
+  targetAccessPolicy?: typeof AccessPolicy;
+  targetAction?: typeof Action;
+  targetActionLogEntry?: typeof ActionLogEntry;
+  targetApp?: typeof App;
+  targetAppAuthorization?: typeof AppAuthorization;
+  targetAppAuthorizationCredential?: typeof AppAuthorizationCredential;
+  targetAppCredential?: typeof AppCredential;
+  targetField?: typeof Field;
+  targetGroup?: typeof Group;
+  targetItem?: typeof Item;
+  targetItemConnection?: typeof ItemConnection;
+  targetItemConnectionType?: typeof ItemConnectionType;
+  targetMilestone?: typeof Milestone;
+  targetProject?: typeof Project;
+  targetRole?: typeof Role;
+  targetSession?: typeof Session;
+  targetUser?: typeof User;
+  targetWorkspace?: typeof Workspace;
+}
+
+export type ActionLogEntryIncludedResourceMap = {
+  [key in keyof ActionLogEntryIncludedResourceClassMap]?: InstanceType<NonNullable<ActionLogEntryIncludedResourceClassMap[key]>>;
 }
 
 export type BaseActionLogEntryProperties = {
@@ -110,27 +116,47 @@ export type ActionLogEntryQueryResult = {
   id: BaseActionLogEntryProperties["id"];
   action_id: BaseActionLogEntryProperties["actionID"];
   actor_type: BaseActionLogEntryProperties["actorType"];
+  actor_user: UserProperties | null;
   actor_user_id: BaseActionLogEntryProperties["actorUserID"];
+  actor_app: AppProperties | null;
   actor_app_id: BaseActionLogEntryProperties["actorAppID"];
   http_request_id: BaseActionLogEntryProperties["httpRequestID"];
   target_resource_type: BaseActionLogEntryProperties["targetResourceType"];
+  target_access_policy: BaseAccessPolicyProperties | null;
   target_access_policy_id: BaseActionLogEntryProperties["targetAccessPolicyID"];
+  target_action: BaseActionProperties | null;
   target_action_id: BaseActionLogEntryProperties["targetActionID"];
+  target_action_log_entry: BaseActionLogEntryProperties | null;
   target_action_log_entry_id: BaseActionLogEntryProperties["targetActionLogEntryID"];
+  target_app: AppProperties | null;
   target_app_id: BaseActionLogEntryProperties["targetAppID"];
+  target_app_authorization: BaseAppAuthorizationProperties | null;
   target_app_authorization_id: BaseActionLogEntryProperties["targetAppAuthorizationID"];
+  target_app_authorization_credential: BaseAppAuthorizationCredentialProperties | null;
   target_app_authorization_credential_id: BaseActionLogEntryProperties["targetAppAuthorizationCredentialID"];
+  target_app_credential: BaseAppCredentialProperties | null;
   target_app_credential_id: BaseActionLogEntryProperties["targetAppCredentialID"];
+  target_field: BaseFieldProperties | null;
   target_field_id: BaseActionLogEntryProperties["targetFieldID"];
+  target_group: BaseGroupProperties | null;
   target_group_id: BaseActionLogEntryProperties["targetGroupID"];
+  target_item: ItemProperties | null;
   target_item_id: BaseActionLogEntryProperties["targetItemID"];
+  target_item_connection: BaseItemConnectionProperties | null;
   target_item_connection_id: BaseActionLogEntryProperties["targetItemConnectionID"];
+  target_item_connection_type: BaseItemConnectionTypeProperties | null;
   target_item_connection_type_id: BaseActionLogEntryProperties["targetItemConnectionTypeID"];
+  target_milestone: BaseMilestoneProperties | null;
   target_milestone_id: BaseActionLogEntryProperties["targetMilestoneID"];
+  target_project: ProjectProperties | null;
   target_project_id: BaseActionLogEntryProperties["targetProjectID"];
+  target_role: BaseRoleProperties | null;
   target_role_id: BaseActionLogEntryProperties["targetRoleID"];
+  target_session: SessionProperties | null;
   target_session_id: BaseActionLogEntryProperties["targetSessionID"];
+  target_user: UserProperties | null;
   target_user_id: BaseActionLogEntryProperties["targetUserID"];
+  target_workspace: WorkspaceProperties | null;
   target_workspace_id: BaseActionLogEntryProperties["targetWorkspaceID"];
   reason: BaseActionLogEntryProperties["reason"];
   error_message: BaseActionLogEntryProperties["errorMessage"];
@@ -284,6 +310,34 @@ export default class ActionLogEntry {
     this.reason = data.reason;
     this.errorMessage = data.errorMessage;
     this.#pool = pool;
+
+  }
+
+  static mapIncludedResources(rowData: ActionLogEntryQueryResult, includedResources: ActionLogEntryIncludedResourceClassMap, pool: Pool): ActionLogEntryIncludedResourceMap {
+
+    const mappedResources: ActionLogEntryIncludedResourceMap = {
+      actorUser: includedResources.actorUser && rowData.actor_user ? new includedResources.actorUser(rowData.actor_user, pool) : undefined,
+      actorApp: includedResources.actorApp && rowData.actor_app ? new includedResources.actorApp(rowData.actor_app, pool) : undefined,
+      targetAccessPolicy: includedResources.targetAccessPolicy && rowData.target_access_policy ? new includedResources.targetAccessPolicy(rowData.target_access_policy, pool) : undefined,
+      targetAction: includedResources.targetAction && rowData.target_action ? new includedResources.targetAction(rowData.target_action, pool) : undefined,
+      targetApp: includedResources.targetApp && rowData.target_app ? new includedResources.targetApp(rowData.target_app, pool) : undefined,
+      targetAppAuthorization: includedResources.targetAppAuthorization && rowData.target_app_authorization ? new includedResources.targetAppAuthorization(rowData.target_app_authorization, pool) : undefined,
+      targetAppAuthorizationCredential: includedResources.targetAppAuthorizationCredential && rowData.target_app_authorization_credential ? new includedResources.targetAppAuthorizationCredential(rowData.target_app_authorization_credential, pool) : undefined,
+      targetAppCredential: includedResources.targetAppCredential && rowData.target_app_credential ? new includedResources.targetAppCredential(rowData.target_app_credential, pool) : undefined,
+      targetField: includedResources.targetField && rowData.target_field ? new includedResources.targetField(rowData.target_field, pool) : undefined,
+      targetGroup: includedResources.targetGroup && rowData.target_group ? new includedResources.targetGroup(rowData.target_group, pool) : undefined,
+      targetItem: includedResources.targetItem && rowData.target_item ? new includedResources.targetItem(rowData.target_item, pool) : undefined,
+      targetItemConnection: includedResources.targetItemConnection && rowData.target_item_connection ? new includedResources.targetItemConnection(rowData.target_item_connection, pool) : undefined,
+      targetItemConnectionType: includedResources.targetItemConnectionType && rowData.target_item_connection_type ? new includedResources.targetItemConnectionType(rowData.target_item_connection_type, pool) : undefined,
+      targetMilestone: includedResources.targetMilestone && rowData.target_milestone ? new includedResources.targetMilestone(rowData.target_milestone, pool) : undefined,
+      targetProject: includedResources.targetProject && rowData.target_project ? new includedResources.targetProject(rowData.target_project, pool) : undefined,
+      targetRole: includedResources.targetRole && rowData.target_role ? new includedResources.targetRole(rowData.target_role, pool) : undefined,
+      targetSession: includedResources.targetSession && rowData.target_session ? new includedResources.targetSession(rowData.target_session, pool) : undefined,
+      targetUser: includedResources.targetUser && rowData.target_user ? new includedResources.targetUser(rowData.target_user, pool) : undefined,
+      targetWorkspace: includedResources.targetWorkspace && rowData.target_workspace ? new includedResources.targetWorkspace(rowData.target_workspace, pool) : undefined
+    };
+
+    return mappedResources;
 
   }
 
@@ -453,7 +507,12 @@ export default class ActionLogEntry {
       const result = await poolClient.query(`select * from hydrated_action_log_entries${whereClause ? ` where ${whereClause}` : ""}${limit !== undefined ? ` limit ${limit}` : ""}${offset !== undefined ? ` offset ${offset}` : ""}`, values);
       const actionLogs = result.rows.map((row) => {
         
-        const actionLogEntry = new ActionLogEntry(ActionLogEntry.getPropertiesFromRow(row), pool);
+        const actionLogEntryProperties = ActionLogEntry.getPropertiesFromRow(row);
+        const mappedResources = includedResources ? ActionLogEntry.mapIncludedResources(row, includedResources, pool) : {};
+        const actionLogEntry = new ActionLogEntry({
+          ...actionLogEntryProperties,
+          ...mappedResources
+        }, pool);
 
         return actionLogEntry;
       

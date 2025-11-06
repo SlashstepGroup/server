@@ -1,102 +1,22 @@
 create or replace view hydrated_access_policies as
   select
     access_policies.*,
-    actions.name as action_name,
-    actions.app_id as action_app_id,
-    actions.display_name as action_display_name,
-    actions.description as action_description,
+    row_to_json(actions.*) as action,
 
-    /** Principals */
-    /* User */
-    principal_users.username as principal_user_username,
-    principal_users.display_name as principal_user_display_name,
-    principal_users.hashed_password as principal_user_hashed_password,
-    principal_users.is_anonymous as principal_user_is_anonymous,
-    principal_users.ip_address as principal_user_ip_address,
+    row_to_json(principal_users.*) as principal_user,
+    row_to_json(principal_groups.*) as principal_group,
+    row_to_json(principal_roles.*) as principal_role,
+    row_to_json(principal_apps.*) as principal_app,
 
-    /* Group */
-    principal_groups.name as principal_group_name,
-    principal_groups.display_name as principal_group_display_name,
-
-    /* Role */
-    principal_roles.name as principal_role_name,
-    principal_roles.display_name as principal_role_display_name,
-    principal_roles.is_predefined as principal_role_is_predefined,
-    principal_roles.parent_resource_type as principal_role_parent_resource_type,
-    principal_roles.parent_workspace_id as principal_role_parent_workspace_id,
-    principal_roles.parent_project_id as principal_role_parent_project_id,
-    principal_roles.parent_group_id as principal_role_parent_group_id,
-
-    /* App */
-    principal_apps.name as principal_app_name,
-    principal_apps.display_name as principal_app_display_name,
-    principal_apps.description as principal_app_description,
-    principal_apps.parent_resource_type as principal_app_parent_resource_type,
-    principal_apps.parent_user_id as principal_app_parent_user_id,
-    principal_apps.parent_workspace_id as principal_app_parent_workspace_id,
-
-    /** Scopes */
-    /* Action */
-    scoped_actions.name as scoped_action_name,
-    scoped_actions.display_name as scoped_action_display_name,
-    scoped_actions.description as scoped_action_description,
-
-    /* App */
-    scoped_apps.name as scoped_app_name,
-    scoped_apps.display_name as scoped_app_display_name,
-    scoped_apps.description as scoped_app_description,
-    scoped_apps.parent_resource_type as scoped_app_parent_resource_type,
-    scoped_apps.parent_user_id as scoped_app_parent_user_id,
-    scoped_apps.parent_workspace_id as scoped_app_parent_workspace_id,
-
-    /* Group */
-    scoped_groups.name as scoped_group_name,
-    scoped_groups.display_name as scoped_group_display_name,
-
-    /* Item */
-    scoped_items.summary as scoped_item_summary,
-    scoped_items.description as scoped_item_description,
-    scoped_items.project_id as scoped_item_project_id,
-    scoped_items.number as scoped_item_number,
-
-    /* Milestone */
-    scoped_milestones.name as scoped_milestone_name,
-    scoped_milestones.display_name as scoped_milestone_display_name,
-    scoped_milestones.description as scoped_milestone_description,
-    scoped_milestones.parent_resource_type as scoped_milestone_parent_resource_type,
-    scoped_milestones.parent_project_id as scoped_milestone_parent_project_id,
-    scoped_milestones.parent_workspace_id as scoped_milestone_parent_workspace_id,
-
-    /* Project */
-    scoped_projects.name as scoped_project_name,
-    scoped_projects.display_name as scoped_project_display_name,
-    scoped_projects.description as scoped_project_description,
-    scoped_projects.key as scoped_project_key,
-    scoped_projects.start_date as scoped_project_start_date,
-    scoped_projects.end_date as scoped_project_end_date,
-    scoped_projects.workspace_id as scoped_project_workspace_id,
-    
-    /* Role */
-    scoped_roles.name as scoped_role_name,
-    scoped_roles.display_name as scoped_role_display_name,
-    scoped_roles.description as scoped_role_description,
-    scoped_roles.is_predefined as scoped_role_is_predefined,
-    scoped_roles.parent_resource_type as scoped_role_parent_resource_type,
-    scoped_roles.parent_workspace_id as scoped_role_parent_workspace_id,
-    scoped_roles.parent_project_id as scoped_role_parent_project_id,
-    scoped_roles.parent_group_id as scoped_role_parent_group_id,
-
-    /* User */
-    scoped_users.username as scoped_user_username,
-    scoped_users.display_name as scoped_user_display_name,
-    scoped_users.hashed_password as scoped_user_hashed_password,
-    scoped_users.is_anonymous as scoped_user_is_anonymous,
-    scoped_users.ip_address as scoped_user_ip_address,
-
-    /* Workspace */
-    scoped_workspaces.name as scoped_workspace_name,
-    scoped_workspaces.display_name as scoped_workspace_display_name,
-    scoped_workspaces.description as scoped_workspace_description
+    row_to_json(scoped_actions.*) as scoped_action,
+    row_to_json(scoped_apps.*) as scoped_app,
+    row_to_json(scoped_groups.*) as scoped_group,
+    row_to_json(scoped_items.*) as scoped_item,
+    row_to_json(scoped_milestones.*) as scoped_milestone,
+    row_to_json(scoped_projects.*) as scoped_project,
+    row_to_json(scoped_roles.*) as scoped_role,
+    row_to_json(scoped_users.*) as scoped_user,
+    row_to_json(scoped_workspaces.*) as scoped_workspace
   from 
     access_policies
   left join
@@ -108,22 +28,22 @@ create or replace view hydrated_access_policies as
   left join
     apps as principal_apps on principal_apps.id = access_policies.principal_app_id
   left join 
-    hydrated_actions as actions on actions.id = access_policies.action_id
+    actions as actions on actions.id = access_policies.action_id
   left join
-    hydrated_actions as scoped_actions on scoped_actions.id = access_policies.scoped_action_id
+    actions as scoped_actions on scoped_actions.id = access_policies.scoped_action_id
   left join
-    hydrated_apps as scoped_apps on scoped_apps.id = access_policies.scoped_app_id
+    apps as scoped_apps on scoped_apps.id = access_policies.scoped_app_id
   left join
-    hydrated_groups as scoped_groups on scoped_groups.id = access_policies.scoped_group_id
+    groups as scoped_groups on scoped_groups.id = access_policies.scoped_group_id
   left join 
-    hydrated_items as scoped_items on scoped_items.id = access_policies.scoped_item_id
+    items as scoped_items on scoped_items.id = access_policies.scoped_item_id
   left join 
-    hydrated_milestones as scoped_milestones on scoped_milestones.id = access_policies.scoped_milestone_id
+    milestones as scoped_milestones on scoped_milestones.id = access_policies.scoped_milestone_id
   left join 
-    hydrated_projects as scoped_projects on scoped_projects.id = access_policies.scoped_project_id
+    projects as scoped_projects on scoped_projects.id = access_policies.scoped_project_id
   left join
-    hydrated_roles as scoped_roles on scoped_roles.id = access_policies.scoped_role_id
+    roles as scoped_roles on scoped_roles.id = access_policies.scoped_role_id
   left join 
-    hydrated_users as scoped_users on scoped_users.id = access_policies.scoped_user_id
+    users as scoped_users on scoped_users.id = access_policies.scoped_user_id
   left join 
-    hydrated_workspaces as scoped_workspaces on scoped_workspaces.id = access_policies.scoped_workspace_id
+    workspaces as scoped_workspaces on scoped_workspaces.id = access_policies.scoped_workspace_id
