@@ -172,6 +172,7 @@ export default class Server {
     await Action.initializePreDefinedRoleAccessPolicies({AccessPolicy, Role}, this.pool);
     await User.initializePreDefinedRoles(Role, this.pool);
     await ActionLogEntry.initializeActions(Action, this.pool);
+    await AppAuthorization.initializeActions(Action, this.pool);
 
   }
 

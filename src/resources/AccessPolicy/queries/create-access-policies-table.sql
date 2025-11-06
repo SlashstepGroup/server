@@ -28,6 +28,7 @@ begin
       'Role',
       'Group',
       'App',
+      'AppCredential',
       'Milestone'
     );
   end if;
@@ -63,6 +64,9 @@ create table if not exists access_policies (
   scoped_role_id UUID references roles(id) on delete cascade,
   scoped_group_id UUID references groups(id) on delete cascade,
   scoped_app_id UUID references apps(id) on delete cascade,
+  scoped_app_credential_id UUID references app_credentials(id) on delete cascade,
+  scoped_app_authorization_id UUID references app_authorizations(id) on delete cascade,
+  scoped_app_authorization_credential_id UUID references app_authorization_credentials(id) on delete cascade,
   scoped_milestone_id UUID references milestones(id) on delete cascade,
 
   /* Permissions */

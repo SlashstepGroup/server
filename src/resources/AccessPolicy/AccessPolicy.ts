@@ -12,7 +12,7 @@ import type { default as Item } from "#resources/Item/Item.js";
 import type { BaseMilestoneProperties, default as Milestone } from "#resources/Milestone/Milestone.js";
 import type { default as Project, ProjectProperties } from "#resources/Project/Project.js";
 import type { default as Role, InitialWritableRoleProperties, BaseRoleProperties } from "#resources/Role/Role.js";
-import type { default as User, UserProperties } from "#resources/User/User.js";
+import { default as User, UserProperties } from "#resources/User/User.js";
 import type { default as Workspace, WorkspaceProperties } from "#resources/Workspace/Workspace.js";
 import type { default as Resource } from "src/interfaces/Resource.js";
 import type { StringUnion } from "#utilities/types.js";
@@ -131,6 +131,9 @@ export type EditableAccessPolicyProperties = Omit<BaseAccessPolicyProperties, "i
 
 export enum AccessPolicyScopedResourceType {
   App = "App",
+  AppCredential = "AppCredential",
+  AppAuthorization = "AppAuthorization",
+  AppAuthorizationCredential = "AppAuthorizationCredential",
   Action = "Action",
   ActionLogEntry = "ActionLogEntry",
   Instance = "Instance",
@@ -996,6 +999,9 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
     const actionAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.Action);
     const actionLogEntryAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.ActionLogEntry);
     const appAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.App);
+    const appCredentialAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.AppCredential);
+    const appAuthorizationAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.AppAuthorization);
+    const appAuthorizationCredentialAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.AppAuthorizationCredential);
     const groupAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.Group);
     const itemAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.Item);
     const milestoneAccessPolicy = scopedAccessPolicies.find(accessPolicy => accessPolicy.scopedResourceType === AccessPolicyScopedResourceType.Milestone);
@@ -1011,6 +1017,9 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
       [AccessPolicyScopedResourceType.Action]: actionAccessPolicy ?? appAccessPolicy ?? instanceAccessPolicy,
       [AccessPolicyScopedResourceType.ActionLogEntry]: actionLogEntryAccessPolicy ?? instanceAccessPolicy,
       [AccessPolicyScopedResourceType.App]: appAccessPolicy ?? instanceAccessPolicy,
+      [AccessPolicyScopedResourceType.AppCredential]: appCredentialAccessPolicy ?? appAccessPolicy ?? instanceAccessPolicy,
+      [AccessPolicyScopedResourceType.AppAuthorization]: appAuthorizationAccessPolicy ?? projectAccessPolicy ?? workspaceAccessPolicy ?? userAccessPolicy ?? instanceAccessPolicy,
+      [AccessPolicyScopedResourceType.AppAuthorizationCredential]: appAuthorizationCredentialAccessPolicy ?? appAuthorizationAccessPolicy ?? instanceAccessPolicy,
       [AccessPolicyScopedResourceType.Group]: groupAccessPolicy ?? instanceAccessPolicy,
       [AccessPolicyScopedResourceType.Instance]: instanceAccessPolicy,
       [AccessPolicyScopedResourceType.Item]: itemAccessPolicy ?? projectAccessPolicy ?? workspaceAccessPolicy ?? instanceAccessPolicy,
@@ -1033,9 +1042,9 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
 
   }
 
-  async getScopeData(resourceClasses: Omit<ScopeResourceClassMap, "Workspace" | "User"> = {}): Promise<AccessPolicyScopeData> {
+  async getScopeData(resourceClasses: ScopeResourceClassMap = {}): Promise<AccessPolicyScopeData> {
 
-    const { Action, App, Group, Item, Milestone, Project, Role } = resourceClasses;
+    const { Action, App, Group, Item, Milestone, Project, Role, Workspace } = resourceClasses;
 
     switch (this.scopedResourceType) {
 
@@ -1054,12 +1063,7 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
         }
 
         const action = await Action.getByID(this.scopedActionID, this.#pool);
-
-        return {
-          scopedResourceType: AccessPolicyScopedResourceType.Action,
-          actionID: this.scopedActionID,
-          appID: action.appID
-        };
+        return action.getScopeData();
 
       }
 
@@ -1078,11 +1082,7 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
         }
 
         const app = await App.getByID(this.scopedAppID, this.#pool);
-
-        return {
-          scopedResourceType: AccessPolicyScopedResourceType.App,
-          appID: this.scopedAppID
-        };
+        return app.getScopeData();
 
       }
 
@@ -1101,11 +1101,7 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
         }
 
         const group = await Group.getByID(this.scopedGroupID, this.#pool);
-
-        return {
-          scopedResourceType: AccessPolicyScopedResourceType.Group,
-          groupID: this.scopedGroupID
-        };
+        return group.getScopeData();
 
       }
 
@@ -1122,6 +1118,12 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
 
         }
 
+        if (!Project) {
+
+          throw new Error("Project class required.");
+
+        }
+
         if (!this.scopedItemID) {
 
           throw new Error("Access policy is missing scopedItemID.");
@@ -1129,13 +1131,7 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
         }
 
         const item = await Item.getByID(this.scopedItemID, this.#pool);
-
-        return {
-          scopedResourceType: AccessPolicyScopedResourceType.Item,
-          itemID: this.scopedItemID,
-          projectID: item.projectID,
-          workspaceID: item.projectID
-        };
+        return await item.getScopeData(Project);
 
       }
 
@@ -1154,13 +1150,7 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
         }
 
         const milestone = await Milestone.getByID(this.scopedMilestoneID, this.#pool);
-
-        return {
-          scopedResourceType: AccessPolicyScopedResourceType.Milestone,
-          milestoneID: this.scopedMilestoneID,
-          projectID: milestone.parentProjectID,
-          workspaceID: milestone.parentWorkspaceID
-        };
+        return await milestone.getScopeData();
 
       }
 
@@ -1180,11 +1170,7 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
 
         const project = await Project.getByID(this.scopedProjectID, this.#pool);
 
-        return {
-          scopedResourceType: AccessPolicyScopedResourceType.Project,
-          projectID: this.scopedProjectID,
-          workspaceID: project.workspaceID
-        };
+        return project.getScopeData();
 
       }
 
@@ -1203,11 +1189,7 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
         }
 
         const role = await Role.getByID(this.scopedRoleID, this.#pool);
-
-        return {
-          scopedResourceType: AccessPolicyScopedResourceType.Role,
-          roleID: this.scopedRoleID
-        };
+        return role.getScopeData();
 
       }
 
@@ -1219,19 +1201,30 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
 
         }
 
-        return {
-          scopedResourceType: AccessPolicyScopedResourceType.User,
-          userID: this.scopedUserID
-        };
+        const user = await User.getByID(this.scopedUserID, this.#pool);
+
+        return user.getScopeData();
 
       }
 
-      case AccessPolicyScopedResourceType.Workspace:
+      case AccessPolicyScopedResourceType.Workspace: {
 
-        return {
-          scopedResourceType: AccessPolicyScopedResourceType.Workspace,
-          workspaceID: this.scopedWorkspaceID
-        };
+        if (!Workspace) {
+
+          throw new Error("Workspace class required.");
+
+        }
+
+        if (!this.scopedWorkspaceID) {
+
+          throw new Error("Access policy is missing scopedWorkspaceID.");
+
+        }
+
+        const workspace = await Workspace.getByID(this.scopedWorkspaceID, this.#pool);
+        return workspace.getScopeData();
+
+      }
 
       default:
         throw new Error(`Unexpected scoped resource type: ${this.scopedResourceType}`);

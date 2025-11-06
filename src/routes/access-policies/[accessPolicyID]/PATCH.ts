@@ -30,9 +30,9 @@ updateAccessPolicyRouter.use(async (request: Request<{ accessPolicyID: string },
   const accessPolicy = await AccessPolicy.getByID(accessPolicyID, server.pool);
   const accessPolicyAction = await Action.getByID(accessPolicy.actionID, server.pool);
 
-  // Make sure the user has permission to view the access policy.
+  // Make sure the user has permission to update the access policy.
   await ServerLogEntry.create({
-    message: `Verifying principal's permissions to get access policy ${accessPolicy.id}...`,
+    message: `Verifying principal's permissions to update access policy ${accessPolicy.id}...`,
     httpRequestID: httpRequest.id,
     level: ServerLogEntryLevel.Trace
   }, server.pool, true);

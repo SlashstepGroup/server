@@ -1,8 +1,16 @@
+import BadRequestError from "#errors/BadRequestError.js";
+import ResourceConflictError from "#errors/ResourceConflictError.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
-import type { default as App } from "#resources/App/App.js";
+import { AccessPolicyScopedResourceType } from "#resources/AccessPolicy/AccessPolicy.js";
+import Action, { InitialWritableActionProperties } from "#resources/Action/Action.js";
+import type { default as App, AppProperties } from "#resources/App/App.js";
+import Project, { ProjectProperties } from "#resources/Project/Project.js";
+import User, { UserProperties } from "#resources/User/User.js";
+import Workspace, { WorkspaceProperties } from "#resources/Workspace/Workspace.js";
+import { StringUnion } from "#utilities/types.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { Pool } from "pg";
+import { DatabaseError, Pool } from "pg";
 
 export enum AppAuthorizationAuthorizingResourceType {
   Instance = "Instance",
@@ -14,53 +22,92 @@ export enum AppAuthorizationAuthorizingResourceType {
 export type BaseAppAuthorizationProperties = {
   id: string;
   appID: string;
-  authorizingResourceType: AppAuthorizationAuthorizingResourceType | `${AppAuthorizationAuthorizingResourceType}`;
-  authorizingProjectID?: string;
-  authorizingUserID?: string;
-  authorizingWorkspaceID?: string;
+  authorizingResourceType: StringUnion<AppAuthorizationAuthorizingResourceType>;
+  authorizingProjectID?: string | null;
+  authorizingUserID?: string | null;
+  authorizingWorkspaceID?: string | null;
 }
 
 export type ExtendedAppAuthorizationCredentialProperties = BaseAppAuthorizationProperties & {
-  app?: App;
+  app?: App | null;
+  authorizingProject?: Project | null;
+  authorizingWorkspace?: Workspace | null;
+  authorizingUser?: User | null;
 }
 
 export type AppAuthorizationQueryResult = {
   id: string;
+  app: AppProperties | null;
   app_id: string;
-  authorizing_resource_type: AppAuthorizationAuthorizingResourceType;
-  authorizing_project_id: string;
-  authorizing_user_id: string;
-  authorizing_workspace_id: string;
+  authorizing_resource_type: StringUnion<AppAuthorizationAuthorizingResourceType>;
+  authorizing_project: ProjectProperties | null;
+  authorizing_project_id: string | null;
+  authorizing_user: UserProperties | null;
+  authorizing_user_id: string | null;
+  authorizing_workspace: WorkspaceProperties | null;
+  authorizing_workspace_id: string | null;
+}
+
+export type AppAuthorizationScopeData = {
+  scopedResourceType: AccessPolicyScopedResourceType.AppAuthorization;
+  appAuthorizationID: string;
+  userID?: string | null;
+  projectID?: string | null;
+  workspaceID?: string | null;
+}
+
+export type AppAuthorizationIncludedResourceClassMap = {
+  app?: typeof App;
+  authorizingProject?: typeof Project;
+  authorizingUser?: typeof User;
+  authorizingWorkspace?: typeof Workspace;
+}
+
+export type AppAuthorizationIncludedResourceMap = {
+  [key in keyof AppAuthorizationIncludedResourceClassMap]?: InstanceType<NonNullable<AppAuthorizationIncludedResourceClassMap[key]>>;
 }
 
 export type InitialAppAuthorizationCredentialProperties = Omit<BaseAppAuthorizationProperties, "id">;
 
+export type AppAuthorizationScopeDataResourceClassMap = {
+  Project?: typeof Project;
+}
+
 export default class AppAuthorization {
 
-  id: BaseAppAuthorizationProperties["id"];
+  readonly id: BaseAppAuthorizationProperties["id"];
 
-  appID: BaseAppAuthorizationProperties["appID"];
+  readonly appID: BaseAppAuthorizationProperties["appID"];
 
-  authorizingResourceType: BaseAppAuthorizationProperties["authorizingResourceType"];
+  readonly authorizingResourceType: BaseAppAuthorizationProperties["authorizingResourceType"];
 
-  authorizingProjectID: BaseAppAuthorizationProperties["authorizingProjectID"];
+  readonly authorizingProjectID: BaseAppAuthorizationProperties["authorizingProjectID"];
 
-  authorizingUserID: BaseAppAuthorizationProperties["authorizingUserID"];
+  readonly authorizingUserID: BaseAppAuthorizationProperties["authorizingUserID"];
 
-  authorizingWorkspaceID: BaseAppAuthorizationProperties["authorizingWorkspaceID"];
+  readonly authorizingWorkspaceID: BaseAppAuthorizationProperties["authorizingWorkspaceID"];
 
-  app?: ExtendedAppAuthorizationCredentialProperties["app"];
+  readonly app?: ExtendedAppAuthorizationCredentialProperties["app"];
+
+  readonly authorizingProject?: ExtendedAppAuthorizationCredentialProperties["authorizingProject"];
+
+  readonly authorizingWorkspace?: ExtendedAppAuthorizationCredentialProperties["authorizingWorkspace"];
+
+  readonly authorizingUser?: ExtendedAppAuthorizationCredentialProperties["authorizingUser"];
 
   /** The client used to make requests. */
   readonly #pool: Pool;
 
-  constructor(data: BaseAppAuthorizationProperties, pool: Pool) {
+  constructor(data: ExtendedAppAuthorizationCredentialProperties, pool: Pool) {
 
     this.id = data.id;
     this.appID = data.appID;
     this.authorizingResourceType = data.authorizingResourceType;
+    this.authorizingProject = data.authorizingProject;
     this.authorizingProjectID = data.authorizingProjectID;
+    this.authorizingUser = data.authorizingUser;
     this.authorizingUserID = data.authorizingUserID;
+    this.authorizingWorkspace = data.authorizingWorkspace;
     this.authorizingWorkspaceID = data.authorizingWorkspaceID;
     this.#pool = pool;
 
@@ -119,6 +166,16 @@ export default class AppAuthorization {
 
       return appAuthorizationCredential;
 
+    } catch (error) {
+      
+      if (error instanceof DatabaseError && error.code === "22P02") {
+
+        throw new BadRequestError("The app authorization ID must be a UUID.");
+
+      }
+
+      throw error;
+
     } finally {
 
       poolClient.release();
@@ -127,7 +184,7 @@ export default class AppAuthorization {
 
   }
 
-  static async create(data: InitialAppAuthorizationCredentialProperties, pool: Pool): Promise<AppAuthorization> {
+  static async create(data: InitialAppAuthorizationCredentialProperties, pool: Pool, includedResources?: AppAuthorizationIncludedResourceClassMap): Promise<AppAuthorization> {
 
     const poolClient = await pool.connect();
 
@@ -144,15 +201,74 @@ export default class AppAuthorization {
       const result = await poolClient.query<AppAuthorizationQueryResult>(query, values);
 
       const rowData = result.rows[0];
-      const accessPolicy = new AppAuthorization(AppAuthorization.getPropertiesFromRow(rowData), pool);
+      const appAuthorizationProperties = AppAuthorization.getPropertiesFromRow(rowData);
+      const mappedResources = includedResources ? AppAuthorization.mapIncludedResources(rowData, includedResources, pool) : {};
+      const appAuthorization = new AppAuthorization({
+        ...appAuthorizationProperties,
+        ...mappedResources
+      }, pool);
 
-      return accessPolicy;
+      return appAuthorization;
 
     } finally {
 
       poolClient.release();
 
     }
+
+  }
+
+  static async initializeActions(actionClass: typeof Action, pool: Pool): Promise<Action[]> {
+    
+    const actionPropertiesList: InitialWritableActionProperties[] = [
+      {
+        name: "slashstep.appAuthorizations.get",
+        displayName: "Get app authorization",
+        description: "View an app authorization."
+      },
+      {
+        name: "slashstep.appAuthorizations.list",
+        displayName: "List app authorizations",
+        description: "List app authorizations on a particular scope."
+      },
+      {
+        name: "slashstep.appAuthorizations.create",
+        displayName: "Create app authorizations",
+        description: "Create app authorizations on a particular scope."
+      },
+      {
+        name: "slashstep.appAuthorizations.delete",
+        displayName: "Delete app authorizations",
+        description: "Delete app authorizations on a particular scope."
+      }
+    ];
+
+    const actions = [];
+    for (const actionProperties of actionPropertiesList) {
+
+      try {
+
+        const action = await actionClass.create(actionProperties, pool);
+        actions.push(action);
+
+      } catch (error) {
+
+        if (error instanceof ResourceConflictError) {
+
+          const action = await actionClass.getByName(actionProperties.name, pool);
+          actions.push(action);
+
+        } else {
+
+          throw error;
+
+        }
+
+      }
+
+    }
+
+    return actions;
 
   }
 
@@ -168,6 +284,45 @@ export default class AppAuthorization {
       
       poolClient.release();
 
+    }
+
+  }
+
+  static mapIncludedResources(rowData: AppAuthorizationQueryResult, includedResources: AppAuthorizationIncludedResourceClassMap, pool: Pool): AppAuthorizationIncludedResourceMap {
+
+    const mappedResources: AppAuthorizationIncludedResourceMap = {
+      app: includedResources.app && rowData.app ? new includedResources.app(rowData.app, pool) : undefined,
+      authorizingProject: includedResources.authorizingProject && rowData.authorizing_project ? new includedResources.authorizingProject(rowData.authorizing_project, pool) : undefined,
+      authorizingUser: includedResources.authorizingUser && rowData.authorizing_user ? new includedResources.authorizingUser(rowData.authorizing_user, pool) : undefined,
+      authorizingWorkspace: includedResources.authorizingWorkspace && rowData.authorizing_workspace ? new includedResources.authorizingWorkspace(rowData.authorizing_workspace, pool) : undefined
+    }; 
+
+    return mappedResources;
+
+  }
+
+  async getScopeData(resourceClasses: AppAuthorizationScopeDataResourceClassMap): Promise<AppAuthorizationScopeData> {
+
+    let workspaceID = this.authorizingWorkspaceID;
+    if (this.authorizingProjectID) {
+
+      if (!resourceClasses.Project) {
+
+        throw new Error("Project class required to get workspace ID.");
+
+      }
+
+      const project = await resourceClasses.Project.getByID(this.authorizingProjectID, this.#pool);
+      workspaceID = project.workspaceID;
+
+    }
+
+    return {
+      scopedResourceType: AccessPolicyScopedResourceType.AppAuthorization,
+      userID: this.authorizingUserID,
+      appAuthorizationID: this.id,
+      projectID: this.authorizingProjectID,
+      workspaceID: workspaceID
     }
 
   }

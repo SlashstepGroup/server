@@ -16,7 +16,10 @@ create or replace view hydrated_access_policies as
     row_to_json(scoped_projects.*) as scoped_project,
     row_to_json(scoped_roles.*) as scoped_role,
     row_to_json(scoped_users.*) as scoped_user,
-    row_to_json(scoped_workspaces.*) as scoped_workspace
+    row_to_json(scoped_workspaces.*) as scoped_workspace,
+    row_to_json(scoped_app_authorizations.*) as scoped_app_authorization,
+    row_to_json(scoped_app_authorization_credentials.*) as scoped_app_authorization_credential,
+    row_to_json(scoped_app_credentials.*) as scoped_app_credential
   from 
     access_policies
   left join
@@ -47,3 +50,9 @@ create or replace view hydrated_access_policies as
     users as scoped_users on scoped_users.id = access_policies.scoped_user_id
   left join 
     workspaces as scoped_workspaces on scoped_workspaces.id = access_policies.scoped_workspace_id
+  left join
+    app_authorizations as scoped_app_authorizations on scoped_app_authorizations.id = access_policies.scoped_app_authorization_id
+  left join
+    app_authorization_credentials as scoped_app_authorization_credentials on scoped_app_authorization_credentials.id = access_policies.scoped_app_authorization_credential_id
+  left join
+    app_credentials as scoped_app_credentials on scoped_app_credentials.id = access_policies.scoped_app_credential_id
