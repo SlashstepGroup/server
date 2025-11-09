@@ -301,7 +301,8 @@ export default class App implements Resource<AppScopeData>, Principal {
     const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, scopeData, minimumPermissionLevel);
     if (!canPrincipalAccess) {
 
-      throw new ForbiddenError();
+      const action = await resourceClasses.Action.getByID(actionID, this.#pool);
+      throw new ForbiddenError(action.name);
 
     }
 

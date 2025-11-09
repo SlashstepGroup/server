@@ -10,6 +10,7 @@ export type OAuthAuthorizationRequestProperties = {
   id: string;
   encryptedCode: string | null;
   codeChallenge: string | null;
+  appID: string;
   appAuthorizationID: string;
   expirationDate: Date;
 }
@@ -18,6 +19,7 @@ export type ConstructorOAuthAuthorizationRequestProperties = {
   id: string;
   encryptedCode?: string | null;
   codeChallenge?: string | null;
+  appID: string;
   appAuthorizationID: string;
   expirationDate: Date;
 }
@@ -41,6 +43,7 @@ export type OAuthAuthorizationRequestQueryResult = {
   id: string;
   encrypted_code: string | null;
   code_challenge: string | null;
+  app_id: string;
   app_authorization_id: string;
   app_authorization: BaseAppAuthorizationProperties | null;
   expiration_date: Date;
@@ -63,7 +66,8 @@ export default class OAuthAuthorizationRequest {
     encryptedCode: "encrypted_code", 
     codeChallenge: "code_challenge", 
     appAuthorizationID: "app_authorization_id", 
-    expirationDate: "expiration_date"
+    expirationDate: "expiration_date",
+    appID: "app_id"
   };
 
   readonly id: OAuthAuthorizationRequestProperties["id"];
@@ -71,6 +75,8 @@ export default class OAuthAuthorizationRequest {
   readonly codeChallenge: OAuthAuthorizationRequestProperties["codeChallenge"];
 
   readonly appAuthorizationID: OAuthAuthorizationRequestProperties["appAuthorizationID"];
+
+  readonly appID: OAuthAuthorizationRequestProperties["appID"];
 
   readonly expirationDate: OAuthAuthorizationRequestProperties["expirationDate"];
 
@@ -81,10 +87,11 @@ export default class OAuthAuthorizationRequest {
   constructor(data: ConstructorOAuthAuthorizationRequestProperties, options: OAuthAuthorizationRequestConstructorOptions) {
 
     this.id = data.id;
-    this.#encryptedCode = data.encryptedCode ?? null;
     this.codeChallenge = data.codeChallenge ?? null;
     this.appAuthorizationID = data.appAuthorizationID;
     this.expirationDate = data.expirationDate;
+    this.appID = data.appID;
+    this.#encryptedCode = data.encryptedCode ?? null;
     this.#pool = options.pool;
 
   }
@@ -101,7 +108,8 @@ export default class OAuthAuthorizationRequest {
         data.encryptedCode,
         data.codeChallenge,
         data.appAuthorizationID,
-        data.expirationDate
+        data.expirationDate,
+        data.appID
       ];
       const result = await poolClient.query(query, values);
 
@@ -136,7 +144,7 @@ export default class OAuthAuthorizationRequest {
 
       if (!rowData) {
 
-        throw new ResourceNotFoundError("OAuthAuthorizationRequest");
+        throw new ResourceNotFoundError("OAuth authorization request");
 
       }
 
@@ -229,16 +237,16 @@ export default class OAuthAuthorizationRequest {
 
   }
 
-  static async listByAppAuthorizationID(appAuthorizationID: string, options: OAuthAuthorizationRequestListOptions): Promise<OAuthAuthorizationRequest[]> {
+  static async listByAppID(appID: string, options: OAuthAuthorizationRequestListOptions): Promise<OAuthAuthorizationRequest[]> {
 
-    const oauthAuthorizationRequests = await OAuthAuthorizationRequest.list(`appAuthorizationID = "${appAuthorizationID}"`, options);
+    const oauthAuthorizationRequests = await OAuthAuthorizationRequest.list(`appID = "${appID}"`, options);
     return oauthAuthorizationRequests;
 
   }
 
-  static async getByDecryptedCode(decryptedCode: string, appAuthorizationID: string, decryptionKey: string, options: OAuthAuthorizationRequestListOptions): Promise<OAuthAuthorizationRequest> {
+  static async getByDecryptedCode(decryptedCode: string, appID: string, decryptionKey: string, options: OAuthAuthorizationRequestListOptions): Promise<OAuthAuthorizationRequest> {
 
-    const oauthAuthorizationRequests = await OAuthAuthorizationRequest.listByAppAuthorizationID(appAuthorizationID, options);
+    const oauthAuthorizationRequests = await OAuthAuthorizationRequest.listByAppID(appID, options);
     for (const oauthAuthorizationRequest of oauthAuthorizationRequests) {
 
       const encryptedCode = oauthAuthorizationRequest.getEncryptedCode();
@@ -256,7 +264,7 @@ export default class OAuthAuthorizationRequest {
 
     }
 
-    throw new ResourceNotFoundError("OAuthAuthorizationRequest");
+    throw new ResourceNotFoundError("OAuth authorization request");
 
   }
 
@@ -267,7 +275,8 @@ export default class OAuthAuthorizationRequest {
       encryptedCode: rowData.encrypted_code,
       codeChallenge: rowData.code_challenge,
       appAuthorizationID: rowData.app_authorization_id,
-      expirationDate: rowData.expiration_date
+      expirationDate: rowData.expiration_date,
+      appID: rowData.app_id
     };
     
   }

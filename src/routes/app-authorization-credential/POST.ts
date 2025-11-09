@@ -22,7 +22,7 @@ import ServerPolicy from "#resources/ServerPolicy/ServerPolicy.js";
 import HTTPRequest from "#resources/HTTPRequest/HTTPRequest.js";
 import { Pool } from "pg";
 import InternalServerError from "#errors/InternalServerError.js";
-import { verify as verifyJSONWebToken, JsonWebTokenError } from "jsonwebtoken";
+import jsonwebtoken from "jsonwebtoken";
 import Server from "#resources/Server/Server.js";
 
 async function getAppAuthorizationFromOAuthAuthorizationCode(client_id: unknown, code: unknown, code_verifier: unknown, privateKey: string, httpRequest: HTTPRequest, pool: Pool): Promise<AppAuthorization> {
@@ -36,6 +36,12 @@ async function getAppAuthorizationFromOAuthAuthorizationCode(client_id: unknown,
   HTTPInputValidator.verifyString("client_id", client_id, {isRequired: true});
   HTTPInputValidator.verifyString("code", code, {isRequired: true});
   const oauthAuthorizationRequest = await OAuthAuthorizationRequest.getByDecryptedCode(code, client_id, privateKey, {pool});
+
+  await ServerLogEntry.create({
+    message: `Found OAuth authorization request ${oauthAuthorizationRequest.id}.`,
+    httpRequestID: httpRequest.id,
+    level: ServerLogEntryLevel.Info
+  }, pool, true);
 
   await ServerLogEntry.create({
     message: "Removing code from OAuth authorization request...",
@@ -92,7 +98,7 @@ async function getAppAuthorizationCredentialFromRefreshToken(refresh_token: unkn
 
     const jwtPublicKey = await server.getJWTPublicKey();
 
-    const jsonWebToken = verifyJSONWebToken(refresh_token, jwtPublicKey, {
+    const jsonWebToken = jsonwebtoken.verify(refresh_token, jwtPublicKey, {
       algorithms: ["RS256"]
     });
 
@@ -125,7 +131,7 @@ async function getAppAuthorizationCredentialFromRefreshToken(refresh_token: unkn
 
   } catch (error) {
 
-    if (error instanceof JsonWebTokenError) {
+    if (error instanceof jsonwebtoken.JsonWebTokenError) {
 
       throw new BadRequestError("The refresh token is invalid.");
 
@@ -180,25 +186,18 @@ async function verifyAppPermissions(app: App, appAuthorization: AppAuthorization
 
 }
 
-async function createAppAuthorizationCredential(appAuthorization: AppAuthorization, pool: Pool): Promise<AppAuthorizationCredential> {
+async function createAppAuthorizationCredential(appAuthorization: AppAuthorization, httpRequest: HTTPRequest, pool: Pool): Promise<AppAuthorizationCredential> {
+
+  await ServerLogEntry.create({
+    message: `Creating a credential for app authorization ${appAuthorization.id}...`,
+    httpRequestID: httpRequest.id,
+    level: ServerLogEntryLevel.Trace
+  }, pool, true);
 
   const accessTokenExpirationMillisecondsServerPolicy = await ServerPolicy.getByName("app-authorization-credential-access-token-expiration-milliseconds", pool);
-  const accessTokenExpirationMilliseconds = accessTokenExpirationMillisecondsServerPolicy.numberValue;
+  const accessTokenExpirationMilliseconds = accessTokenExpirationMillisecondsServerPolicy.getNumberValue();
   const refreshTokenExpirationMillisecondsServerPolicy = await ServerPolicy.getByName("app-authorization-credential-refresh-token-expiration-milliseconds", pool);
-  const refreshTokenExpirationMilliseconds = refreshTokenExpirationMillisecondsServerPolicy.numberValue;
-
-  if (!accessTokenExpirationMilliseconds) {
-
-    throw new InternalServerError(`The server policy "app-authorization-credential-access-token-expiration-milliseconds" must be set.`);
-
-  }
-
-  if (!refreshTokenExpirationMilliseconds) {
-
-    throw new InternalServerError(`The server policy "app-authorization-credential-refresh-token-expiration-milliseconds" must be set.`);
-
-  }
-
+  const refreshTokenExpirationMilliseconds = refreshTokenExpirationMillisecondsServerPolicy.getNumberValue();
   const appAuthorizationCredential = await AppAuthorizationCredential.create({
     appAuthorizationID: appAuthorization.id,
     accessTokenExpirationDate: new Date(Date.now() + accessTokenExpirationMilliseconds),
@@ -221,10 +220,10 @@ function verifyGrantType(grant_type: unknown): asserts grant_type is "authorizat
 
 const createAppAuthorizationCredentialRouter = Router({mergeParams: true});
 createAppAuthorizationCredentialRouter.use(urlencoded({ extended: true }));
-createAppAuthorizationCredentialRouter.use(async (request: Request<void>, response: Response<unknown, ResponseLocals>) => {
+createAppAuthorizationCredentialRouter.use(async (request: Request<void, unknown, {grant_type: unknown, client_id: unknown, client_secret: unknown, refresh_token: unknown, code: unknown, code_verifier: unknown}>, response: Response<unknown, ResponseLocals>) => {
 
   const { server, httpRequest } = response.locals;
-  const { grant_type, client_id, client_secret, refresh_token, code, code_verifier } = request.query;
+  const { grant_type, client_id, client_secret, refresh_token, code, code_verifier } = request.body;
 
   verifyGrantType(grant_type);
 
@@ -241,7 +240,7 @@ createAppAuthorizationCredentialRouter.use(async (request: Request<void>, respon
   await verifyAppPermissions(app, appAuthorization, httpRequest, server.pool, createAppAuthorizationCredentialAction.id);
 
   // Create and return the app authorization credential.
-  const appAuthorizationCredential = await createAppAuthorizationCredential(appAuthorization, server.pool);
+  const appAuthorizationCredential = await createAppAuthorizationCredential(appAuthorization, httpRequest, server.pool);
 
   await ActionLogEntry.create({
     actorType: app.resourceType,
@@ -263,7 +262,10 @@ createAppAuthorizationCredentialRouter.use(async (request: Request<void>, respon
   response.status(201).json({
     ...appAuthorizationCredential,
     access_token: appAuthorizationCredential.generateAccessToken(privateKey, `${appAuthorizationCredential.accessTokenExpirationDate.getTime() - Date.now()} ms`),
-    refresh_token: appAuthorizationCredential.generateRefreshToken(privateKey, `${appAuthorizationCredential.refreshTokenExpirationDate.getTime() - Date.now()} ms`)
+    refresh_token: appAuthorizationCredential.generateRefreshToken(privateKey, `${appAuthorizationCredential.refreshTokenExpirationDate.getTime() - Date.now()} ms`),
+    token_type: "Bearer",
+    expires_in: appAuthorizationCredential.accessTokenExpirationDate.getTime() - Date.now(),
+    refresh_token_expires_in: appAuthorizationCredential.refreshTokenExpirationDate.getTime() - Date.now()
   });
 
   await ServerLogEntry.create({

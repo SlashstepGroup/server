@@ -9,7 +9,7 @@ export default class CommonMiddleware {
   static async handleErrors(error: unknown, request: Request, response: Response<unknown, ResponseLocals>, next: NextFunction) {
 
     const errorMessage = error instanceof HTTPError ? error.message : `${error}`;
-    const httpError = error instanceof HTTPError ? error : new InternalServerError("Something bad happened on our side. Try again later.");
+    const httpError = error instanceof HTTPError && !(error instanceof InternalServerError) ? error : new InternalServerError("Something bad happened on our side. Try again later.");
 
     const { server, httpRequest } = response.locals;
     await httpRequest.update({
@@ -19,12 +19,12 @@ export default class CommonMiddleware {
     await ServerLogEntry.create({
       message: errorMessage,
       httpRequestID: httpRequest.id,
-      level: error instanceof HTTPError ? ServerLogEntryLevel.Error : ServerLogEntryLevel.Critical
+      level: error instanceof HTTPError && !(error instanceof InternalServerError) ? ServerLogEntryLevel.Error : ServerLogEntryLevel.Critical
     }, server.pool, true);
 
     if (!response.headersSent) {
 
-      response.status(httpError.getStatusCode()).json(error);
+      response.status(httpError.getStatusCode()).json(httpError.message);
 
     }
 

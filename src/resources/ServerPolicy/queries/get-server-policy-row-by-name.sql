@@ -1,0 +1,1 @@
+select * from server_policies where name = $1 limit 1;

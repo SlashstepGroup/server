@@ -41,6 +41,8 @@ import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 import HTTPRequest from "#resources/HTTPRequest/HTTPRequest.js";
 import CommonMiddleware from "#utilities/middleware/CommonMiddleware.js";
 import ServerLogEntry from "#resources/ServerLogEntry/ServerLogEntry.js";
+import OAuthAuthorizationRequest from "#resources/OAuthAuthorizationRequest/OAuthAuthorizationRequest.js";
+import ServerPolicy from "#resources/ServerPolicy/ServerPolicy.js";
 
 export type ServerProperties = {
   environment: string;
@@ -140,6 +142,8 @@ export default class Server {
 
     }
 
+    await ServerPolicy.initializeTable(this.pool); // No references.
+    await OAuthAuthorizationRequest.initializeTable(this.pool); // No references.
     await HTTPRequest.initializeTable(this.pool); // No references.
     await ServerLogEntry.initializeTable(this.pool); // References HTTP requests.
     await Group.initializeTable(this.pool); // Self-referential.
@@ -175,6 +179,8 @@ export default class Server {
     await User.initializePreDefinedRoles(Role, this.pool);
     await ActionLogEntry.initializeActions(Action, this.pool);
     await AppAuthorization.initializeActions(Action, this.pool);
+    await AppAuthorizationCredential.initializePreDefinedActions(Action, this.pool);
+    await ServerPolicy.initializePreDefinedServerPolicies(this.pool);
 
   }
 

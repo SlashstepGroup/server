@@ -323,7 +323,8 @@ export default class Role implements Principal {
     const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, scope, minimumPermissionLevel);
     if (!canPrincipalAccess) {
 
-      throw new ForbiddenError();
+      const action = await resourceClasses.Action.getByID(actionID, this.#pool);
+      throw new ForbiddenError(action.name);
 
     }
 

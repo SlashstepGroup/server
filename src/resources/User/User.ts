@@ -327,13 +327,14 @@ export default class User implements Resource<UserScopeData>, Principal {
     const canPrincipalAccess = await this.checkPermissions(resourceClasses, actionID, scope, minimumPermissionLevel);
     if (!canPrincipalAccess) {
 
+      const action = await resourceClasses.Action.getByID(actionID, this.#pool);
       if (this.isAnonymous) {
 
-        throw new UnauthenticatedError();
+        throw new UnauthenticatedError(action.name);
 
       } else {
 
-        throw new ForbiddenError();
+        throw new ForbiddenError(action.name);
 
       }
 

@@ -4,6 +4,9 @@ import { resolve } from "path";
 import { Pool } from "pg";
 import jsonwebtoken from "jsonwebtoken";
 import { StringValue } from "ms";
+import Action from "#resources/Action/Action.js";
+import appAuthorizationCredentialPreDefinedActions from "./app-authorization-credential-pre-defined-actions.js";
+import ResourceConflictError from "#errors/ResourceConflictError.js";
 
 export enum AppAuthorizationCredentialAuthorizingResourceType {
   Instance = "Instance",
@@ -186,6 +189,39 @@ export default class AppAuthorizationCredential {
       poolClient.release();
 
     }
+
+  }
+
+  static async initializePreDefinedActions(actionClass: typeof Action, pool: Pool): Promise<Action[]> {
+
+    const actionPropertiesList = appAuthorizationCredentialPreDefinedActions;
+    const actions = [];
+
+    for (const actionProperties of actionPropertiesList) {
+
+      try {
+
+        const action = await actionClass.create(actionProperties, pool);
+        actions.push(action);
+
+      } catch (error) {
+
+        if (error instanceof ResourceConflictError) {
+
+          const action = await actionClass.getByName(actionProperties.name, pool);
+          actions.push(action);
+
+        } else {
+
+          throw error;
+
+        }
+
+      }
+
+    }
+
+    return actions;
 
   }
 

@@ -11,7 +11,7 @@ import AccessPolicy, { AccessPolicyInheritanceLevel, AccessPolicyPermissionLevel
 import Role from "#resources/Role/Role.js";
 import Session from "#resources/Session/Session.js";
 import User from "#resources/User/User.js";
-import App, { AppParentResourceType } from "#resources/App/App.js";
+import App, { AppClientType, AppParentResourceType } from "#resources/App/App.js";
 import AppCredential from "#resources/AppCredential/AppCredential.js";
 import ActionLogEntry, { ActionLogEntryActorType, ActionLogEntryTargetResourceType } from "#resources/ActionLogEntry/ActionLogEntry.js";
 
@@ -136,7 +136,8 @@ export default class TestEnvironment {
       name: `slashstep.${TestEnvironment.generateRandomString(16)}.${TestEnvironment.generateRandomString(16)}`,
       displayName: TestEnvironment.generateRandomString(16),
       description: TestEnvironment.generateRandomString(128),
-      parentResourceType: AppParentResourceType.Instance
+      parentResourceType: AppParentResourceType.Instance,
+      clientType: AppClientType.Public
     }, this.slashstepServer.pool);
 
     const getActionsAction = await Action.getByName("slashstep.actions.get", this.slashstepServer.pool);

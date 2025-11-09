@@ -2,9 +2,9 @@ import HTTPError from "./HTTPError.js";
 
 export default class UnauthenticatedError extends HTTPError {
   
-  constructor(message = "You don't have permission to perform this action. You probably need to sign in first.") {
+  constructor(actionName?: string) {
 
-    super(401, message);
+    super(401, `You don't have permission to perform ${actionName ? `the ${actionName} action` : "this action"}. Verify your access policies or contact your administrator for more information.`);
 
   }
 
