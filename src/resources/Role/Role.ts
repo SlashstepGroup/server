@@ -9,7 +9,6 @@ import AccessPolicy, { AccessPolicyPermissionLevel, AccessPolicyPrincipalData, A
 import ForbiddenError from "#errors/ForbiddenError.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import ResourceConflictError from "#errors/ResourceConflictError.js";
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 import Action from "#resources/Action/Action.js";
 
 export enum RoleParentResourceType {

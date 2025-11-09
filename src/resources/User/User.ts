@@ -8,7 +8,7 @@ import { dirname, resolve } from "path";
 import type { default as Principal, PrincipalResourceClassMap } from "src/interfaces/Principal.js";
 import type { default as Role, InitialWritableRoleProperties } from "#resources/Role/Role.js";
 import type { default as RoleMembership } from "#resources/RoleMembership/RoleMembership.js";
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import AnonymousPermissionError from "#errors/AnonymousPermissionError.js";
 import Resource from "src/interfaces/Resource.js";
 
 export type UserProperties = {
@@ -330,7 +330,7 @@ export default class User implements Resource<UserScopeData>, Principal {
       const action = await resourceClasses.Action.getByID(actionID, this.#pool);
       if (this.isAnonymous) {
 
-        throw new UnauthenticatedError(action.name);
+        throw new AnonymousPermissionError(action.name);
 
       } else {
 

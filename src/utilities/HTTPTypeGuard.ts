@@ -1,4 +1,4 @@
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import AnonymousPermissionError from "#errors/AnonymousPermissionError.js";
 import Principal from "src/interfaces/Principal.js";
 
 export default class HTTPTypeGuard {
@@ -7,7 +7,7 @@ export default class HTTPTypeGuard {
   
     if (!principal) {
   
-      throw new UnauthenticatedError();
+      throw new AnonymousPermissionError();
   
     }
   

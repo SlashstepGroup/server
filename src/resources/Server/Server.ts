@@ -37,7 +37,7 @@ import ItemConnection from "#resources/ItemConnection/ItemConnection.js";
 import ItemConnectionType from "#resources/ItemConnectionType/ItemConnectionType.js";
 import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
 import Principal from "src/interfaces/Principal.js";
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import AnonymousPermissionError from "#errors/AnonymousPermissionError.js";
 import HTTPRequest from "#resources/HTTPRequest/HTTPRequest.js";
 import CommonMiddleware from "#utilities/middleware/CommonMiddleware.js";
 import ServerLogEntry from "#resources/ServerLogEntry/ServerLogEntry.js";
@@ -412,7 +412,7 @@ export default class Server {
 
     if (!principal) {
   
-      throw new UnauthenticatedError();
+      throw new AnonymousPermissionError();
   
     }
 

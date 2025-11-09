@@ -15,7 +15,7 @@ import RoleMembership from "#resources/RoleMembership/RoleMembership.js";
 import HTTPError from "#errors/HTTPError.js";
 import Session from "#resources/Session/Session.js";
 import ServerLogEntry, { ServerLogEntryLevel } from "#resources/ServerLogEntry/ServerLogEntry.js";
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import UnauthenticatedError from "#errors/AnonymousPermissionError.js";
 
 export default class AuthenticationMiddleware {
 
@@ -105,7 +105,7 @@ export default class AuthenticationMiddleware {
   
           // Make sure the app token ID is still valid.
           const credentialID = payload.jti;
-          await AppAuthorizationCredential.getByID(credentialID, server.pool);
+          await AppAuthorizationCredential.getByID(credentialID, {pool: server.pool});
   
           // Verify the app token.
           const jwtPublicKey = await server.getJWTPublicKey();
@@ -118,7 +118,6 @@ export default class AuthenticationMiddleware {
           const appAuthorizationID = payload.sub;
           const appAuthorization = await AppAuthorization.getByID(appAuthorizationID, server.pool);
           const app = await App.getByID(appAuthorization.appID, server.pool);
-          appAuthorization.app = app;
           response.locals.appAuthorization = appAuthorization;
           
           if (impersonatedUserID) {

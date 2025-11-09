@@ -15,15 +15,14 @@ import { urlencoded } from "express";
 import App, { AppClientType } from "#resources/App/App.js";
 import { verify } from "argon2";
 import ForbiddenError from "#errors/ForbiddenError.js";
-import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 import { createHash } from "crypto";
 import OAuthAuthorizationRequest from "#resources/OAuthAuthorizationRequest/OAuthAuthorizationRequest.js";
 import ServerPolicy from "#resources/ServerPolicy/ServerPolicy.js";
 import HTTPRequest from "#resources/HTTPRequest/HTTPRequest.js";
 import { Pool } from "pg";
-import InternalServerError from "#errors/InternalServerError.js";
 import jsonwebtoken from "jsonwebtoken";
 import Server from "#resources/Server/Server.js";
+import UnauthenticatedError from "#errors/UnauthenticatedError.js";
 
 async function getAppAuthorizationFromOAuthAuthorizationCode(client_id: unknown, code: unknown, code_verifier: unknown, privateKey: string, httpRequest: HTTPRequest, pool: Pool): Promise<AppAuthorization> {
 
@@ -64,7 +63,8 @@ async function getAppAuthorizationFromOAuthAuthorizationCode(client_id: unknown,
     HTTPInputValidator.verifyString("code_verifier", code_verifier, {isRequired: true});
 
     const codeVerifierHash = createHash("sha256").update(code_verifier).digest("base64");
-    if (codeVerifierHash !== oauthAuthorizationRequest.codeChallenge) {
+    const possibleCodeChallenge = Buffer.from(codeVerifierHash).toString("base64");
+    if (possibleCodeChallenge !== oauthAuthorizationRequest.codeChallenge) {
 
       throw new UnauthenticatedError("The code verifier is incorrect.");
 
