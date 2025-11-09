@@ -1,6 +1,6 @@
 import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import { strictEqual } from "node:assert";
-import { default as SlashstepServer } from "#utilities/Server/Server.js";
+import { default as SlashstepServer } from "#resources/Server/Server.js";
 import getAccessPolicyRouter from "./GET.js";
 import { v7 as generateUUIDv7 } from "uuid";
 import AccessPolicy, { AccessPolicyInheritanceLevel, AccessPolicyPermissionLevel, AccessPolicyPrincipalType, AccessPolicyScopedResourceType } from "#resources/AccessPolicy/AccessPolicy.js";

@@ -8,6 +8,8 @@ export type StringConstraints = {
 
 export default class HTTPInputValidator {
 
+  static verifyString(name: string, value: unknown, constraints: StringConstraints & {isRequired: true}): asserts value is string;
+  static verifyString(name: string, value: unknown, constraints?: StringConstraints): asserts value is string | undefined
   static verifyString(name: string, value: unknown, constraints: StringConstraints = {}): asserts value is string | undefined {
   
     const isValueMissing = value === undefined;

@@ -8,9 +8,9 @@
  */
 
 import { after, afterEach, before, beforeEach, describe, it } from "node:test"
-import Action, { BaseActionProperties, InitialWritableActionProperties } from "#resources/Action/Action.js";
+import Action, { InitialWritableActionProperties } from "#resources/Action/Action.js";
 import TestEnvironment from "#utilities/TestEnvironment/TestEnvironment.js";
-import { default as SlashstepServer } from "#utilities/Server/Server.js";
+import { default as SlashstepServer } from "#resources/Server/Server.js";
 import { v7 as generateUUIDv7, validate as validateUUIDv7 } from "uuid";
 import AccessPolicy from "#resources/AccessPolicy/AccessPolicy.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";

@@ -1,4 +1,4 @@
-import { default as SlashstepServer } from "#utilities/Server/Server.js";
+import { default as SlashstepServer } from "#resources/Server/Server.js";
 import { randomBytes } from "node:crypto";
 import { GenericContainer, StartedTestContainer, Wait } from "testcontainers";
 import { Client as VaultClient } from "@litehex/node-vault";

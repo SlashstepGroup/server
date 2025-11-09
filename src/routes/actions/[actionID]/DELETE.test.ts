@@ -1,6 +1,6 @@
 import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import { strictEqual } from "node:assert";
-import { default as SlashstepServer } from "#utilities/Server/Server.js";
+import { default as SlashstepServer } from "#resources/Server/Server.js";
 import deleteActionRouter from "./DELETE.js";
 import Action from "#resources/Action/Action.js";
 import TestEnvironment from "#utilities/TestEnvironment/TestEnvironment.js";

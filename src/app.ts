@@ -1,4 +1,4 @@
-import Server from "#utilities/Server/Server.js";
+import Server from "#resources/Server/Server.js";
 import { Client as VaultClient } from "@litehex/node-vault";
 
 const { APP_ENVIRONMENT, APP_PORT } = process.env;

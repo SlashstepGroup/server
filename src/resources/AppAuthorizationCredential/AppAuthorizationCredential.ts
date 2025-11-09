@@ -2,6 +2,8 @@ import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { Pool } from "pg";
+import jsonwebtoken from "jsonwebtoken";
+import { StringValue } from "ms";
 
 export enum AppAuthorizationCredentialAuthorizingResourceType {
   Instance = "Instance",
@@ -12,40 +14,89 @@ export enum AppAuthorizationCredentialAuthorizingResourceType {
 
 export type BaseAppAuthorizationCredentialProperties = {
   id: string;
-  expirationDate: Date;
+  accessTokenExpirationDate: Date;
+  refreshTokenExpirationDate: Date;
   appAuthorizationID: string;
-}
-
-export type ExtendedAppAuthorizationCredentialProperties = BaseAppAuthorizationCredentialProperties & {
-  token?: string;
+  refreshedAppAuthorizationCredentialID?: string | null;
 }
 
 export type AppAuthorizationCredentialQueryResult = {
   id: string;
-  app_id: string;
-  expiration_date: Date;
+  access_token_expiration_date: Date;
+  refresh_token_expiration_date: Date;
   app_authorization_id: string;
+  refreshed_app_authorization_credential_id: string | null;
+}
+
+export type AppAuthorizationCreationOptions = {
+  pool: Pool;
+}
+
+export type AppAuthorizationCredentialGetByIDOptions = {
+  pool: Pool;
+}
+
+export type AppAuthorizationCredentialConstructorOptions = {
+  pool: Pool;
 }
 
 export type InitialAppAuthorizationCredentialProperties = Omit<BaseAppAuthorizationCredentialProperties, "id">;
 
+export type EditableAppAuthorizationCredentialProperties = Omit<BaseAppAuthorizationCredentialProperties, "id" | "appAuthorizationID" | "accessTokenExpirationDate" | "refreshTokenExpirationDate">;
+
 export default class AppAuthorizationCredential {
 
-  id: ExtendedAppAuthorizationCredentialProperties["id"];
+  readonly id: BaseAppAuthorizationCredentialProperties["id"];
 
-  appAuthorizationID: ExtendedAppAuthorizationCredentialProperties["appAuthorizationID"];
+  readonly appAuthorizationID: BaseAppAuthorizationCredentialProperties["appAuthorizationID"];
+
+  readonly accessTokenExpirationDate: BaseAppAuthorizationCredentialProperties["accessTokenExpirationDate"];
+
+  readonly refreshTokenExpirationDate: BaseAppAuthorizationCredentialProperties["refreshTokenExpirationDate"];
+
+  readonly refreshedAppAuthorizationCredentialID: BaseAppAuthorizationCredentialProperties["refreshedAppAuthorizationCredentialID"];
 
   /** The client used to make requests. */
   readonly #pool: Pool;
 
-  #token?: ExtendedAppAuthorizationCredentialProperties["token"];
-
-  constructor(data: ExtendedAppAuthorizationCredentialProperties, pool: Pool) {
+  constructor(data: BaseAppAuthorizationCredentialProperties, options: AppAuthorizationCredentialConstructorOptions) {
 
     this.id = data.id;
     this.appAuthorizationID = data.appAuthorizationID;
-    this.#token = data.token;
-    this.#pool = pool;
+    this.accessTokenExpirationDate = data.accessTokenExpirationDate;
+    this.refreshTokenExpirationDate = data.refreshTokenExpirationDate;
+    this.refreshedAppAuthorizationCredentialID = data.refreshedAppAuthorizationCredentialID;
+    this.#pool = options.pool;
+
+  }
+
+  generateAccessToken(privateKey: string, expiresIn: StringValue) {
+  
+    const token = jsonwebtoken.sign({
+      tokenType: "Access"
+    }, privateKey, {
+      algorithm: "RS256",
+      expiresIn: expiresIn,
+      subject: this.appAuthorizationID,
+      jwtid: this.id
+    });
+
+    return token;
+
+  }
+
+  generateRefreshToken(privateKey: string, expiresIn: StringValue) {
+  
+    const token = jsonwebtoken.sign({
+      tokenType: "Refresh"
+    }, privateKey, {
+      algorithm: "RS256",
+      expiresIn: expiresIn,
+      subject: this.appAuthorizationID,
+      jwtid: this.id
+    });
+
+    return token;
 
   }
 
@@ -54,13 +105,16 @@ export default class AppAuthorizationCredential {
     return {
       id: rowData.id,
       appAuthorizationID: rowData.app_authorization_id,
-      expirationDate: rowData.expiration_date
+      accessTokenExpirationDate: rowData.access_token_expiration_date,
+      refreshTokenExpirationDate: rowData.refresh_token_expiration_date,
+      refreshedAppAuthorizationCredentialID: rowData.refreshed_app_authorization_credential_id
     };
     
   }
 
-  static async getByID(id: string, pool: Pool): Promise<AppAuthorizationCredential> {
+  static async getByID(id: string, options: AppAuthorizationCredentialGetByIDOptions): Promise<AppAuthorizationCredential> {
 
+    const { pool } = options;
     const poolClient = await pool.connect();
 
     try {
@@ -76,7 +130,7 @@ export default class AppAuthorizationCredential {
 
       }
 
-      const appAuthorizationCredential = new AppAuthorizationCredential(AppAuthorizationCredential.getPropertiesFromRow(rowData), pool);
+      const appAuthorizationCredential = new AppAuthorizationCredential(AppAuthorizationCredential.getPropertiesFromRow(rowData), {pool});
 
       return appAuthorizationCredential;
 
@@ -96,13 +150,15 @@ export default class AppAuthorizationCredential {
       
       const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-app-authorization-credential-row.sql"), "utf8");
       const values = [
-        data.appAuthorizationID, 
-        data.expirationDate
+        data.appAuthorizationID,
+        data.accessTokenExpirationDate,
+        data.refreshTokenExpirationDate,
+        data.refreshedAppAuthorizationCredentialID
       ];
       const result = await poolClient.query<AppAuthorizationCredentialQueryResult>(query, values);
 
       const rowData = result.rows[0];
-      const accessPolicy = new AppAuthorizationCredential(AppAuthorizationCredential.getPropertiesFromRow(rowData), pool);
+      const accessPolicy = new AppAuthorizationCredential(AppAuthorizationCredential.getPropertiesFromRow(rowData), {pool});
 
       return accessPolicy;
 
@@ -149,21 +205,50 @@ export default class AppAuthorizationCredential {
 
   }
 
-  getToken(): string {
+  async update(data: Partial<EditableAppAuthorizationCredentialProperties>): Promise<AppAuthorizationCredential> {
 
-    if (!this.#token) {
+    const poolClient = await this.#pool.connect();
 
-      throw new Error("Token is not set.");
+    try {
+
+      await poolClient.query("begin;");
+      let query = "update app_authorization_credentials set ";
+      const values = [];
+
+      const addValue = <T>(columnName: string, value: T) => {
+
+        if (value === undefined) {
+
+          return;
+
+        }
+
+        query += `${values.length > 0 ? ", " : ""}${columnName} = $${values.length + 1}`;
+        values.push(value);
+
+      }
+
+      addValue("refreshedAppAuthorizationCredentialID", data.refreshedAppAuthorizationCredentialID);
+
+      query += ` where id = $${values.length + 1} returning *;`;
+      values.push(this.id);
+      
+      const result = await poolClient.query(query, values);
+      await poolClient.query("commit;");
+
+      // Convert the row to an OAuth authorization request object.
+      const row = result.rows[0];
+      const accessPolicy = new AppAuthorizationCredential(AppAuthorizationCredential.getPropertiesFromRow(row), {
+        pool: this.#pool
+      });
+
+      return accessPolicy;
+
+    } finally {
+
+      poolClient.release();
 
     }
-
-    return this.#token;
-    
-  }
-
-  setToken(token: string): void {
-
-    this.#token = token;
 
   }
 

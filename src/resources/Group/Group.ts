@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import Resource from "src/interfaces/Resource.js";
 
 export type BaseGroupProperties = {
   id: string;
@@ -26,10 +27,17 @@ export type GroupTableQueryResult = {
   parent_group_id?: string;
 }
 
+export type GroupScopeData = {
+  scopedResourceType: "Group";
+  groupID: string;
+}
+
 /**
  * A Group represents a collection of principals.
  */
-export default class Group {
+export default class Group implements Resource<GroupScopeData> {
+
+  readonly resourceType = "Group";
 
   /** The group's ID. */
   readonly id: ExtendedGroupProperties["id"];
@@ -146,6 +154,15 @@ export default class Group {
     }, pool);
 
     return group;
+
+  }
+
+  getScopeData(): GroupScopeData {
+
+    return {
+      scopedResourceType: "Group",
+      groupID: this.id
+    };
 
   }
 

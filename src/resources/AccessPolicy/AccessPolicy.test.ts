@@ -10,14 +10,12 @@
 import { after, afterEach, before, beforeEach, describe, it } from "node:test"
 import { fail, strictEqual, notStrictEqual, rejects } from "node:assert";
 import AccessPolicy, { AccessPolicyInheritanceLevel, AccessPolicyPermissionLevel, AccessPolicyPrincipalType, AccessPolicyScopedResourceType } from "./AccessPolicy.js";
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { Wait } from "testcontainers";
-import Server from "#utilities/Server/Server.js";
+import { default as SlashstepServer } from "#resources/Server/Server.js";
 import User from "#resources/User/User.js";
 import Action from "#resources/Action/Action.js";
 import { randomBytes } from "crypto";
 import Group from "#resources/Group/Group.js";
-import App, { AppParentResourceType } from "#resources/App/App.js";
+import App, { AppClientType, AppParentResourceType } from "#resources/App/App.js";
 import Item from "#resources/Item/Item.js";
 import Milestone, { MilestoneParentResourceType } from "#resources/Milestone/Milestone.js";
 import Project from "#resources/Project/Project.js";
@@ -25,12 +23,13 @@ import Role, { RoleParentResourceType } from "#resources/Role/Role.js";
 import Workspace from "#resources/Workspace/Workspace.js";
 import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 import { v7 as generateUUIDv7 } from "uuid";
+import TestEnvironment from "#utilities/TestEnvironment/TestEnvironment.js";
 
 // TODO: Unskip this test.
 describe("Class: AccessPolicy", async () => {
 
-  let postgreSQLContainer: StartedPostgreSqlContainer;
-  let slashstepServer: Server;
+  const testEnvironment = new TestEnvironment();
+  let slashstepServer: SlashstepServer;
 
   const generateRandomString = (length: number) => randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
 
@@ -141,7 +140,8 @@ describe("Class: AccessPolicy", async () => {
       name: `slashstep.${generateUUIDv7()}.${generateUUIDv7()}`,
       displayName: generateRandomString(16),
       description: generateRandomString(128),
-      parentResourceType: AppParentResourceType.Instance
+      parentResourceType: AppParentResourceType.Instance,
+      clientType: AppClientType.Public
     }, slashstepServer.pool);
 
     return app;
@@ -150,45 +150,31 @@ describe("Class: AccessPolicy", async () => {
 
   before(async () => {
 
-    postgreSQLContainer = await new PostgreSqlContainer("postgres:18").withWaitStrategy(Wait.forHealthCheck()).withUsername("postgres").start();
-    slashstepServer = new Server({
-      environment: "development",
-      postgreSQLUsername: postgreSQLContainer.getUsername(),
-      postgreSQLPassword: postgreSQLContainer.getPassword(),
-      postgreSQLHost: postgreSQLContainer.getHost(),
-      postgreSQLPort: postgreSQLContainer.getPort(),
-      postgreSQLDatabaseName: postgreSQLContainer.getDatabase(),
-      port: 3000
-    });
+    await testEnvironment.startOpenBaoContainer();
+    await testEnvironment.initializeOpenBaoClient();
+    await testEnvironment.createJWTKeyPair();
+    await testEnvironment.startPostgreSQLContainer();
+    slashstepServer = await testEnvironment.initializeSlashstepServer();
+    await testEnvironment.initializeHTTPServer();
 
   });
 
   beforeEach(async () => {
 
-    await slashstepServer.initializeResourceTables();
+    await testEnvironment.slashstepServer?.initializeResourceTables();
+    await testEnvironment.slashstepServer?.initializePreDefinedResources();
 
   });
 
   afterEach(async () => {
 
-    try {
-
-      const client = await slashstepServer.pool.connect();
-      await client.query("drop schema if exists app cascade;");
-      client.release();
-
-    } catch (error) {
-
-      throw error;
-
-    }
+    await testEnvironment.resetPostgreSQLSchema();
 
   });
 
   after(async () => {
 
-    await slashstepServer.pool.end();
-    await postgreSQLContainer.stop();
+    await testEnvironment.destroy();
 
   });
 
@@ -230,8 +216,7 @@ describe("Class: AccessPolicy", async () => {
   it("can return a list of access policies without a query", {timeout: 1000}, async () => {
 
     // Make sure there isn't any access policies right now.
-    const initialAccessPolicyList = await AccessPolicy.list("", slashstepServer.pool);
-    strictEqual(initialAccessPolicyList.length, 0);
+    const initialAccessPolicyCount = await AccessPolicy.count("", slashstepServer.pool);
 
     const maximumActionCount = 25;
     const accessPolicies = [];
@@ -253,7 +238,7 @@ describe("Class: AccessPolicy", async () => {
     }
 
     const updatedAccessPolicyList = await AccessPolicy.list("", slashstepServer.pool);
-    strictEqual(updatedAccessPolicyList.length, accessPolicies.length);
+    strictEqual(updatedAccessPolicyList.length, initialAccessPolicyCount + accessPolicies.length);
 
     for (const accessPolicy of accessPolicies) {
 
@@ -383,6 +368,7 @@ describe("Class: AccessPolicy", async () => {
       }
     ]
 
+    const initialAccessPolicyCount = await AccessPolicy.count("", slashstepServer.pool);
     for (const principalPropertyGroup of principalPropertyGroups) {
 
       for (const scopePropertyGroup of scopePropertyGroups) {
@@ -400,7 +386,7 @@ describe("Class: AccessPolicy", async () => {
     }
 
     // Verify the access policies.
-    const updatedAccessPolicyList = await AccessPolicy.list("", slashstepServer.pool, {
+    const updatedAccessPolicyList = await AccessPolicy.list(`offset ${initialAccessPolicyCount}`, slashstepServer.pool, {
       principalGroup: Group,
       principalUser: User,
       principalRole: Role,
@@ -496,9 +482,8 @@ describe("Class: AccessPolicy", async () => {
 
     // Make sure there isn't any access policies right now.
     const initialAccessPolicyList = await AccessPolicy.list("", slashstepServer.pool);
-    strictEqual(initialAccessPolicyList.length, 0);
 
-    const maximumActionCount = 1001;
+    const maximumActionCount = Math.max(0, 1001 - initialAccessPolicyList.length);
     const accessPolicies = [];
     const user = await createRandomUser();
     for (let i = 0; maximumActionCount > i; i++) {
@@ -519,7 +504,7 @@ describe("Class: AccessPolicy", async () => {
 
     const updatedAccessPolicyList = await AccessPolicy.list("", slashstepServer.pool);
     accessPolicies.pop();
-    strictEqual(updatedAccessPolicyList.length, accessPolicies.length);
+    strictEqual(updatedAccessPolicyList.length, 1000);
 
     for (const accessPolicy of accessPolicies) {
 
@@ -532,28 +517,22 @@ describe("Class: AccessPolicy", async () => {
   it("can return a count of access policies", {timeout: 5000}, async () => {
 
     // Make sure there isn't any access policies right now.
-    const accessPolicyCount = await AccessPolicy.count("", slashstepServer.pool);
-    strictEqual(accessPolicyCount, 0);
+    const initialAccessPolicyCount = await AccessPolicy.count("", slashstepServer.pool);
 
-    const maximumActionCount = 1001;
     const user = await createRandomUser();
-    for (let i = 0; maximumActionCount > i; i++) {
-
-      const action = await createRandomAction();
-      await AccessPolicy.create({
-        principalUserID: user.id,
-        actionID: action.id,
-        principalType: AccessPolicyPrincipalType.User,
-        permissionLevel: AccessPolicyPermissionLevel.Admin,
-        inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
-        scopedResourceType: AccessPolicyScopedResourceType.Action,
-        scopedActionID: action.id
-      }, slashstepServer.pool);
-
-    }
+    const action = await createRandomAction();
+    await AccessPolicy.create({
+      principalUserID: user.id,
+      actionID: action.id,
+      principalType: AccessPolicyPrincipalType.User,
+      permissionLevel: AccessPolicyPermissionLevel.Admin,
+      inheritanceLevel: AccessPolicyInheritanceLevel.Enabled,
+      scopedResourceType: AccessPolicyScopedResourceType.Action,
+      scopedActionID: action.id
+    }, slashstepServer.pool);
 
     const updatedAccessPolicyCount = await AccessPolicy.count("", slashstepServer.pool);
-    strictEqual(updatedAccessPolicyCount, maximumActionCount);
+    strictEqual(updatedAccessPolicyCount, initialAccessPolicyCount + 1);
 
   });
 

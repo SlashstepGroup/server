@@ -9,6 +9,7 @@ import type { default as User } from "#resources/User/User.js";
 import type { default as Workspace } from "#resources/Workspace/Workspace.js";
 import type { default as RoleMembership } from "#resources/RoleMembership/RoleMembership.js";
 import Resource from "src/interfaces/Resource.js";
+import { StringUnion } from "#utilities/types.js";
 
 export enum AppParentResourceType {
   Instance = "Instance",
@@ -16,11 +17,18 @@ export enum AppParentResourceType {
   Workspace = "Workspace"
 }
 
+export enum AppClientType {
+  Public = "Public",
+  Confidential = "Confidential"
+}
+
 export type AppProperties = {
   id: string;
   name: string;
   displayName: string;
   description?: string;
+  clientType: StringUnion<AppClientType>;
+  clientSecretHash?: string | null;
   parentResourceType: AppParentResourceType | `${AppParentResourceType}`;
   parentUserID?: string;
   parentWorkspaceID?: string;
@@ -41,11 +49,13 @@ export type AppScopeData = {
 export type AppQueryResult = {
   id: string;
   name: string;
+  client_type: StringUnion<AppClientType>;
   display_name: string;
   description: string;
   parent_resource_type: AppParentResourceType | `${AppParentResourceType}`;
   parent_user_id: string;
   parent_workspace_id: string;
+  client_secret_hash: string | null;
 }
 
 export default class App implements Resource<AppScopeData>, Principal {
@@ -74,6 +84,10 @@ export default class App implements Resource<AppScopeData>, Principal {
 
   readonly parentWorkspaceID: AppProperties["parentWorkspaceID"];
 
+  readonly clientType: AppProperties["clientType"];
+
+  readonly #clientSecretHash: AppProperties["clientSecretHash"];
+
   /** The client used to make requests. */
   readonly #pool: Pool;
 
@@ -88,6 +102,8 @@ export default class App implements Resource<AppScopeData>, Principal {
     this.parentUserID = data.parentUserID;
     this.parentWorkspace = data.parentWorkspace;
     this.parentWorkspaceID = data.parentWorkspaceID;
+    this.clientType = data.clientType;
+    this.#clientSecretHash = data.clientSecretHash;
     this.#pool = pool;
 
   }
@@ -128,11 +144,13 @@ export default class App implements Resource<AppScopeData>, Principal {
     return {
       id: rowData.id,
       name: rowData.name,
+      clientType: rowData.client_type,
       displayName: rowData.display_name,
       description: rowData.description,
       parentResourceType: rowData.parent_resource_type,
       parentUserID: rowData.parent_user_id,
-      parentWorkspaceID: rowData.parent_workspace_id
+      parentWorkspaceID: rowData.parent_workspace_id,
+      clientSecretHash: rowData.client_secret_hash
     };
     
   }
@@ -298,6 +316,12 @@ export default class App implements Resource<AppScopeData>, Principal {
     const query = readFileSync(resolve(import.meta.dirname, "queries", "delete-app-row.sql"), "utf8");
     await poolClient.query(query, [this.id]);
     poolClient.release();
+
+  }
+
+  getClientSecretHash(): string | null {
+
+    return this.#clientSecretHash ?? null;
 
   }
 

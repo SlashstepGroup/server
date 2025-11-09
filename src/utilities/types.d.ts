@@ -10,7 +10,7 @@ import type { default as Role } from "#resources/Role/Role.js";
 import type { default as Session } from "#resources/Session/Session.js";
 import type { default as User } from "#resources/User/User.js";
 import type { default as Workspace } from "#resources/Workspace/Workspace.js";
-import type { default as Server } from "#utilities/Server/Server.js";
+import type { default as Server } from "#resources/Server/Server.js";
 
 export type ResourceType = "Instance" | "Workspace" | "Project" | "Iteration" | "Item" | "Group" | "Milestone";
 

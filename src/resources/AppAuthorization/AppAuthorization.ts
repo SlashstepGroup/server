@@ -151,14 +151,14 @@ export default class AppAuthorization {
 
     try {
 
-      const query = readFileSync(resolve(import.meta.dirname, "queries", "get-app-authorization-row.sql"), "utf8");
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "get-app-authorization-row-by-id.sql"), "utf8");
       const result = await poolClient.query(query, [id]);
 
       const rowData = result.rows[0];
 
       if (!rowData) {
 
-        throw new ResourceNotFoundError("AppAuthorization");
+        throw new ResourceNotFoundError("App authorization");
 
       }
 

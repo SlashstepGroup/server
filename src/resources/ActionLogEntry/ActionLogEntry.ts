@@ -322,7 +322,7 @@ export default class ActionLogEntry {
       targetAction: includedResources.targetAction && rowData.target_action ? new includedResources.targetAction(rowData.target_action, pool) : undefined,
       targetApp: includedResources.targetApp && rowData.target_app ? new includedResources.targetApp(rowData.target_app, pool) : undefined,
       targetAppAuthorization: includedResources.targetAppAuthorization && rowData.target_app_authorization ? new includedResources.targetAppAuthorization(rowData.target_app_authorization, pool) : undefined,
-      targetAppAuthorizationCredential: includedResources.targetAppAuthorizationCredential && rowData.target_app_authorization_credential ? new includedResources.targetAppAuthorizationCredential(rowData.target_app_authorization_credential, pool) : undefined,
+      targetAppAuthorizationCredential: includedResources.targetAppAuthorizationCredential && rowData.target_app_authorization_credential ? new includedResources.targetAppAuthorizationCredential(rowData.target_app_authorization_credential, {pool}) : undefined,
       targetAppCredential: includedResources.targetAppCredential && rowData.target_app_credential ? new includedResources.targetAppCredential(rowData.target_app_credential, pool) : undefined,
       targetField: includedResources.targetField && rowData.target_field ? new includedResources.targetField(rowData.target_field, pool) : undefined,
       targetGroup: includedResources.targetGroup && rowData.target_group ? new includedResources.targetGroup(rowData.target_group, pool) : undefined,

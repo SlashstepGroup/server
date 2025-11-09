@@ -1044,7 +1044,7 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
 
   async getScopeData(resourceClasses: ScopeResourceClassMap = {}): Promise<AccessPolicyScopeData> {
 
-    const { Action, App, Group, Item, Milestone, Project, Role, Workspace } = resourceClasses;
+    const { Action, App, Group } = resourceClasses;
 
     switch (this.scopedResourceType) {
 
@@ -1110,121 +1110,121 @@ export default class AccessPolicy implements Resource<AccessPolicyScopeData> {
           scopedResourceType: AccessPolicyScopedResourceType.Instance
         };
 
-      case AccessPolicyScopedResourceType.Item: {
+      // case AccessPolicyScopedResourceType.Item: {
 
-        if (!Item) {
+      //   if (!Item) {
 
-          throw new Error("Item class required.");
+      //     throw new Error("Item class required.");
 
-        }
+      //   }
 
-        if (!Project) {
+      //   if (!Project) {
 
-          throw new Error("Project class required.");
+      //     throw new Error("Project class required.");
 
-        }
+      //   }
 
-        if (!this.scopedItemID) {
+      //   if (!this.scopedItemID) {
 
-          throw new Error("Access policy is missing scopedItemID.");
+      //     throw new Error("Access policy is missing scopedItemID.");
 
-        }
+      //   }
 
-        const item = await Item.getByID(this.scopedItemID, this.#pool);
-        return await item.getScopeData(Project);
+      //   const item = await Item.getByID(this.scopedItemID, this.#pool);
+      //   return await item.getScopeData(Project);
 
-      }
+      // }
 
-      case AccessPolicyScopedResourceType.Milestone: {
+      // case AccessPolicyScopedResourceType.Milestone: {
 
-        if (!Milestone) {
+      //   if (!Milestone) {
 
-          throw new Error("Milestone class required.");
+      //     throw new Error("Milestone class required.");
 
-        }
+      //   }
 
-        if (!this.scopedMilestoneID) {
+      //   if (!this.scopedMilestoneID) {
 
-          throw new Error("Access policy is missing scopedMilestoneID.");
+      //     throw new Error("Access policy is missing scopedMilestoneID.");
 
-        }
+      //   }
 
-        const milestone = await Milestone.getByID(this.scopedMilestoneID, this.#pool);
-        return await milestone.getScopeData();
+      //   const milestone = await Milestone.getByID(this.scopedMilestoneID, this.#pool);
+      //   return await milestone.getScopeData();
 
-      }
+      // }
 
-      case AccessPolicyScopedResourceType.Project: {
+      // case AccessPolicyScopedResourceType.Project: {
 
-        if (!Project) {
+      //   if (!Project) {
 
-          throw new Error("Project class required.");
+      //     throw new Error("Project class required.");
 
-        }
+      //   }
 
-        if (!this.scopedProjectID) {
+      //   if (!this.scopedProjectID) {
 
-          throw new Error("Access policy is missing scopedProjectID.");
+      //     throw new Error("Access policy is missing scopedProjectID.");
 
-        }
+      //   }
 
-        const project = await Project.getByID(this.scopedProjectID, this.#pool);
+      //   const project = await Project.getByID(this.scopedProjectID, this.#pool);
 
-        return project.getScopeData();
+      //   return project.getScopeData();
 
-      }
+      // }
 
-      case AccessPolicyScopedResourceType.Role: {
+      // case AccessPolicyScopedResourceType.Role: {
 
-        if (!Role) {
+      //   if (!Role) {
 
-          throw new Error("Role class required.");
+      //     throw new Error("Role class required.");
 
-        }
+      //   }
 
-        if (!this.scopedRoleID) {
+      //   if (!this.scopedRoleID) {
 
-          throw new Error("Access policy is missing scopedRoleID.");
+      //     throw new Error("Access policy is missing scopedRoleID.");
 
-        }
+      //   }
 
-        const role = await Role.getByID(this.scopedRoleID, this.#pool);
-        return role.getScopeData();
+      //   const role = await Role.getByID(this.scopedRoleID, this.#pool);
+      //   return role.getScopeData();
 
-      }
+      // }
 
-      case AccessPolicyScopedResourceType.User: {
+      // case AccessPolicyScopedResourceType.User: {
 
-        if (!this.scopedUserID) {
+      //   if (!this.scopedUserID) {
 
-          throw new Error("Access policy is missing scopedUserID.");
+      //     throw new Error("Access policy is missing scopedUserID.");
 
-        }
+      //   }
 
-        const user = await User.getByID(this.scopedUserID, this.#pool);
+      //   const user = await User.getByID(this.scopedUserID, this.#pool);
 
-        return user.getScopeData();
+      //   return user.getScopeData();
 
-      }
+      // }
 
-      case AccessPolicyScopedResourceType.Workspace: {
+      // case AccessPolicyScopedResourceType.Workspace: {
 
-        if (!Workspace) {
+      //   if (!Workspace) {
 
-          throw new Error("Workspace class required.");
+      //     throw new Error("Workspace class required.");
 
-        }
+      //   }
 
-        if (!this.scopedWorkspaceID) {
+      //   if (!this.scopedWorkspaceID) {
 
-          throw new Error("Access policy is missing scopedWorkspaceID.");
+      //     throw new Error("Access policy is missing scopedWorkspaceID.");
 
-        }
+      //   }
 
-        const workspace = await Workspace.getByID(this.scopedWorkspaceID, this.#pool);
-        return workspace.getScopeData();
+      //   const workspace = await Workspace.getByID(this.scopedWorkspaceID, this.#pool);
+      //   return workspace.getScopeData();
 
-      }
+      // }
 
       default:
         throw new Error(`Unexpected scoped resource type: ${this.scopedResourceType}`);
