@@ -11,7 +11,7 @@ import AccessPolicy, { AccessPolicyInheritanceLevel, AccessPolicyPermissionLevel
 import Role from "#resources/Role/Role.js";
 import Session from "#resources/Session/Session.js";
 import User from "#resources/User/User.js";
-import App, { AppClientType, AppParentResourceType } from "#resources/App/App.js";
+import App, { AppClientType, AppParentResourceType, InitialAppProperties } from "#resources/App/App.js";
 import AppCredential from "#resources/AppCredential/AppCredential.js";
 import ActionLogEntry, { ActionLogEntryActorType, ActionLogEntryTargetResourceType } from "#resources/ActionLogEntry/ActionLogEntry.js";
 
@@ -124,7 +124,7 @@ export default class TestEnvironment {
 
   }
 
-  async createRandomApp(): Promise<App> {
+  async createRandomApp(appProperties: Partial<InitialAppProperties> = {}): Promise<App> {
 
     if (!this.slashstepServer) {
 
@@ -133,11 +133,12 @@ export default class TestEnvironment {
     }
 
     const app = await App.create({
-      name: `slashstep.${TestEnvironment.generateRandomString(16)}.${TestEnvironment.generateRandomString(16)}`,
-      displayName: TestEnvironment.generateRandomString(16),
-      description: TestEnvironment.generateRandomString(128),
-      parentResourceType: AppParentResourceType.Instance,
-      clientType: AppClientType.Public
+      ...appProperties,
+      name: appProperties.name ?? `slashstep.${TestEnvironment.generateRandomString(16)}.${TestEnvironment.generateRandomString(16)}`,
+      displayName: appProperties.displayName ?? TestEnvironment.generateRandomString(16),
+      description: appProperties.description ?? TestEnvironment.generateRandomString(128),
+      parentResourceType: appProperties.parentResourceType ?? AppParentResourceType.Instance,
+      clientType: appProperties.clientType ?? AppClientType.Public
     }, this.slashstepServer.pool);
 
     const getActionsAction = await Action.getByName("slashstep.actions.get", this.slashstepServer.pool);

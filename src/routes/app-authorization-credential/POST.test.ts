@@ -9,6 +9,8 @@ import StringEncryptor from "#utilities/StringEncryptor/StringEncryptor.js";
 import AppAuthorization from "#resources/AppAuthorization/AppAuthorization.js";
 import AccessPolicy, { AccessPolicyInheritanceLevel, AccessPolicyPermissionLevel, AccessPolicyPrincipalType, AccessPolicyScopedResourceType } from "#resources/AccessPolicy/AccessPolicy.js";
 import { createHash } from "crypto";
+import { AppClientType } from "#resources/App/App.js";
+import { hash } from "argon2";
 
 describe("Route: POST /app-authorization-credentials", async () => {
 
@@ -95,7 +97,7 @@ describe("Route: POST /app-authorization-credentials", async () => {
 
   });
 
-    it("can return a 201 status code and the requested app authorization credential when using an authorization code and code_verifier", async () => {
+  it("can return a 201 status code and the requested app authorization credential when using an authorization code and code_verifier", async () => {
 
     const app = await testEnvironment.createRandomApp();
     const appAuthorization = await AppAuthorization.create({
@@ -135,6 +137,59 @@ describe("Route: POST /app-authorization-credentials", async () => {
         client_id: app.id,
         code: decryptedCode,
         code_verifier: codeVerifier
+      })
+    });
+
+    strictEqual(response.status, 201);
+    const jsonResponse = await response.json();
+    strictEqual(typeof(jsonResponse.access_token), "string");
+    strictEqual(typeof(jsonResponse.refresh_token), "string");
+    strictEqual(typeof(jsonResponse.token_type), "string");
+    strictEqual(typeof(jsonResponse.expires_in), "number");
+    strictEqual(typeof(jsonResponse.refresh_token_expires_in), "number");
+
+  });
+
+  it("can return a 201 status code and the requested app authorization credential when using an authorization code and client secret", async () => {
+
+    const clientSecret = TestEnvironment.generateRandomString(64);
+    const app = await testEnvironment.createRandomApp({
+      clientType: AppClientType.Confidential,
+      clientSecretHash: await hash(clientSecret)
+    });
+    const appAuthorization = await AppAuthorization.create({
+      appID: app.id,
+      authorizingResourceType: "Instance"
+    }, slashstepServer.pool);
+    const decryptedCode = TestEnvironment.generateRandomString(64);
+    const privateKey = await slashstepServer.getJWTPrivateKey();
+    const encryptedCode = StringEncryptor.encryptString(decryptedCode, privateKey);
+    await OAuthAuthorizationRequest.create({
+      appAuthorizationID: appAuthorization.id,
+      encryptedCode,
+      expirationDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      appID: app.id
+    }, {
+      pool: slashstepServer.pool
+    });
+
+    const createAppAuthorizationCredentialAction = await Action.getByName("slashstep.appAuthorizationCredentials.create", slashstepServer.pool);
+    await AccessPolicy.create({
+      principalType: AccessPolicyPrincipalType.App,
+      principalAppID: app.id,
+      actionID: createAppAuthorizationCredentialAction.id,
+      permissionLevel: AccessPolicyPermissionLevel.User,
+      inheritanceLevel: AccessPolicyInheritanceLevel.Disabled,
+      scopedResourceType: AccessPolicyScopedResourceType.Instance
+    }, slashstepServer.pool);
+
+    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/app-authorization-credentials`, {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: app.id,
+        code: decryptedCode,
+        client_secret: clientSecret
       })
     });
 

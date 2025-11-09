@@ -58,6 +58,8 @@ export type AppQueryResult = {
   client_secret_hash: string | null;
 }
 
+export type InitialAppProperties = Omit<AppProperties, "id">;
+
 export default class App implements Resource<AppScopeData>, Principal {
   
   readonly resourceType = "App";
@@ -113,7 +115,7 @@ export default class App implements Resource<AppScopeData>, Principal {
    *
    * @param data The data for the new app, excluding the ID.
    */
-  static async create(data: Omit<AppProperties, "id">, pool: Pool): Promise<App> {
+  static async create(data: InitialAppProperties, pool: Pool): Promise<App> {
 
     // Insert the app data into the database.
     const poolClient = await pool.connect();
@@ -121,7 +123,16 @@ export default class App implements Resource<AppScopeData>, Principal {
     try {
 
       const query = readFileSync(resolve(import.meta.dirname, "queries", "insert-app-row.sql"), "utf8");
-      const values = [data.name, data.displayName, data.description, data.parentResourceType, data.parentUserID, data.parentWorkspaceID];
+      const values = [
+        data.name, 
+        data.displayName, 
+        data.description, 
+        data.parentResourceType, 
+        data.parentUserID, 
+        data.parentWorkspaceID,
+        data.clientType,
+        data.clientSecretHash
+      ];
       const result = await poolClient.query(query, values);
 
       // Convert the row to an app object.
@@ -150,7 +161,7 @@ export default class App implements Resource<AppScopeData>, Principal {
       parentResourceType: rowData.parent_resource_type,
       parentUserID: rowData.parent_user_id,
       parentWorkspaceID: rowData.parent_workspace_id,
-      clientSecretHash: rowData.client_secret_hash
+      clientSecretHash: rowData.client_secret_hash,
     };
     
   }
@@ -164,29 +175,31 @@ export default class App implements Resource<AppScopeData>, Principal {
 
     // Get the app data from the database.
     const poolClient = await pool.connect();
-    const query = readFileSync(resolve(import.meta.dirname, "queries", "get-app-row.sql"), "utf8");
-    const result = await poolClient.query(query, [id]);
-    poolClient.release();
 
-    // Convert the app data into an App object.
-    const row = result.rows[0];
+    try {
 
-    if (!row) {
+      const query = readFileSync(resolve(import.meta.dirname, "queries", "get-app-row.sql"), "utf8");
+      const result = await poolClient.query(query, [id]);
 
-      throw new ResourceNotFoundError("App");
+      // Convert the app data into an App object.
+      const row = result.rows[0];
+
+      if (!row) {
+
+        throw new ResourceNotFoundError("App");
+
+      }
+
+      const app = new App(App.getPropertiesFromRow(row), pool);
+
+      // Return the app.
+      return app;
+
+    } finally {
+
+      poolClient.release();
 
     }
-
-    const app = new App({
-      ...row,
-      id: row.id,
-      name: row.name,
-      displayName: row.display_name,
-      description: row.description
-    }, pool);
-
-    // Return the app.
-    return app;
 
   }
 

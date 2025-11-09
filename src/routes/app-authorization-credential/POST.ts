@@ -63,8 +63,8 @@ async function getAppAuthorizationFromOAuthAuthorizationCode(client_id: unknown,
     HTTPInputValidator.verifyString("code_verifier", code_verifier, {isRequired: true});
 
     const codeVerifierHash = createHash("sha256").update(code_verifier).digest("base64");
-    const possibleCodeChallenge = Buffer.from(codeVerifierHash).toString("base64");
-    if (possibleCodeChallenge !== oauthAuthorizationRequest.codeChallenge) {
+    const calculatedCodeChallenge = Buffer.from(codeVerifierHash).toString("base64");
+    if (calculatedCodeChallenge !== oauthAuthorizationRequest.codeChallenge) {
 
       throw new UnauthenticatedError("The code verifier is incorrect.");
 
@@ -162,7 +162,7 @@ async function checkClientSecret(app: App, client_secret: unknown, httpRequest: 
 
     }
 
-    const doesClientSecretMatch = await verify(client_secret, clientSecretHash);
+    const doesClientSecretMatch = await verify(clientSecretHash, client_secret);
     if (!doesClientSecretMatch) {
 
       throw new UnauthenticatedError("The client secret is incorrect.");
@@ -259,15 +259,6 @@ createAppAuthorizationCredentialRouter.use(async (request: Request<void, unknown
 
   }
 
-  response.status(201).json({
-    ...appAuthorizationCredential,
-    access_token: appAuthorizationCredential.generateAccessToken(privateKey, `${appAuthorizationCredential.accessTokenExpirationDate.getTime() - Date.now()} ms`),
-    refresh_token: appAuthorizationCredential.generateRefreshToken(privateKey, `${appAuthorizationCredential.refreshTokenExpirationDate.getTime() - Date.now()} ms`),
-    token_type: "Bearer",
-    expires_in: appAuthorizationCredential.accessTokenExpirationDate.getTime() - Date.now(),
-    refresh_token_expires_in: appAuthorizationCredential.refreshTokenExpirationDate.getTime() - Date.now()
-  });
-
   await ServerLogEntry.create({
     message: `Successfully created app authorization credential for app authorization ${appAuthorization.id}.`,
     httpRequestID: httpRequest.id,
@@ -276,6 +267,15 @@ createAppAuthorizationCredentialRouter.use(async (request: Request<void, unknown
 
   await httpRequest.update({
     statusCode: 201
+  });
+
+  response.status(201).json({
+    ...appAuthorizationCredential,
+    access_token: appAuthorizationCredential.generateAccessToken(privateKey, `${appAuthorizationCredential.accessTokenExpirationDate.getTime() - Date.now()} ms`),
+    refresh_token: appAuthorizationCredential.generateRefreshToken(privateKey, `${appAuthorizationCredential.refreshTokenExpirationDate.getTime() - Date.now()} ms`),
+    token_type: "Bearer",
+    expires_in: appAuthorizationCredential.accessTokenExpirationDate.getTime() - Date.now(),
+    refresh_token_expires_in: appAuthorizationCredential.refreshTokenExpirationDate.getTime() - Date.now()
   });
 
 });
