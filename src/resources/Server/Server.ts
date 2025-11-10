@@ -40,7 +40,7 @@ import Principal from "src/interfaces/Principal.js";
 import AnonymousPermissionError from "#errors/AnonymousPermissionError.js";
 import HTTPRequest from "#resources/HTTPRequest/HTTPRequest.js";
 import CommonMiddleware from "#utilities/middleware/CommonMiddleware.js";
-import ServerLogEntry from "#resources/ServerLogEntry/ServerLogEntry.js";
+import ServerLogEntry, { ServerLogEntryLevel } from "#resources/ServerLogEntry/ServerLogEntry.js";
 import OAuthAuthorizationRequest from "#resources/OAuthAuthorizationRequest/OAuthAuthorizationRequest.js";
 import ServerPolicy from "#resources/ServerPolicy/ServerPolicy.js";
 
@@ -467,6 +467,12 @@ export default class Server {
         ipAddress: request.ip,
         headers: JSON.stringify(headersWithoutSensitiveData),
       }, this.pool);
+
+      await ServerLogEntry.create({
+        message: "HTTP request handling started.",
+        httpRequestID: httpRequest.id,
+        level: ServerLogEntryLevel.Info
+      }, this.pool, true);
 
       response.locals.httpRequest = httpRequest;
 
