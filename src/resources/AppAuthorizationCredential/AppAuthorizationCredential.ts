@@ -264,7 +264,7 @@ export default class AppAuthorizationCredential {
 
       }
 
-      addValue("refreshedAppAuthorizationCredentialID", data.refreshedAppAuthorizationCredentialID);
+      addValue("refreshed_app_authorization_credential_id", data.refreshedAppAuthorizationCredentialID);
 
       query += ` where id = $${values.length + 1} returning *;`;
       values.push(this.id);
@@ -280,6 +280,11 @@ export default class AppAuthorizationCredential {
 
       return accessPolicy;
 
+    } catch (error) {
+      
+      await poolClient.query("rollback;");
+      throw error;
+      
     } finally {
 
       poolClient.release();

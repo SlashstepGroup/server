@@ -177,6 +177,11 @@ export default class HTTPRequest {
 
       return httpRequest;
 
+    } catch (error) {
+      
+      await poolClient.query("rollback;");
+      throw error;
+      
     } finally {
 
       poolClient.release();

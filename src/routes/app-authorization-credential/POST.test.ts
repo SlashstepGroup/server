@@ -11,6 +11,7 @@ import AccessPolicy, { AccessPolicyInheritanceLevel, AccessPolicyPermissionLevel
 import { createHash } from "crypto";
 import { AppClientType } from "#resources/App/App.js";
 import { hash } from "argon2";
+import AppAuthorizationCredential from "#resources/AppAuthorizationCredential/AppAuthorizationCredential.js";
 
 describe("Route: POST /app-authorization-credentials", async () => {
 
@@ -200,6 +201,109 @@ describe("Route: POST /app-authorization-credentials", async () => {
     strictEqual(typeof(jsonResponse.token_type), "string");
     strictEqual(typeof(jsonResponse.expires_in), "number");
     strictEqual(typeof(jsonResponse.refresh_token_expires_in), "number");
+
+  });
+
+  it("can return a 201 status code and the requested app authorization credential when using a refresh token", async () => {
+
+    const clientSecret = TestEnvironment.generateRandomString(64);
+    const app = await testEnvironment.createRandomApp({
+      clientType: AppClientType.Confidential,
+      clientSecretHash: await hash(clientSecret)
+    });
+    const appAuthorization = await AppAuthorization.create({
+      appID: app.id,
+      authorizingResourceType: "Instance"
+    }, slashstepServer.pool);
+    const appAuthorizationCredential = await AppAuthorizationCredential.create({
+      appAuthorizationID: appAuthorization.id,
+      refreshTokenExpirationDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      accessTokenExpirationDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
+    }, slashstepServer.pool)
+
+    const createAppAuthorizationCredentialAction = await Action.getByName("slashstep.appAuthorizationCredentials.create", slashstepServer.pool);
+    await AccessPolicy.create({
+      principalType: AccessPolicyPrincipalType.App,
+      principalAppID: app.id,
+      actionID: createAppAuthorizationCredentialAction.id,
+      permissionLevel: AccessPolicyPermissionLevel.User,
+      inheritanceLevel: AccessPolicyInheritanceLevel.Disabled,
+      scopedResourceType: AccessPolicyScopedResourceType.Instance
+    }, slashstepServer.pool);
+
+    const privateKey = await slashstepServer.getJWTPrivateKey();
+    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/app-authorization-credentials`, {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: app.id,
+        refresh_token: appAuthorizationCredential.generateRefreshToken(privateKey, `${appAuthorizationCredential.refreshTokenExpirationDate.getTime() - Date.now()} ms`),
+        client_secret: clientSecret
+      })
+    });
+
+    strictEqual(response.status, 201);
+    const jsonResponse = await response.json();
+    strictEqual(typeof(jsonResponse.access_token), "string");
+    strictEqual(typeof(jsonResponse.refresh_token), "string");
+    strictEqual(typeof(jsonResponse.token_type), "string");
+    strictEqual(typeof(jsonResponse.expires_in), "number");
+    strictEqual(typeof(jsonResponse.refresh_token_expires_in), "number");
+
+  });
+
+  it("can return a 401 status code if the refresh token has already been used", async () => {
+
+    const clientSecret = TestEnvironment.generateRandomString(64);
+    const app = await testEnvironment.createRandomApp({
+      clientType: AppClientType.Confidential,
+      clientSecretHash: await hash(clientSecret)
+    });
+    const appAuthorization = await AppAuthorization.create({
+      appID: app.id,
+      authorizingResourceType: "Instance"
+    }, slashstepServer.pool);
+    const appAuthorizationCredential = await AppAuthorizationCredential.create({
+      appAuthorizationID: appAuthorization.id,
+      refreshTokenExpirationDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      accessTokenExpirationDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
+    }, slashstepServer.pool)
+
+    const createAppAuthorizationCredentialAction = await Action.getByName("slashstep.appAuthorizationCredentials.create", slashstepServer.pool);
+    await AccessPolicy.create({
+      principalType: AccessPolicyPrincipalType.App,
+      principalAppID: app.id,
+      actionID: createAppAuthorizationCredentialAction.id,
+      permissionLevel: AccessPolicyPermissionLevel.User,
+      inheritanceLevel: AccessPolicyInheritanceLevel.Disabled,
+      scopedResourceType: AccessPolicyScopedResourceType.Instance
+    }, slashstepServer.pool);
+
+    const privateKey = await slashstepServer.getJWTPrivateKey();
+    const refreshToken = appAuthorizationCredential.generateRefreshToken(privateKey, `${appAuthorizationCredential.refreshTokenExpirationDate.getTime() - Date.now()} ms`);
+    const response = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/app-authorization-credentials`, {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: app.id,
+        refresh_token: refreshToken,
+        client_secret: clientSecret
+      })
+    });
+
+    strictEqual(response.status, 201);
+    
+    const duplicateResponse = await fetch(`https://localhost:${testEnvironment.getHTTPServerAddress().port}/app-authorization-credentials`, {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: app.id,
+        refresh_token: refreshToken,
+        client_secret: clientSecret
+      })
+    });
+
+    strictEqual(duplicateResponse.status, 401);
 
   });
 

@@ -23,6 +23,7 @@ import { Pool } from "pg";
 import jsonwebtoken from "jsonwebtoken";
 import Server from "#resources/Server/Server.js";
 import UnauthenticatedError from "#errors/UnauthenticatedError.js";
+import ResourceNotFoundError from "#errors/ResourceNotFoundError.js";
 
 async function getAppAuthorizationFromOAuthAuthorizationCode(client_id: unknown, code: unknown, code_verifier: unknown, privateKey: string, httpRequest: HTTPRequest, pool: Pool): Promise<AppAuthorization> {
 
@@ -104,26 +105,26 @@ async function getAppAuthorizationCredentialFromRefreshToken(refresh_token: unkn
 
     if (typeof(jsonWebToken) !== "object") {
 
-      throw new BadRequestError("The refresh token is not a JSON object.");
+      throw new UnauthenticatedError("The refresh token must be a JSON object.");
 
     }
 
     if (jsonWebToken.tokenType !== "Refresh") {
 
-      throw new BadRequestError("The refresh token is not a refresh token.");
+      throw new UnauthenticatedError("The provided token must be a refresh token.");
 
     }
 
     if (!jsonWebToken.jti) {
 
-      throw new BadRequestError("The refresh token is missing the app authorization credential ID.");
+      throw new UnauthenticatedError("The refresh token is missing the app authorization credential ID.");
 
     }
 
     const currentAppAuthorizationCredential = await AppAuthorizationCredential.getByID(jsonWebToken.jti, {pool});
     if (currentAppAuthorizationCredential.refreshedAppAuthorizationCredentialID) {
 
-      throw new BadRequestError("That refresh token has already been used.");
+      throw new UnauthenticatedError("That refresh token has already been used. Use the most recent and active refresh token, or create a new one.");
 
     }
 
@@ -131,9 +132,9 @@ async function getAppAuthorizationCredentialFromRefreshToken(refresh_token: unkn
 
   } catch (error) {
 
-    if (error instanceof jsonwebtoken.JsonWebTokenError) {
+    if (error instanceof jsonwebtoken.JsonWebTokenError || error instanceof ResourceNotFoundError) {
 
-      throw new BadRequestError("The refresh token is invalid.");
+      throw new UnauthenticatedError("The refresh token is invalid.");
 
     }
 
